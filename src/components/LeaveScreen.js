@@ -41,7 +41,9 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     cc: '',
     reason: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    isHalfDay: false,
+    halfDaySlot: ''
   });
 
   const isLeader = (user?.role || '').toLowerCase().includes('lead') || (user?.role || '').toLowerCase() === 'tl';
@@ -186,8 +188,8 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
 
-      // Use both query param styles for maximum compatibility
-      const myUrl = `${API_ENDPOINTS.MY_LEAVES_GET(uid)}&user_id=${uid}&employee_id=${uid}`;
+      // Use the requested endpoint for fetching leave history
+      const myUrl = `${API_ENDPOINTS.LEAVE_REQUEST}?userId=${uid}&user_id=${uid}&employee_id=${uid}`;
 
       const response = await fetch(myUrl, { headers }).catch(() => null);
 
@@ -292,8 +294,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         remark: formData.reason,
 
         status: 'PENDING',
-        no_of_days: days,
-        total_days: days,
+        no_of_days: formData.isHalfDay ? 0.5 : days,
+        total_days: formData.isHalfDay ? 0.5 : days,
+        is_half_day: formData.isHalfDay,
+        half_day_slot: formData.halfDaySlot,
         applied_on: new Date().toISOString().split('T')[0]
       };
 
@@ -372,7 +376,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   const statsBalance = latestStat ? (latestStat.leaves_available ?? latestStat.leavesAvailable ?? latestStat.balance ?? netBalance) : netBalance;
 
   // Final display values
-  const displayBalance = leaveStats.length > 0 ? statsBalance : netBalance;
+  const displayBalance = Math.max(0, leaveStats.length > 0 ? statsBalance : netBalance);
   const displayCasual = leaveStats.length > 0 ? statsCasualTotal : casualLeavesCount;
   const displayLop = leaveStats.length > 0 ? statsLopTotal : lopLeavesCount;
 
@@ -696,7 +700,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                       (stat.month || "---");
                     
                     const taken = stat.leaves_taken ?? stat.leavesTaken ?? stat.taken ?? 0;
-                    const available = stat.leaves_available ?? stat.leavesAvailable ?? stat.available ?? stat.balance ?? netBalance;
+                    const available = Math.max(0, stat.leaves_available ?? stat.leavesAvailable ?? stat.available ?? stat.balance ?? netBalance);
                     const lop = stat.LOP ?? stat.lop ?? stat.loss_of_pay ?? 0;
 
                     return (
@@ -822,6 +826,44 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Half Day Selection */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={formData.isHalfDay}
+                        onChange={e => setFormData({ ...formData, isHalfDay: e.target.checked })}
+                        style={{ width: '18px', height: '18px' }}
+                      />
+                      <span style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F', textTransform: 'uppercase' }}>Half Day Request</span>
+                    </label>
+                  </div>
+
+                  {formData.isHalfDay && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }} 
+                      animate={{ opacity: 1, y: 0 }}
+                      style={{ marginBottom: '20px' }}
+                    >
+                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>Half Day Slot</label>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          value={formData.halfDaySlot}
+                          onChange={e => setFormData({ ...formData, halfDaySlot: e.target.value })}
+                          style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '14px', fontWeight: '700', appearance: 'none', backgroundColor: '#fff', color: '#0B1E3F' }}
+                          required={formData.isHalfDay}
+                        >
+                          <option value="">Select Slot</option>
+                          <option value="First Half (9:30 - 2:30)">First Half (9:30 - 2:30)</option>
+                          <option value="Second Half (1:30 - 6:00 pm)">Second Half (1:30 - 6:00 pm)</option>
+                        </select>
+                        <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                          <ArrowLeft size={16} color="#0B1E3F" style={{ transform: 'rotate(-90deg)' }} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
 
                   <div style={{ marginBottom: '30px' }}>
                     <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>Reason for leave</label>
