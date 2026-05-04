@@ -25,11 +25,12 @@ import FunQuizScreen from './components/FunQuizScreen';
 import AwardsScreen from './components/AwardsScreen';
 import PayslipScreen from './components/profile/PayslipScreen';
 import ExperienceLetter from './components/profile/ExperienceLetter';
-import RelievingLetter from './components/profile/RelievingLetter';
+
 import ResignationScreen from './components/profile/ResignationScreen';
 import DocumentsScreen from './components/profile/DocumentsScreen';
 import ServiceCertificateScreen from './components/profile/ServiceCertificateScreen';
 import EmployeeAttendanceDetail from './components/EmployeeAttendanceDetail';
+import Reports from './components/Reports';
 
 
 function App() {
@@ -72,6 +73,30 @@ function App() {
     checkJoineeStatus();
   }, [user]);
 
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const scrollTimeoutRef = useRef(null);
+
+  const handleScroll = () => {
+    // Hide nav on scroll
+    setIsNavVisible(false);
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+
+    // Re-show nav after 2 seconds of no scrolling
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsNavVisible(true);
+    }, 2000);
+  };
+
+  useEffect(() => {
+    const mainEl = scrollRef.current;
+    if (mainEl) {
+      mainEl.addEventListener('scroll', handleScroll);
+      return () => mainEl.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
   if (loading) return null;
   if (!user) return <LoginScreen />;
 
@@ -86,7 +111,7 @@ function App() {
       case 'PROJECTS': return <ProjectScreen onBack={() => setActiveTab('HOME')} defaultView={activeTabState?.view} defaultStatus={activeTabState?.status} />;
       case 'COURSES': return <Courses resumeCourseId={activeTabState?.resumeCourseId} clearState={() => { setActiveTabState(null); handleTabChange('HOME'); }} />;
       case 'THREAD': return <ThreadScreen onBack={() => setActiveTab('HOME')} />;
-      case 'TICKET': return <TicketScreen />;
+      case 'TICKET': return <TicketScreen onBack={() => handleTabChange('HOME')} />;
       case 'LEAVE': return <LeaveScreen onBack={() => setActiveTab('HOME')} onNavigate={handleTabChange} startWithForm={activeTabState?.showForm} />;
       case 'ATTENDANCE': return <AttendanceDashboard onBack={() => setActiveTab('HOME')} onNavigate={handleTabChange} />;
 
@@ -96,6 +121,7 @@ function App() {
       case 'CALENDAR': return <CalendarScreen onBack={() => setActiveTab('HOME')} />;
       case 'FOCUS_LOGS': return <FocusLogs onBack={() => setActiveTab('HOME')} />;
       case 'AWARDS': return <AwardsScreen onBack={() => setActiveTab('HOME')} />;
+      case 'REPORTS': return <Reports onBack={() => setActiveTab('HOME')} onNavigate={setActiveTab} />;
       case 'PAYSLIP': return <PayslipScreen onBack={() => setActiveTab('PROFILE')} />;
       case 'EXPERIENCE_LETTER': return <ExperienceLetter onBack={() => setActiveTab('PROFILE')} />;
       case 'RESIGNATION_LETTER': return <ResignationScreen onBack={() => setActiveTab('PROFILE')} />;
@@ -107,14 +133,16 @@ function App() {
     }
   };
 
+
+
   return (
     <ThreadProvider>
       <div className="App" style={{ overflowX: 'hidden' }}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
-        <main ref={scrollRef} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto" }}>
+        <main ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto" }}>
           {renderTab()}
         </main>
-        <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} />
+        <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} isVisible={isNavVisible} />
         <TaskNotification onOpenTask={handleTabChange} />
         <ScrollToTop scrollRef={scrollRef} />
       </div>

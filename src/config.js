@@ -1,4 +1,4 @@
-export const BASE_URL = 'http://192.168.1.3:5000';
+export const BASE_URL = 'http://192.168.1.17:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
 
@@ -71,6 +71,10 @@ export const API_ENDPOINTS = {
   ALL_LEAVES: `${BASE_URL}/api/leaves`,
   LEAVES_GET: `${BASE_URL}/api/leaves`, // Unified name for new component
   LEAVE_STATS: (userId) => `${BASE_URL}/api/leave-stats?userId=${String(userId || '').split(':')[0]}`,
+  LEAVE_STATS_MY: `${BASE_URL}/api/leaves/stats/my`,
+  LEAVE_STATS_ADMIN: `${BASE_URL}/api/admin/leaves/stats`,
+  LEAVE_BALANCE_UPDATE: `${BASE_URL}/api/leaves/stats/update`,
+  LEAVE_BALANCE_ALIAS: `${BASE_URL}/api/leaves/balance/update`,
 
   TASK_UPDATES_USER: (userId) => `${BASE_URL}/api/task-updates?userId=${String(userId || '').split(':')[0]}`,
 
@@ -79,7 +83,7 @@ export const API_ENDPOINTS = {
   REWARDS_MY: `${BASE_URL}/api/rewards/my`,
   REWARDS_ALL: `${BASE_URL}/api/rewards`,
   REWARDS_USER: (id) => `${BASE_URL}/api/rewards/user/${String(id || '').split(':')[0]}`,
-  REWARDS_GRANT_OPTIONS: `${BASE_URL}/api/rewards/grant-options`,
+  REWARDS_GRANT_OPTIONS: `${BASE_URL}/api/rewards/grant`,
   REWARDS_GRANT: `${BASE_URL}/api/rewards/grant`,
 
   // Resignation System
@@ -94,6 +98,7 @@ export const API_ENDPOINTS = {
   QUIZ_ANSWER: (quizId) => `${BASE_URL}/api/quizzes/${quizId}/answer`,
   QUIZ_DATA: (quizId) => `${BASE_URL}/api/quizzes/${quizId}`,
   QUIZZES_ALL: `${BASE_URL}/api/quizzes`,
+  QUIZ_COMPLETIONS_MY: `${BASE_URL}/api/quizzes/my-completions`,
   FUN_QUIZZES: `${BASE_URL}/api/fun-quizzes`,
   QUIZ_SUBMIT_SESSION: `${BASE_URL}/api/quizzes/submit-session`,
   QUIZ_SUBMIT_TOTAL: `${BASE_URL}/api/quizzes/submit-total`,

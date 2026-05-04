@@ -478,7 +478,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               Biometric {isCheckedIn ? 'Check-out' : 'Check-in'}
             </h2>
             <div style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '4px' : '8px' }}>
-              <div>Current Status: <span style={{ fontWeight: '800', color: isAtOffice ? '#0ea5e9' : '#ef4444' }}>{isAtOffice ? 'OUTSIDE' : 'HOME'}</span></div>
+              <div>Current Status: <span style={{ fontWeight: '800', color: isAtOffice ? '#22c55e' : '#ef4444' }}>{isAtOffice ? 'AT OFFICE' : 'HOME'}</span></div>
               {!isMobile && <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />}
               <span
                 onClick={() => {

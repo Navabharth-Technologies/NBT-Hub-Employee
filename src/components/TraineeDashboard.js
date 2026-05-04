@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
+import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 
 // Resolve relative media paths (video/PDF) to absolute using the API base URL
 const resolveMediaUrl = (url) => {
@@ -426,6 +427,7 @@ const TraineeDashboard = () => {
         </div>
       </div>
 
+      <SaturdayRequirementsPopover />
       {/* Video now opens in a new tab via /video-player.html */}
     </div>
   );

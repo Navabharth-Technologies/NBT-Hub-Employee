@@ -209,8 +209,8 @@ export default function DocumentsScreen({ onBack }) {
     const uid = employeeId || user?.employee_id || user?.id || user?.userId;
     if (!uid) return;
     
-    console.log(`%c [Assets Request] Starting fetch for UID: ${uid} `, 'background: #3b82f6; color: white;');
-    
+
+
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token || token === 'undefined') return;
@@ -322,11 +322,6 @@ export default function DocumentsScreen({ onBack }) {
         const docData = result.data || (Array.isArray(result) ? result[0] : result);
 
         if (docData) {
-          // DEBUG: Log the raw record to help the user verify the "one time" table state
-          console.group("%c Profile Data Sync ", 'background: #0B1E3F; color: white; border-radius: 4px; padding: 2px 6px;');
-          console.log("Raw Backend Data:", docData);
-          console.groupEnd();
-
           const cleanData = {};
           Object.keys(docData).forEach(key => {
             let val = docData[key];
@@ -352,7 +347,7 @@ export default function DocumentsScreen({ onBack }) {
           if (!cleanData.designation) cleanData.designation = user?.role || user?.designation || '';
           if (!cleanData.department) cleanData.department = user?.department || user?.dept || '';
 
-          console.log(`%c [Profile Feed] Loaded core attributes for: ${cleanData.emp_name || 'User'}`, 'color: #0ea5e9; font-weight: bold;');
+
           setForm(prev => ({ ...prev, ...cleanData }));
         }
       } else {

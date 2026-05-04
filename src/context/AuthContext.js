@@ -52,6 +52,21 @@ export const AuthProvider = ({ children }) => {
     const token = safeGetItem('token');
     if (savedUser && token) {
       const u = JSON.parse(savedUser);
+      
+      // Strict Security Validation: Ensure no leftover Admin/Manager/PM sessions persist on the Employee Portal
+      const role = String(u.role || u.designation || '').toUpperCase();
+      const name = String(u.name || u.employee_name || '').toUpperCase();
+      const email = String(u.email || '').toLowerCase();
+
+      const isManagement = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER') || role.includes('MANAGER');
+      const isRestrictedName = name.includes('DINESH') || name.includes('ANISH') || name.includes('SINCHNA');
+      const isRestrictedEmail = email.includes('anish') || email.includes('dinesh') || email.includes('sinchna');
+
+      if (isManagement || isRestrictedName || isRestrictedEmail) {
+          logout();
+          return;
+      }
+
       setUser(u);
       
       // Fix: Use correct profile endpoint and avoid brittle string replacement
@@ -90,7 +105,23 @@ export const AuthProvider = ({ children }) => {
       const prodRes = await productionLoginPromise;
       if (prodRes.ok) {
         const data = await prodRes.json();
-        const userData = data.user;
+        const userData = data.user || data;
+        
+        // --- STRICT SECURITY OVERRIDE ---
+        // Specifically block Dinesh (Super Admin), Anish (PM), and Sinchna (HR) from this Employee-only portal
+        const role = String(userData.role || userData.designation || '').toUpperCase();
+        const name = String(userData.name || userData.employee_name || '').toUpperCase();
+        const email = String(userData.email || '').toLowerCase();
+
+        const isManagement = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER') || role.includes('MANAGER');
+        const isRestrictedName = name.includes('DINESH') || name.includes('ANISH') || name.includes('SINCHNA');
+        const isRestrictedEmail = email.includes('anish') || email.includes('dinesh') || email.includes('sinchna');
+
+        if (isManagement || isRestrictedName || isRestrictedEmail) {
+          console.error('[Security] Login Blocked: Admin/PM/HR accounts cannot access the Employee Webpage.');
+          return { success: false, error: 'Access Denied: This portal is for Employees only. Managers/Admins must use their dedicated portal.' };
+        }
+
         setUser(userData);
         
         // Sync full profile metadata

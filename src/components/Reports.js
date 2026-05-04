@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { 
   CheckCircle2, TrendingUp, Edit3, Save, X, 
-  History, Calendar, Clock, Target, ArrowRight 
+  History, Calendar, Clock, Target, ArrowRight, ChevronLeft 
 } from 'lucide-react';
 
-const Reports = ({ setActiveTab }) => {
+const Reports = ({ onBack, onNavigate }) => {
   const { user } = useAuth();
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [yesterdayTasks, setYesterdayTasks] = useState([]);
@@ -166,9 +166,19 @@ const Reports = ({ setActiveTab }) => {
   return (
     <div style={s.container}>
       <header style={s.header}>
-        <div>
-          <h1 style={s.title}>Daily Reports</h1>
-          <div style={s.subtitle}>Centralized workforce logs and performance tracking</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{ padding: '10px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', flexShrink: 0 }}
+            >
+              <ChevronLeft size={20} /> Back
+            </button>
+          )}
+          <div>
+            <h1 style={s.title}>Daily Reports</h1>
+            <div style={s.subtitle}>Centralized workforce logs and performance tracking</div>
+          </div>
         </div>
         {!isEditing ? (
           <button style={s.btnPrimary} onClick={startEditing}>
@@ -185,6 +195,7 @@ const Reports = ({ setActiveTab }) => {
           </div>
         )}
       </header>
+
 
       <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? '1fr' : '1.5fr 1fr', gap: '30px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -314,7 +325,7 @@ const Reports = ({ setActiveTab }) => {
             <div style={{ fontSize: '18px', fontWeight: '900', marginBottom: '10px' }}>Focus Logs</div>
             <p style={{ fontSize: '13px', opacity: 0.7, lineHeight: '1.5', margin: 0 }}>Review your deep-work sessions and categorical time tracking analysis.</p>
             <button 
-              onClick={() => setActiveTab('FOCUS_LOGS')}
+              onClick={() => onNavigate && onNavigate('FOCUS_LOGS')}
               style={{ marginTop: '20px', width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', fontWeight: '800', cursor: 'pointer' }}
             >
               GO TO FOCUS ANALYTICS

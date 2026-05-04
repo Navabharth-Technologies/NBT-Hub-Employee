@@ -15,8 +15,8 @@ const ServiceCertificateScreen = ({ onBack }) => {
   const { user } = useAuth();
   const { employeeId } = useParams();
   const [winWidth, setWinWidth] = useState(window.innerWidth);
-  const isMobile = winWidth < 768;
-  const isTablet = winWidth < 1024;
+  const isMobile = false;
+  const isTablet = false;
   const [purpose, setPurpose] = useState('');
   const [otherPurpose, setOtherPurpose] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,7 +69,7 @@ const ServiceCertificateScreen = ({ onBack }) => {
   const fetchHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES_MY, {
+      const resp = await fetch(API_ENDPOINTS.SERVICE_CERT_MY, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (resp.ok) {
@@ -95,7 +95,7 @@ const ServiceCertificateScreen = ({ onBack }) => {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES, {
+      const resp = await fetch(API_ENDPOINTS.SERVICE_CERT_SUBMIT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

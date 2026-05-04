@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { API_ENDPOINTS } from '../config';
 
-export default function TicketScreen() {
+export default function TicketScreen({ onBack }) {
   const { user } = useAuth();
   const theme = getTheme(user?.role);
   const navigate = useNavigate();
@@ -155,6 +155,16 @@ export default function TicketScreen() {
   return (
     <div style={s.container}>
       <div style={s.main}>
+        
+        {/* BACK BUTTON */}
+        <div style={{ display: 'flex', marginBottom: '20px' }}>
+          <button 
+            onClick={() => onBack ? onBack() : navigate(-1)} 
+            style={{ ...s.backBtn, border: 'none', background: 'white', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '13px' }}
+          >
+            <ChevronLeft size={20} /> Back to Dashboard
+          </button>
+        </div>
 
         {/* ────── TICKET FORM ────── */}
         <div style={s.formCard}>

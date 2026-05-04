@@ -5,16 +5,19 @@ import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
+const NavigationDock = ({ activeTab, onTabChange, isNewJoinee }) => {
   const { user } = useAuth();
   const { unreadCount, clearNotifications } = useThread();
   const theme = getTheme(user?.role);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
-
+  const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     
+    // Ensure the dock is always visible
+    setIsVisible(true);
+
     return () => {
       window.removeEventListener('resize', handleResize);
     };
@@ -64,8 +67,8 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
             display: 'flex', 
             justifyContent: 'space-around', 
             alignItems: 'center', 
-            padding: winWidth < 768 ? '6px 6px' : '6px 14px', 
-            gap: winWidth < 768 ? '1px' : '10px', 
+            padding: winWidth < 768 ? '8px 8px' : '8px 18px', 
+            gap: winWidth < 768 ? '2px' : '15px', 
             boxShadow: winWidth < 768 ? '0 -4px 15px rgba(0,0,0,0.05)' : '0 10px 40px rgba(0,0,0,0.12)', 
             border: winWidth < 768 ? 'none' : '1.5px solid rgba(255,255,255,0.5)', 
             borderTop: winWidth < 768 ? '2px solid rgba(255,255,255,0.3)' : (winWidth < 768 ? 'none' : '1.5px solid rgba(255,255,255,0.5)'),
@@ -84,8 +87,8 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                     style: { 
                       ...item.icon.props.style, 
                       stroke: activeTab === item.id ? theme.color : '#475569',
-                      width: winWidth < 768 ? '16px' : '18px',
-                      height: winWidth < 768 ? '16px' : '18px'
+                      width: winWidth < 768 ? '17px' : '19px',
+                      height: winWidth < 768 ? '17px' : '19px'
                     } 
                   })}
                   {item.id === 'THREAD' && unreadCount > 0 && (
@@ -113,11 +116,11 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                   )}
                 </div>
                 <span className="nav-label" style={{ 
-                  fontWeight: '1000', 
-                  fontSize: winWidth < 768 ? '6px' : '7.5px', 
+                  fontWeight: '900', 
+                  fontSize: winWidth < 768 ? '6.5px' : '8px', 
                   color: activeTab === item.id ? theme.color : '#475569', 
                   fontFamily: "'Outfit', sans-serif",
-                  letterSpacing: '0.2px'
+                  letterSpacing: '0.3px'
                 }}>
                   {item.label}
                 </span>

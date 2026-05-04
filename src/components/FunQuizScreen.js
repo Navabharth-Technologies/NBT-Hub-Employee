@@ -126,12 +126,12 @@ const FunQuizScreen = ({ onBack }) => {
       // Build leaderboard purely from live backend data
       const liveMap = new Map();
       rawScores.forEach(s => {
-        const targetId = s.employee_id || s.user_id || s.id;
-        const userInfo = userList.find(u => String(u.id) === String(targetId));
+        const targetId = String(s.employee_id || s.user_id || s.id || '').split(':')[0];
+        const userInfo = userList.find(u => String(u.id || '').split(':')[0] === targetId);
         let name = s.employee_name || s.name || userInfo?.name;
 
         if (!name) {
-          if (String(targetId) === String(uid)) name = user?.name || user?.employee_name || 'You';
+          if (targetId && targetId === String(uid || '').split(':')[0]) name = user?.name || user?.employee_name || 'You';
           else name = `Employee ${targetId || 'Resource'}`;
         }
 
@@ -144,6 +144,11 @@ const FunQuizScreen = ({ onBack }) => {
       });
 
       const sorted = Array.from(liveMap, ([name, score]) => ({ name, score }))
+        .filter(u => {
+          const n = String(u.name || '').toUpperCase();
+          // Hide system/admin accounts as requested
+          return !n.includes('DINESH') && !n.includes('HR') && !n.includes('ADMIN');
+        })
         .sort((a, b) => b.score - a.score);
 
       const list = sorted.map((u, i) => ({
@@ -253,13 +258,16 @@ const FunQuizScreen = ({ onBack }) => {
 
       // ── Try to sync with backend ──
       const payload = {
-        employee_id: safeUid,
+        employee_id: isNaN(Number(safeUid)) ? safeUid : Number(safeUid),
+        employee_name: user?.name || user?.employee_name || 'User',
         userId: safeUid,
         empId: safeUid,
         emp_id: safeUid,
-        quiz_id: questions[0]?.quiz_id || questions[0]?.id || 1,
+        quiz_id: Number(questions[0]?.quiz_id || questions[0]?.id || 1) || 1,
         total_points: totalPoints,
         total_score: totalPoints,
+        points: totalPoints,
+        score: totalPoints,
         correct_count: correctCount,
         total_questions: totalQuestions,
         completion_date: new Date().toISOString().split('T')[0],
@@ -272,18 +280,27 @@ const FunQuizScreen = ({ onBack }) => {
       const submitUrl = API_ENDPOINTS.QUIZ_SUBMIT_SESSION || `${BASE_URL}/api/quizzes/submit-session`;
 
       try {
-        const dbResponse = await fetch(submitUrl, {
+        let dbResponse = await fetch(submitUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload)
         });
+        
+        // If the first URL returns 400 or fails, try the fallback fun-quizzes endpoint
+        if (!dbResponse.ok) {
+          const fallbackUrl = `${BASE_URL}/api/fun-quizzes/submit-session`;
+          dbResponse = await fetch(fallbackUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          }).catch(() => ({ ok: false }));
+        }
+
         if (dbResponse.ok) {
           console.log('[QuizSync] Session stored successfully.');
         }
-        // Any non-200 response (400, 404, 500) is handled silently —
-        // the UI already reflects the result via showSuccessState.
       } catch (err) {
-        // Network failure — non-critical, handled silently.
+        // Network failure — handled silently.
       }
 
       // Refresh leaderboard from backend immediately after submission

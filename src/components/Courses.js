@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 
-import logo from '../assets/logo.png';
+import logo from '../assets/image.png';
 import petal from '../assets/image.png';
 
 export default function CourseScreen({ resumeCourseId, clearState }) {

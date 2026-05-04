@@ -122,9 +122,9 @@ const ExperienceLetter = ({ onBack }) => {
     container: { padding: '30px 20px 120px', maxWidth: '100%', margin: '0 auto', fontFamily: "'Inter', sans-serif" },
     header: { display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px' },
     backBtn: { padding: '12px', borderRadius: '15px', backgroundColor: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: winWidth < 768 ? '24px' : '32px', fontWeight: '900', color: '#10274A', margin: 0 },
+    title: { fontSize: '32px', fontWeight: '900', color: '#10274A', margin: 0 },
     
-    card: { backgroundColor: 'white', borderRadius: '30px', padding: winWidth < 768 ? '25px' : '40px', border: '1.5px solid #f1f5f9', boxShadow: '0 10px 40px rgba(0,0,0,0.02)', marginBottom: '30px' },
+    card: { backgroundColor: 'white', borderRadius: '30px', padding: '40px', border: '1.5px solid #f1f5f9', boxShadow: '0 10px 40px rgba(0,0,0,0.02)', marginBottom: '30px' },
     sectionTitle: { fontSize: '18px', fontWeight: '800', color: '#10274A', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' },
     
     label: { fontSize: '13px', fontWeight: '700', color: '#64748b', marginBottom: '10px', display: 'block' },

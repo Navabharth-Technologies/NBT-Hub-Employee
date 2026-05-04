@@ -51,7 +51,7 @@ const AwardsScreen = ({ onBack }) => {
         ? grantOptions[activeCategory]
         : (FALLBACK_GRANT_OPTIONS[activeCategory] || []);
 
-    const canGrant = ['Admin', 'HR', 'PM', 'Manager', 'TL', 'CEO'].includes(user?.role || '');
+    const canGrant = ['Admin', 'HR', 'PM', 'Manager', 'TL', 'CEO', 'Super Admin', 'SuperAdmin'].includes(user?.role || '');
 
     useEffect(() => {
         const handleResize = () => setWinWidth(window.innerWidth);
@@ -72,19 +72,60 @@ const AwardsScreen = ({ onBack }) => {
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
-                const [myRes, dailyLeadRes, genLeadRes, empRes, quizRes, grantOptRes] = await Promise.all([
+                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.EMPLOYEES || API_ENDPOINTS.USERS, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/completions/my?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.REWARDS_GRANT_OPTIONS, { headers }).catch(() => null)
+                    fetch(API_ENDPOINTS.EMPLOYEES || API_ENDPOINTS.USERS, { headers }).catch(() => null)
                 ]);
+
+                let combinedHistory = [];
+                let serverTotal = 0;
 
                 if (myRes && myRes.ok) {
                     const data = await myRes.json();
-                    setRewardData(data);
+                    const list = Array.isArray(data) ? data : (data.history || data.awards || data.data || []);
+                    combinedHistory = [...combinedHistory, ...list];
+                    serverTotal = Math.max(serverTotal, data.totalPoints || data.total_points || 0);
                 }
+                
+                if (userRes && userRes.ok) {
+                    const data = await userRes.json();
+                    const list = Array.isArray(data) ? data : (data.history || data.awards || data.data || []);
+                    combinedHistory = [...combinedHistory, ...list];
+                    serverTotal = Math.max(serverTotal, data.totalPoints || data.total_points || 0);
+                }
+
+                if (allRes && allRes.ok) {
+                    const allData = await allRes.json();
+                    const list = Array.isArray(allData) ? allData : (allData.data || allData.rewards || []);
+                    const myItems = list.filter(r => {
+                        const rId = String(r.userId || r.user_id || r.employee_id || r.empId || '').toLowerCase();
+                        return rId === safeUid.toLowerCase() || 
+                               rId === rawId.toLowerCase() || 
+                               rId.split(':')[0] === safeUid.toLowerCase() ||
+                               (user?.email && rId === user.email.toLowerCase());
+                    });
+                    combinedHistory = [...combinedHistory, ...myItems];
+                }
+
+                // Deduplicate by ID or timestamp+title
+                const uniqueItems = [];
+                const seenKeys = new Set();
+                combinedHistory.forEach(item => {
+                    const key = item.id || `${item.created_at}_${item.reward_name || item.title}_${item.points}`;
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        uniqueItems.push(item);
+                    }
+                });
+
+                setRewardData({
+                    history: uniqueItems,
+                    totalPoints: serverTotal
+                });
                 
                 // Merge Daily and General leaderboards for accurate all-time rankings
                 const dailyData = dailyLeadRes && dailyLeadRes.ok ? await dailyLeadRes.json() : [];
@@ -99,40 +140,7 @@ const AwardsScreen = ({ onBack }) => {
                     const el = await empRes.json();
                     setEmployees(Array.isArray(el) ? el : (el.data || []));
                 }
-                if (quizRes && quizRes.ok) {
-                    const qData = await quizRes.json();
-                    const mapped = Array.isArray(qData) ? qData.map(q => ({
-                        ...q,
-                        reward_name: 'Brain Games: Daily Quiz',
-                        points: q.total_points || q.points || 0,
-                        category: 'HR',
-                        created_at: q.completion_date || q.created_at,
-                        comment: `Completed session with score ${q.total_points}`
-                    })) : [];
-                    setQuizHistory(mapped);
-                }
 
-                // Process backend grant options (group by category)
-                if (grantOptRes && grantOptRes.ok) {
-                    const optRaw = await grantOptRes.json();
-                    const optList = Array.isArray(optRaw) ? optRaw : (optRaw.data || optRaw.options || []);
-                    if (optList.length > 0) {
-                        const grouped = { TL: [], PM: [], HR: [] };
-                        optList.forEach((opt, idx) => {
-                            const cat = String(opt.category || opt.type || 'HR').toUpperCase();
-                            const key = cat.includes('TL') || cat.includes('TEAM') ? 'TL'
-                                      : cat.includes('PM') || cat.includes('PROJECT') ? 'PM'
-                                      : 'HR';
-                            grouped[key].push({
-                                id: opt.id || `${key}_${idx}`,
-                                title: opt.name || opt.title || opt.reward_name || 'Recognition',
-                                rep: opt.points || opt.rep || opt.value || 100,
-                                icon: <Award size={18} />
-                            });
-                        });
-                        setGrantOptions(grouped);
-                    }
-                }
                 
             } catch (err) {
                 // Fetch failed silently — awards data shows empty state
@@ -164,7 +172,8 @@ const AwardsScreen = ({ onBack }) => {
     });
     const dedupedQuizHistory = Object.values(dailyQuizMap);
 
-    const rawServerHistory = rewardData?.history || rewardData?.awards || [];
+    const rawServerHistory = Array.isArray(rewardData) ? rewardData : (rewardData?.history || rewardData?.awards || rewardData?.data || rewardData?.rewards || []);
+    const serverTotalPoints = Number(rewardData?.totalPoints || rewardData?.total_points || (Array.isArray(rewardData) ? 0 : rewardData?.points) || 0);
     
     // 2. Combine with server history, avoiding overlapping quiz entries
     const uniqueHistory = [...dedupedQuizHistory];
@@ -200,6 +209,10 @@ const AwardsScreen = ({ onBack }) => {
     });
 
     const sortedLeaderboard = Array.from(liveMap, ([name, score]) => ({ name, score }))
+        .filter(u => {
+            const n = String(u.name || '').toUpperCase();
+            return !n.includes('DINESH') && !n.includes('HR') && !n.includes('ADMIN');
+        })
         .sort((a, b) => b.score - a.score);
 
     // Determine this user's rank and best score from leaderboard
@@ -209,7 +222,6 @@ const AwardsScreen = ({ onBack }) => {
     const leaderboardScore = userEntryIndex >= 0 ? sortedLeaderboard[userEntryIndex].score : 0;
     
     // Final total: Highest of history sum or backend-reported total
-    const serverTotalPoints = Number(rewardData?.totalPoints || rewardData?.total_points || 0);
     const finalTotalPoints = Math.max(totalPointsFromHistory, serverTotalPoints, leaderboardScore);
 
     const stats = {
@@ -260,11 +272,11 @@ const AwardsScreen = ({ onBack }) => {
             if (!rewardObj) return alert('Invalid reward selection.');
 
             const token = localStorage.getItem('token');
-            const res = await fetch(`${BASE_URL}/api/rewards`, {
+            const res = await fetch(API_ENDPOINTS.REWARDS_GRANT, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : ''
+                    'Authorization': token && !token.startsWith('joinee-') ? `Bearer ${token}` : ''
                 },
                 body: JSON.stringify({
                     userId: selectedEmployee,
@@ -316,12 +328,12 @@ const AwardsScreen = ({ onBack }) => {
         const rCat = String(r.category || r.reward_category || '').toUpperCase();
         if (['TL', 'PERFORMANCE', 'LEADERSHIP'].includes(rCat)) return 'TL';
         if (['PM', 'PROJECT', 'SPRINT'].includes(rCat)) return 'PM';
-        if (['HR', 'CULTURAL', 'PEER', 'ADMIN', 'CEO', 'MANAGEMENT', 'QUIZ'].includes(rCat)) return 'HR';
+        if (['HR', 'CULTURAL', 'PEER', 'ADMIN', 'CEO', 'MANAGEMENT', 'QUIZ', 'SUPER_ADMIN', 'SUPER ADMIN'].includes(rCat)) return 'HR';
 
         // 3. Semantic Title Match (If category is generic like "Other")
-        const name = String(r.reward_name || r.rewardName || r.title || '').toUpperCase();
+        const name = String(r.reward_name || r.rewardName || r.title || r.reward || '').toUpperCase();
         if (name.includes('VISIONARY') || name.includes('LEAD') || name.includes('IMPACT')) return 'TL';
-        if (name.includes('GOAL') || name.includes('ACHIEVER') || name.includes('SPRINT') || name.includes('MASTER')) return 'PM';
+        if (name.includes('GOAL') || name.includes('ACHIEVER') || name.includes('SPRINT') || name.includes('MASTER') || name.includes('PROJECT')) return 'PM';
         if (name.includes('QUIZ') || name.includes('BRAIN') || name.includes('PILLAR') || name.includes('MENTOR') || name.includes('REFLECTION') || name.includes('SATURDAY')) return 'HR';
 
         return 'HR'; // Ultimate Default Fallback
@@ -410,7 +422,7 @@ const AwardsScreen = ({ onBack }) => {
 
             <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(4, 1fr)', 
+                gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(3, 1fr)', 
                 gap: winWidth < 768 ? '10px' : '15px', 
                 marginBottom: '30px', 
                 backgroundColor: '#0B1E3F', 

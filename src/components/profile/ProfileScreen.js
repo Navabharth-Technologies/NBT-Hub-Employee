@@ -46,8 +46,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       if (user.date_of_birth) setDob(user.date_of_birth);
       const img = user.profileImage || user.profile_image || user.profilePicture || user.profile_picture || user.avatar || user.profile_pic;
       if (img) {
-          const src = img.startsWith('http') || img.startsWith('data:') ? img : `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`;
-          if (src !== profileImage) setProfileImage(src);
+        const src = img.startsWith('http') || img.startsWith('data:') ? img : `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`;
+        if (src !== profileImage) setProfileImage(src);
       }
       if (user.designation) setDesignation(user.designation);
       if (user.joining_date || user.joiningDate || user['joining date']) setJoiningDate(user.joining_date || user.joiningDate || user['joining date']);
@@ -132,10 +132,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         const data = await res.json();
         triggerToast('Profile image updated successfully!');
         if (data.profileImage) {
-           const finalImg = data.profileImage.startsWith('http') || data.profileImage.startsWith('data:') ? data.profileImage : `${BASE_URL}${data.profileImage.startsWith('/') ? '' : '/'}${data.profileImage}`;
-           setProfileImage(finalImg);
-           // Update Context for building-wide sync
-           updateProfile('profileImage', data.profileImage);
+          const finalImg = data.profileImage.startsWith('http') || data.profileImage.startsWith('data:') ? data.profileImage : `${BASE_URL}${data.profileImage.startsWith('/') ? '' : '/'}${data.profileImage}`;
+          setProfileImage(finalImg);
+          // Update Context for building-wide sync
+          updateProfile('profileImage', data.profileImage);
         }
       } else {
         triggerToast('Failed to upload image.', 'error');
@@ -154,7 +154,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const handlePasswordSubmit = async () => {
     if (!passData.old || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
-    
+
     try {
       const res = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
         method: 'POST',
@@ -355,9 +355,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
         <AnimatePresence>
           {showFullScreen && profileImage && (
-            <FullScreenImageModal 
-                src={profileImage} 
-                onClose={() => setShowFullScreen(false)} 
+            <FullScreenImageModal
+              src={profileImage}
+              onClose={() => setShowFullScreen(false)}
             />
           )}
         </AnimatePresence>
@@ -365,7 +365,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         <div style={styles.masterCard}>
           <div style={styles.headerRow}>
             <div style={styles.avatarContainer}>
-              <div 
+              <div
                 style={{ ...styles.avatar, cursor: 'pointer' }}
                 onClick={() => profileImage && setShowFullScreen(true)}
               >
@@ -402,12 +402,12 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
                 {/* Row 2: Designation & Contact */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                  <div style={styles.userRole}>Junior Software Engineer • ID: 20259</div>
+                  <div style={styles.userRole}>EMPID: {user?.employee_id || user?.id || 'N/A'}</div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                    <Phone size={14} /> 
+                    <Phone size={14} />
                     {isEditingPhone ? (
-                      <input 
+                      <input
                         autoFocus
                         style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0' }}
                         value={phone}
@@ -431,9 +431,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                 {/* Row 3: Date of Birth & Reporting Manager (Requested) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', marginTop: '5px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700', padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '12px' }}>
-                    <Calendar size={14} /> 
+                    <Calendar size={14} />
                     {isEditingDob ? (
-                      <input 
+                      <input
                         type="date"
                         autoFocus
                         style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8' }}
@@ -459,7 +459,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                       <div style={styles.managerName}>{reportingManager.name}</div>
                     </div>
                     <div style={{ ...styles.managerAvatar, backgroundColor: '#3863a8', color: 'white' }}>
-                        <div style={{ fontSize: '14px', fontWeight: '900' }}>{reportingManager.name[0]}</div>
+                      <div style={{ fontSize: '14px', fontWeight: '900' }}>{reportingManager.name[0]}</div>
                     </div>
                   </div>
                 </div>
@@ -467,13 +467,13 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             ) : (winWidth < 768) ? (
               // MOBILE VIEW (Preserve Original Stacked)
               <>
-              <div style={{ ...styles.userInfo, textAlign: 'center', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div style={styles.userName}>{user?.name}</div>
-                <div style={styles.userRole}>Junior Software Engineer • ID: 20259</div>
+                <div style={{ ...styles.userInfo, textAlign: 'center', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <div style={styles.userName}>{user?.name}</div>
+                  <div style={styles.userRole}>EMPID: {user?.employee_id || user?.id || 'N/A'}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                    <Phone size={14} /> 
+                    <Phone size={14} />
                     {isEditingPhone ? (
-                      <input 
+                      <input
                         autoFocus
                         style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0', textAlign: 'center' }}
                         value={phone}
@@ -493,9 +493,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                     )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                    <Calendar size={14} /> 
+                    <Calendar size={14} />
                     {isEditingDob ? (
-                      <input 
+                      <input
                         type="date"
                         autoFocus
                         style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8', textAlign: 'center' }}
@@ -517,68 +517,68 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                   </div>
                 </div>
                 <div style={{ ...styles.managerSection, marginTop: '20px', justifyContent: 'center' }}>
-                    <div style={styles.managerAvatar}><User size={20} color="#94a3b8" /></div>
-                    <div style={{ textAlign: 'left' }}>
-                        <div style={styles.managerLabel}>Reporting manager</div>
-                        <div style={styles.managerName}>{reportingManager.name}</div>
-                    </div>
+                  <div style={styles.managerAvatar}><User size={20} color="#94a3b8" /></div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={styles.managerLabel}>Reporting manager</div>
+                    <div style={styles.managerName}>{reportingManager.name}</div>
+                  </div>
                 </div>
               </>
             ) : (
-                // DESKTOP VIEW (Preserve Original Legacy)
-                <>
+              // DESKTOP VIEW (Preserve Original Legacy)
+              <>
                 <div style={{ ...styles.userInfo, textAlign: 'left', flex: 1 }}>
                   <div style={styles.userName}>{user?.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginTop: '10px', flexWrap: 'wrap' }}>
                     <div style={{ ...styles.userRole, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      Junior Software Engineer • ID: 20259
+                      EMPID: {user?.employee_id || user?.id || 'N/A'}
                     </div>
                     <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                        <Phone size={14} /> 
-                        {isEditingPhone ? (
-                          <input 
-                            autoFocus
-                            style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0' }}
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            onBlur={async () => {
-                              setIsEditingPhone(false);
-                              if (phone !== (user?.phone_number || 'Add Phone Number')) {
-                                const result = await updateProfile('phone_number', phone);
-                                if (!result.success) triggerToast('Update Failed', 'error');
-                              }
-                            }}
-                          />
-                        ) : (
-                          <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {phone} <Edit3 size={11} opacity={0.6} />
-                          </span>
-                        )}
+                      <Phone size={14} />
+                      {isEditingPhone ? (
+                        <input
+                          autoFocus
+                          style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0' }}
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          onBlur={async () => {
+                            setIsEditingPhone(false);
+                            if (phone !== (user?.phone_number || 'Add Phone Number')) {
+                              const result = await updateProfile('phone_number', phone);
+                              if (!result.success) triggerToast('Update Failed', 'error');
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {phone} <Edit3 size={11} opacity={0.6} />
+                        </span>
+                      )}
                     </div>
                     <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                        <Calendar size={14} /> 
-                        {isEditingDob ? (
-                          <input 
-                            type="date"
-                            autoFocus
-                            style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8' }}
-                            value={dob}
-                            onChange={(e) => setDob(e.target.value)}
-                            onBlur={async () => {
-                              setIsEditingDob(false);
-                              if (dob !== (user?.date_of_birth || 'Add Date of Birth')) {
-                                const result = await updateProfile('date_of_birth', dob);
-                                if (!result.success) triggerToast('Update Failed', 'error');
-                              }
-                            }}
-                          />
-                        ) : (
-                          <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {dob} <Edit3 size={11} opacity={0.6} />
-                          </span>
-                        )}
+                      <Calendar size={14} />
+                      {isEditingDob ? (
+                        <input
+                          type="date"
+                          autoFocus
+                          style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8' }}
+                          value={dob}
+                          onChange={(e) => setDob(e.target.value)}
+                          onBlur={async () => {
+                            setIsEditingDob(false);
+                            if (dob !== (user?.date_of_birth || 'Add Date of Birth')) {
+                              const result = await updateProfile('date_of_birth', dob);
+                              if (!result.success) triggerToast('Update Failed', 'error');
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {dob} <Edit3 size={11} opacity={0.6} />
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -596,7 +596,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                     )}
                   </div>
                 </div>
-                </>
+              </>
             )}
           </div>
         </div>
@@ -640,10 +640,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           <div style={styles.infoGrid}>
 
 
-            <motion.div 
-               whileHover={{ y: -5 }} 
-               style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
-               onClick={() => onNavigate?.('PAYSLIP')}
+            <motion.div
+              whileHover={{ y: -5 }}
+              style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
+              onClick={() => onNavigate?.('PAYSLIP')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><CreditCard size={18} color="#0B1E3F" /></div>
               <div style={{ flex: 1 }}>
@@ -653,10 +653,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               <ChevronRight size={16} color="#0B1E3F" />
             </motion.div>
 
-            <motion.div 
-               whileHover={{ y: -5 }} 
-               style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
-               onClick={() => onNavigate?.('EXPERIENCE_LETTER')}
+            <motion.div
+              whileHover={{ y: -5 }}
+              style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
+              onClick={() => onNavigate?.('EXPERIENCE_LETTER')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><FileText size={18} color="#0B1E3F" /></div>
               <div style={{ flex: 1 }}>
@@ -666,10 +666,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               <ChevronRight size={16} color="#0B1E3F" />
             </motion.div>
 
-            <motion.div 
-               whileHover={{ y: -5 }} 
-               style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
-               onClick={() => onNavigate?.('RESIGNATION_LETTER')}
+            <motion.div
+              whileHover={{ y: -5 }}
+              style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
+              onClick={() => onNavigate?.('RESIGNATION_LETTER')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><LogOut size={18} color="#0B1E3F" /></div>
               <div style={{ flex: 1 }}>
@@ -708,15 +708,15 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {[{ label: 'Current password', key: 'old' }, { label: 'New password', key: 'new' }, { label: 'Confirm password', key: 'confirm' }].map(f => (
-                   <div key={f.key}>
-                     <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', marginBottom: '8px', display: 'block' }}>{f.label}</label>
-                     <input 
-                       type="password" 
-                       style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #e2e8f0', fontSize: '14px', fontWeight: '700', outline: 'none' }}
-                       value={passData[f.key]}
-                       onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
-                     />
-                   </div>
+                  <div key={f.key}>
+                    <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', marginBottom: '8px', display: 'block' }}>{f.label}</label>
+                    <input
+                      type="password"
+                      style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #e2e8f0', fontSize: '14px', fontWeight: '700', outline: 'none' }}
+                      value={passData[f.key]}
+                      onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
+                    />
+                  </div>
                 ))}
                 <button onClick={handlePasswordSubmit} style={{ marginTop: '10px', padding: '18px', borderRadius: '15px', backgroundColor: '#3863a8', color: 'white', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '14px' }}>Establish new passkey</button>
               </div>

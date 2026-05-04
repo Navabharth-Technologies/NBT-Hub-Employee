@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Send, X, ClipboardList, Lightbulb } from 'lucide-react';
-import { API_ENDPOINTS } from '../config';
+import { Calendar, MessageSquare, Send, X, ClipboardList, Lightbulb, Bell } from 'lucide-react';
+import { BASE_URL, API_ENDPOINTS } from '../config';
 
 const SaturdayRequirementsPopover = () => {
     const [show, setShow] = useState(false);
@@ -218,7 +218,21 @@ const SaturdayRequirementsPopover = () => {
                         initial={{ opacity: 0, scale: 0.5, x: 50 }}
                         animate={{ opacity: 1, scale: 1, x: 0 }}
                         exit={{ opacity: 0, scale: 0.5, x: 50 }}
-                        onClick={() => handleRestore()}
+                        onDragStart={() => {
+                            window.isDraggingIcon = true;
+                        }}
+                        onDragEnd={() => {
+                            setTimeout(() => {
+                                window.isDraggingIcon = false;
+                            }, 150);
+                        }}
+                        onClick={(e) => {
+                            if (window.isDraggingIcon) {
+                                e.stopPropagation();
+                                return;
+                            }
+                            handleRestore();
+                        }}
                         drag
                         dragMomentum={false}
                         whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
@@ -239,7 +253,7 @@ const SaturdayRequirementsPopover = () => {
                             zIndex: 9998,
                         }}
                         whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileTap={window.isDraggingIcon ? {} : { scale: 0.95 }}
                     >
                         <div style={{ position: 'relative' }}>
                             <ClipboardList size={24} />

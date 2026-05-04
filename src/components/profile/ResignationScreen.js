@@ -172,14 +172,14 @@ export default function ResignationScreen({ onBack }) {
   };
 
   const s = {
-    container: { minHeight: '100vh', backgroundColor: '#F5F6FC', padding: window.innerWidth < 768 ? '20px 15px' : '30px 40px', fontFamily: "'Inter', sans-serif" },
+    container: { minHeight: '100vh', backgroundColor: '#F5F6FC', padding: '30px 40px', fontFamily: "'Inter', sans-serif" },
     main: { maxWidth: '100%', margin: '0 auto', padding: '20px' },
     header: { display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' },
     backBtn: { padding: '10px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#0B1E3F', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
     title: { fontSize: '24px', fontWeight: '900', color: '#0B1E3F', margin: 0 },
     tabBar: { display: 'flex', gap: '10px', marginBottom: '30px', background: '#e2e8f0', padding: '6px', borderRadius: '18px', maxWidth: '600px', overflowX: 'auto' },
     tab: (active) => ({ flex: 1, padding: '12px 20px', borderRadius: '14px', border: 'none', backgroundColor: active ? 'white' : 'transparent', color: active ? '#0B1E3F' : '#64748b', fontSize: '13px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }),
-    card: { backgroundColor: 'white', borderRadius: '35px', padding: winWidth < 768 ? '30px' : '50px', boxShadow: '0 20px 60px rgba(0,0,0,0.03)', border: '1.5px solid #f1f5f9', marginBottom: '30px' },
+    card: { backgroundColor: 'white', borderRadius: '35px', padding: '50px', boxShadow: '0 20px 60px rgba(0,0,0,0.03)', border: '1.5px solid #f1f5f9', marginBottom: '30px' },
     label: { fontSize: '11px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', display: 'block' },
     input: { width: '100%', padding: '16px 20px', borderRadius: '15px', backgroundColor: '#f8fafc', border: '1.5px solid #f1f5f9', fontSize: '14px', color: '#0B1E3F', fontWeight: '600', outline: 'none', boxSizing: 'border-box', marginBottom: '25px' },
     textarea: { width: '100%', padding: '20px', borderRadius: '15px', backgroundColor: '#f8fafc', border: '1.5px solid #f1f5f9', fontSize: '14px', color: '#0B1E3F', fontWeight: '600', outline: 'none', boxSizing: 'border-box', minHeight: '160px', marginBottom: '25px', resize: 'none' },
@@ -190,8 +190,8 @@ export default function ResignationScreen({ onBack }) {
     revokeBtn: { padding: '10px 20px', borderRadius: '12px', backgroundColor: 'transparent', color: '#dc2626', border: '1.5px solid #dc2626', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' },
     
     // Detail View Styles
-    overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', zIndex: 11000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: winWidth < 768 ? '100px 20px 20px' : '100px 40px 40px', overflowY: 'auto' },
-    detailCard: { backgroundColor: 'white', borderRadius: '40px', width: '100%', maxWidth: '700px', padding: winWidth < 768 ? '30px' : '50px', position: 'relative' },
+    overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', zIndex: 11000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '100px 40px 40px', overflowY: 'auto' },
+    detailCard: { backgroundColor: 'white', borderRadius: '40px', width: '100%', maxWidth: '700px', padding: '50px', position: 'relative' },
 
     // Geometric shapes (Matched to Reference Image)
     topShape: { position: 'absolute', top: 0, right: 0, width: '350px', height: '350px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 20% 0)', opacity: 0.1, zIndex: 1 },
@@ -208,7 +208,7 @@ export default function ResignationScreen({ onBack }) {
     footerBar: (color) => ({ width: '40px', height: '14px', backgroundColor: color, borderRadius: '4px' }),
 
     // Premium Letter Container - Centered and constrained for "Square" feel
-    letterContainer: { position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'white', padding: winWidth < 768 ? '60px 30px 120px' : '100px 100px 150px', borderRadius: '4px', boxShadow: '0 0 50px rgba(0,0,0,0.06)', color: '#1e3a8a', fontSize: '15px', lineHeight: '2', minHeight: '1000px', border: '1px solid #e2e8f0', maxWidth: '1000px', margin: '0 auto' },
+    letterContainer: { position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'white', padding: '100px 100px 150px', borderRadius: '4px', boxShadow: '0 0 50px rgba(0,0,0,0.06)', color: '#1e3a8a', fontSize: '15px', lineHeight: '2', minHeight: '1000px', border: '1px solid #e2e8f0', maxWidth: '1000px', margin: '0 auto' },
     watermark: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.04, zIndex: 0, pointerEvents: 'none', width: '500px', filter: 'grayscale(100%)' }
   };
 
@@ -240,7 +240,7 @@ export default function ResignationScreen({ onBack }) {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : '1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   <div style={{ position: 'relative' }}>
                     <label style={s.label}>Intent Date</label>
                     <input type="date" style={s.input} value={resignationDate} disabled />

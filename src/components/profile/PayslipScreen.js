@@ -14,7 +14,7 @@ export default function PayslipScreen({ onBack }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const isMobile = winWidth < 768;
+  const isMobile = false; // Forced false to maintain desktop layout as requested
   const handlePrint = () => window.print();
 
   // ── Shared cell helpers (desktop tables only) ──
@@ -53,7 +53,7 @@ export default function PayslipScreen({ onBack }) {
   );
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', padding: isMobile ? '15px 10px 120px' : '40px 20px 120px', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', padding: '40px 20px 120px', fontFamily: "'Inter', sans-serif" }}>
 
       {/* Action bar */}
       <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -75,7 +75,7 @@ export default function PayslipScreen({ onBack }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="printable-payslip"
-        style={{ maxWidth: '900px', width: '100%', margin: '0 auto', backgroundColor: 'white', padding: isMobile ? '20px 15px 60px' : '40px 30px 80px', borderRadius: '2px', boxShadow: '0 0 40px rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden', minHeight: isMobile ? 'auto' : '1100px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}
+        style={{ maxWidth: '900px', width: '100%', margin: '0 auto', backgroundColor: 'white', padding: '40px 30px 80px', borderRadius: '2px', boxShadow: '0 0 40px rgba(0,0,0,0.05)', position: 'relative', overflowX: 'auto', minHeight: '1100px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}
       >
         {/* ── Decorative corner shapes ── */}
         <div style={{ position: 'absolute', top: 0, right: 0, width: isMobile ? '100px' : '200px', height: isMobile ? '75px' : '150px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1, zIndex: 1 }} />
