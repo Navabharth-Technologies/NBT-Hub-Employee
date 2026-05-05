@@ -53,16 +53,9 @@ export const AuthProvider = ({ children }) => {
     if (savedUser && token) {
       const u = JSON.parse(savedUser);
       
-      // Strict Security Validation: Ensure no leftover Admin/Manager/PM sessions persist on the Employee Portal
-      const role = String(u.role || u.designation || '').toUpperCase();
-      const name = String(u.name || u.employee_name || '').toUpperCase();
-      const email = String(u.email || '').toLowerCase();
-
-      const isManagement = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER') || role.includes('MANAGER');
-      const isRestrictedName = name.includes('DINESH') || name.includes('ANISH') || name.includes('SINCHNA');
-      const isRestrictedEmail = email.includes('anish') || email.includes('dinesh') || email.includes('sinchna');
-
-      if (isManagement || isRestrictedName || isRestrictedEmail) {
+      // Security Validation: Ensure no leftover Admin/Manager sessions persist on the Employee Portal
+      const role = String(u.role || '').toUpperCase();
+      if (role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER')) {
           logout();
           return;
       }
@@ -105,21 +98,14 @@ export const AuthProvider = ({ children }) => {
       const prodRes = await productionLoginPromise;
       if (prodRes.ok) {
         const data = await prodRes.json();
-        const userData = data.user || data;
+        const userData = data.user;
         
-        // --- STRICT SECURITY OVERRIDE ---
-        // Specifically block Dinesh (Super Admin), Anish (PM), and Sinchna (HR) from this Employee-only portal
-        const role = String(userData.role || userData.designation || '').toUpperCase();
-        const name = String(userData.name || userData.employee_name || '').toUpperCase();
-        const email = String(userData.email || '').toLowerCase();
-
-        const isManagement = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER') || role.includes('MANAGER');
-        const isRestrictedName = name.includes('DINESH') || name.includes('ANISH') || name.includes('SINCHNA');
-        const isRestrictedEmail = email.includes('anish') || email.includes('dinesh') || email.includes('sinchna');
-
-        if (isManagement || isRestrictedName || isRestrictedEmail) {
-          console.error('[Security] Login Blocked: Admin/PM/HR accounts cannot access the Employee Webpage.');
-          return { success: false, error: 'Access Denied: This portal is for Employees only. Managers/Admins must use their dedicated portal.' };
+        // --- ROLE-BASED RESTRICTION ---
+        // Block Super Admin, HR, and PM from accessing the Employee-only webpage
+        const role = String(userData.role || '').toUpperCase();
+        if (role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER')) {
+          console.warn('[Login Auth] ACCESS DENIED: Manager/Admin role attempted employee portal login:', role);
+          return { success: false, error: 'Access Restricted: Please use the Administrative Portal.' };
         }
 
         setUser(userData);
