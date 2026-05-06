@@ -73,27 +73,30 @@ function App() {
     checkJoineeStatus();
   }, [user]);
 
-  const [isNavVisible, setIsNavVisible] = useState(true);
+  const [isNavVisible, setIsNavVisible] = useState(false);
   const scrollTimeoutRef = useRef(null);
 
   const handleScroll = () => {
-    // Hide nav on scroll
-    setIsNavVisible(false);
+    // Show nav on scroll
+    setIsNavVisible(true);
 
     // Clear existing timeout
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
 
-    // Re-show nav after 2 seconds of no scrolling
+    // Hide nav after 3 seconds of no scrolling
     scrollTimeoutRef.current = setTimeout(() => {
-      setIsNavVisible(true);
-    }, 2000);
+      setIsNavVisible(false);
+    }, 3000);
   };
 
   useEffect(() => {
     const mainEl = scrollRef.current;
     if (mainEl) {
       mainEl.addEventListener('scroll', handleScroll);
-      return () => mainEl.removeEventListener('scroll', handleScroll);
+      return () => {
+        mainEl.removeEventListener('scroll', handleScroll);
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      };
     }
   }, []);
 

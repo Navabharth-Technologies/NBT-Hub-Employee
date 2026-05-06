@@ -81,7 +81,12 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         if (teamResp.ok) {
           const tResp = await teamResp.json();
           const tData = Array.isArray(tResp) ? tResp : (tResp.value || tResp.data || []);
-          const validT = tData.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle)));
+          const validT = tData.filter(p => {
+            if (!p) return false;
+            const nameRaw = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle || '';
+            const pName = String(nameRaw).toLowerCase();
+            return pName !== '' && !pName.includes('individual');
+          });
           setTeamProjects(validT);
           localStorage.setItem(`team_projects_${user.id}`, JSON.stringify(validT));
           

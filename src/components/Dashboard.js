@@ -385,7 +385,12 @@ const Dashboard = ({ setActiveTab }) => {
           if (teamResp && teamResp.ok) {
             const tList = await teamResp.json().catch(() => []);
             const tData = Array.isArray(tList) ? tList : (tList.value || tList.data || []);
-            const validT = tData.filter(t => t && typeof t === 'object');
+            const validT = tData.filter(t => {
+              if (!t) return false;
+              const nameRaw = t.projectName || t.project_name || t.project || t.task_name || t.taskName || t.title || t.taskTitle || '';
+              const pName = String(nameRaw).toLowerCase();
+              return pName !== '' && !pName.includes('individual');
+            });
             setTeamProjects(validT);
             localStorage.setItem(`team_projects_${user.id}`, JSON.stringify(validT));
           }
@@ -608,20 +613,20 @@ const Dashboard = ({ setActiveTab }) => {
       overflowX: 'hidden' 
     },
     grid: { display: 'flex', flexDirection: 'column', gap: winWidth < 768 ? '12px' : '25px' },
-    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' },
+    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
     mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 1200 ? '1fr' : '1.1fr 1fr', gap: '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
     yesterdayBox: { backgroundColor: '#ebf9f1', borderRadius: '30px', padding: '22px' },
     yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontWeight: '1000', fontSize: '16px', marginBottom: '12px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: 'white', borderRadius: '30px', padding: '22px', border: '1.2px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '2px' },
+    todayBox: { backgroundColor: 'white', borderRadius: '30px', padding: '22px', border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' },
     todayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#1E40AF', fontWeight: '1000', fontSize: '16px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
     taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
     statusBadge: { fontSize: '10px', fontWeight: '1000', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#0B1E3F', width: 'fit-content', marginTop: '12px' },
     liveBadge: { fontSize: '10px', fontWeight: '1000', color: '#cbd5e1', alignSelf: 'flex-end', marginTop: 'auto' },
-    statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
+    statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
   };
 
   const avatarInitial = (name = '') => name?.charAt(0)?.toUpperCase() || '?';
@@ -640,7 +645,7 @@ const Dashboard = ({ setActiveTab }) => {
               padding: '30px', 
               backgroundColor: '#eff6ff', 
               borderRadius: '35px', 
-              border: '1.5px solid #dbeafe', 
+              border: '2px solid #dbeafe', 
               display: 'flex', 
               alignItems: 'center', 
               gap: '25px', 
@@ -686,7 +691,7 @@ const Dashboard = ({ setActiveTab }) => {
  
                 <div 
                   onClick={() => setActiveTab('PROJECTS', { view: 'TEAM' })}
-                  style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#f8fafc', borderRadius: '35px', border: '1.5px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#f8fafc', borderRadius: '35px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
                   <div style={{ backgroundColor: '#eff6ff', padding: '15px', borderRadius: '50%' }}>
                     <Users size={28} color="#3B5998" />
@@ -870,7 +875,7 @@ const Dashboard = ({ setActiveTab }) => {
 
         {/* Team Suggestions */}
         {suggestions.length > 0 && (
-          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9', marginTop: '20px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{ fontSize: '16px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileText size={24} color="#f59e0b" /> Team Suggestions

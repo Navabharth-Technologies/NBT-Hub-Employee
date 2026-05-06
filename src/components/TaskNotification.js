@@ -244,7 +244,7 @@ const TaskNotification = ({ onOpenTask }) => {
       position: 'fixed',
       bottom: isMobile ? '120px' : '100px',
       right: isMobile ? '15px' : '30px',
-      zIndex: 2000,
+      zIndex: 10001,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'flex-end',

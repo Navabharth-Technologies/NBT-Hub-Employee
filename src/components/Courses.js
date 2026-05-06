@@ -150,7 +150,9 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 finalCourses = curatedCourses;
             }
 
-            setCourses(finalCourses.slice(0, 3));
+            // Filter to only show Java course as requested
+            const javaOnly = finalCourses.filter(c => (c.title || '').toLowerCase().includes('java'));
+            setCourses(javaOnly);
             
             // Deep Link: Resume course if passed via prop
             if (resumeCourseId) {
