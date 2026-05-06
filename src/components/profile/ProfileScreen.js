@@ -156,20 +156,43 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
 
     try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Standardize payload for NBT Hub backend compatibility
+      const payload = {
+        email: user?.email,
+        id: user?.id || user?.employee_id || user?.empId,
+        password: passData.old,           // Common legacy key
+        currentPassword: passData.old,    // Standard camelCase
+        current_password: passData.old,   // Standard snake_case
+        oldPassword: passData.old,        // Alternative
+        newPassword: passData.new,        // Standard camelCase
+        new_password: passData.new        // Standard snake_case
+      };
+
       const res = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ email: user.email, currentPassword: passData.old, newPassword: passData.new })
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': token ? `Bearer ${token.trim()}` : '' 
+        },
+        body: JSON.stringify(payload)
       });
+
       if (res.ok) {
         triggerToast('Password updated successfully!');
         setShowPasswordModal(false);
         setPassData({ old: '', new: '', confirm: '' });
       } else {
-        const err = await res.json();
-        triggerToast(err.message || 'Operation failed', 'error');
+        const errData = await res.json().catch(() => ({}));
+        const errorMessage = errData.message || errData.error || errData.msg || 'Authentication failed';
+        console.error('[Profile] Password update rejected:', errData);
+        triggerToast(errorMessage, 'error');
       }
-    } catch { triggerToast('Network Error', 'error'); }
+    } catch (err) { 
+      console.error('[Profile] Network error during password update:', err);
+      triggerToast('Server Connection Error', 'error'); 
+    }
   };
 
   const styles = {
