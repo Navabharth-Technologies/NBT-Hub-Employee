@@ -185,7 +185,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       padding: window.innerWidth < 768 ? '20px 15px 120px' : '30px 40px 120px',
     },
     banner: {
-      height: winWidth < 768 ? '200px' : (winWidth < 1024 ? '220px' : '180px'),
+      height: winWidth < 768 ? '180px' : '160px',
       backgroundColor: '#10274A',
       borderRadius: '20px 20px 0 0',
       position: 'relative',
@@ -208,7 +208,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       backgroundColor: 'white',
       borderRadius: '0 0 25px 25px',
       boxShadow: '0 15px 35px rgba(0,0,0,0.06)',
-      padding: winWidth < 768 ? '0 20px 25px' : '0 30px 20px',
+      padding: winWidth < 768 ? '0 20px 20px' : '0 30px 10px',
       position: 'relative',
       marginTop: '-1px'
     },
@@ -216,8 +216,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       display: 'flex',
       flexDirection: winWidth < 768 ? 'column' : 'row',
       alignItems: winWidth < 768 ? 'center' : 'flex-end',
-      marginTop: winWidth < 768 ? '-55px' : '-45px',
-      paddingBottom: '25px',
+      marginTop: winWidth < 768 ? '-45px' : '-35px',
+      paddingBottom: '15px',
       borderBottom: '1px solid #f1f5f9',
       gap: winWidth < 1024 ? '15px' : '30px',
       textAlign: winWidth < 768 ? 'center' : 'left',
@@ -233,8 +233,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       height: winWidth < 768 ? '110px' : '130px',
       borderRadius: '25px',
       backgroundColor: '#f8fafc',
-      border: winWidth < 768 ? '5px solid #ffffff' : '6px solid white',
-      boxShadow: '0 12px 25px rgba(0,0,0,0.12)',
+      border: winWidth < 768 ? '4px solid #ffffff' : '5px solid white',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -270,9 +270,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       alignItems: 'center',
       gap: '12px',
       padding: '10px 20px',
-      backgroundColor: '#f8fafc',
+      backgroundColor: '#ebf2f9',
       borderRadius: '15px',
-      border: '1px solid #f1f5f9',
+      border: '1.5px solid #d6e0ea',
       marginTop: winWidth < 768 ? '10px' : '0'
     },
     managerInfo: { textAlign: winWidth < 768 ? 'center' : 'right' },
@@ -287,10 +287,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       marginTop: '20px'
     },
     infoCard: {
-      backgroundColor: 'white',
+      backgroundColor: '#ffffff',
       padding: winWidth < 768 ? '15px' : '20px',
       borderRadius: '20px',
-      border: '1px solid #f1f5f9',
+      border: '2px solid #cbd5e1',
       display: 'flex',
       alignItems: 'center',
       gap: '15px',
@@ -320,7 +320,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       backgroundColor: 'white',
       padding: winWidth < 768 ? '20px' : '30px',
       borderRadius: '20px',
-      border: '1px solid #f1f5f9'
+      border: '2px solid #cbd5e1'
     },
     sectionTitle: { fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
     aboutContent: { textAlign: 'center', padding: '10px 0' },
@@ -402,7 +402,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
                 {/* Row 2: Designation & Contact */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                  <div style={styles.userRole}>EMPID: {user?.employee_id || user?.id || 'N/A'}</div>
+                  <div style={styles.userRole}>EMPID: 2059</div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                     <Phone size={14} />
@@ -469,7 +469,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               <>
                 <div style={{ ...styles.userInfo, textAlign: 'center', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                   <div style={styles.userName}>{user?.name}</div>
-                  <div style={styles.userRole}>EMPID: {user?.employee_id || user?.id || 'N/A'}</div>
+                  <div style={styles.userRole}>EMPID: 2059</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                     <Phone size={14} />
                     {isEditingPhone ? (
@@ -531,7 +531,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                   <div style={styles.userName}>{user?.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginTop: '10px', flexWrap: 'wrap' }}>
                     <div style={{ ...styles.userRole, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      EMPID: {user?.employee_id || user?.id || 'N/A'}
+                      EMPID: 2059
                     </div>
                     <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
@@ -642,7 +642,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
             <motion.div
               whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
+              style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }}
               onClick={() => onNavigate?.('PAYSLIP')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><CreditCard size={18} color="#0B1E3F" /></div>
@@ -655,7 +655,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
             <motion.div
               whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
+              style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }}
               onClick={() => onNavigate?.('EXPERIENCE_LETTER')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><FileText size={18} color="#0B1E3F" /></div>
@@ -668,7 +668,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
             <motion.div
               whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', border: '1px solid #d6e0ea', backgroundColor: '#ebf2f9' }}
+              style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }}
               onClick={() => onNavigate?.('RESIGNATION_LETTER')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><LogOut size={18} color="#0B1E3F" /></div>
