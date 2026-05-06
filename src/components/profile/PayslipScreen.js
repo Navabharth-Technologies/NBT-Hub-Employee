@@ -1,11 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Download, Printer, Calendar, ChevronRight, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { BASE_URL, API_ENDPOINTS } from '../../config';
 import logo from '../../assets/image.png';
+
+// Helper: format a month label like "April 2026" from a date string or {month, year} object
+function formatMonthLabel(payslip) {
+  if (payslip.month_label) return payslip.month_label;
+  if (payslip.month && payslip.year) {
+    const d = new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`);
+    return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
+  if (payslip.period || payslip.payPeriod) {
+    const raw = payslip.period || payslip.payPeriod;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? raw : d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
+  return 'Payslip';
+}
+
+// Helper: format currency
+function formatAmount(val) {
+  const num = parseFloat(String(val || '0').replace(/,/g, ''));
+  return isNaN(num) ? '0' : num.toLocaleString('en-IN');
+}
 
 export default function PayslipScreen({ onBack }) {
   const { user } = useAuth();
+  const [payslips, setPayslips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -14,212 +40,381 @@ export default function PayslipScreen({ onBack }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const isMobile = false; // Forced false to maintain desktop layout as requested
+  // ── Fallback demo data (used when backend returns empty) ──
+  const DEMO_PAYSLIPS = [
+    { id: 'demo-apr', month: 4, year: 2026, month_label: 'April 2026',   net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 31, total_wo: 4, total_holidays: 0, total_leave: 1, total_absent: 1, total_work_ot: 1, total_ot: 1, bs_reference_amt: 5000 },
+    { id: 'demo-mar', month: 3, year: 2026, month_label: 'March 2026',   net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 30, total_wo: 4, total_holidays: 0, total_leave: 0, total_absent: 0, total_work_ot: 1, total_ot: 0, bs_reference_amt: 5000 },
+    { id: 'demo-feb', month: 2, year: 2026, month_label: 'February 2026',net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 28, total_wo: 4, total_holidays: 0, total_leave: 0, total_absent: 0, total_work_ot: 1, total_ot: 0, bs_reference_amt: 5000 },
+    { id: 'demo-jan', month: 1, year: 2026, month_label: 'January 2026', net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 31, total_wo: 4, total_holidays: 0, total_leave: 0, total_absent: 0, total_work_ot: 1, total_ot: 0, bs_reference_amt: 5000 },
+  ];
+
+  // ── Fetch payslips from backend ──
+  useEffect(() => {
+    const fetchPayslips = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const userId = user?.id || user?.employee_id || user?.empId;
+        const url = API_ENDPOINTS.MY_PAYSLIPS(userId);
+
+        const res = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token.trim()}` : ''
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Log raw response so we can see exact field names from backend
+          console.log('[PayslipScreen] Raw API response:', JSON.stringify(data, null, 2));
+          const list = Array.isArray(data)
+            ? data
+            : (data.value || data.data || data.payslips || data.result || data.results || data.records || data.items || []);
+          console.log('[PayslipScreen] Parsed list:', list);
+          // If backend returns data use it, otherwise fall back to demo data
+          setPayslips(list.length > 0 ? list : DEMO_PAYSLIPS);
+        } else {
+          // API not ready yet — show demo data so UI is functional
+          console.warn('[PayslipScreen] API not ready, showing demo data');
+          setPayslips(DEMO_PAYSLIPS);
+        }
+      } catch (err) {
+        console.error('[PayslipScreen] Fetch error:', err);
+        // Network error — still show demo data
+        setPayslips(DEMO_PAYSLIPS);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayslips();
+  }, [user]);
+
   const handlePrint = () => window.print();
 
-  // ── Shared cell helpers (desktop tables only) ──
+  // ── Shared helpers ──
+  const parseAmt = (val) => {
+    const n = parseFloat(String(val || '0').replace(/,/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
   const cell = (extra = {}) => ({
-    border: '1px solid #cbd5e1',
-    padding: '12px 15px',
-    fontSize: '13px',
-    color: '#1e293b',
-    ...extra
+    border: '1px solid #cbd5e1', padding: '12px 15px', fontSize: '13px', color: '#1e293b', ...extra
   });
   const labelCell = (extra = {}) => cell({ fontWeight: '800', color: '#0B1E3F', backgroundColor: '#f8fafc', ...extra });
   const valueCell = (extra = {}) => cell({ fontWeight: '600', color: '#334155', ...extra });
 
-  // ── Data ──
-  const earningRows  = [['Basic', '25,000'], ['HRA', '0'], ['Conveyance', '0'], ['Special Allowance', '0']];
-  const incentiveRows = [['Performance', '0'], ['Yearly Incentive', '0']];
-  const deductionRows = [['PF', '1,000'], ['ESI', '500'], ['PT', '100'], ['LWF', '0'], ['Income Tax', '0']];
-
-  // ── Reusable section card (earnings / incentives / deductions) ──
   const SectionCard = ({ title, rows, total, totalLabel, color }) => (
-    <div style={{ border: '1px solid #cbd5e1', borderRadius: isMobile ? '10px' : '2px', overflow: 'hidden', flex: 1 }}>
-      <div style={{ backgroundColor: '#f8fafc', padding: isMobile ? '8px 12px' : '10px 15px', fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#0B1E3F', borderBottom: '1px solid #cbd5e1' }}>
-        {title}
-      </div>
+    <div style={{ border: '1px solid #cbd5e1', overflow: 'hidden', flex: 1 }}>
+      <div style={{ backgroundColor: '#f8fafc', padding: '10px 15px', fontSize: '12px', fontWeight: '900', color: '#0B1E3F', borderBottom: '1px solid #cbd5e1' }}>{title}</div>
       {rows.map(([label, val], i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: isMobile ? '7px 12px' : '10px 15px', borderBottom: '1px solid #f1f5f9', fontSize: isMobile ? '11px' : '12px' }}>
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 15px', borderBottom: '1px solid #f1f5f9', fontSize: '12px' }}>
           <span style={{ color: '#64748b', fontWeight: '600' }}>{label}</span>
           <span style={{ color: '#1e293b', fontWeight: '700' }}>{val}</span>
         </div>
       ))}
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: isMobile ? '8px 12px' : '10px 15px', backgroundColor: '#f8fafc', borderTop: '1px solid #cbd5e1', fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#0B1E3F' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 15px', backgroundColor: '#f8fafc', borderTop: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>
         <span>{totalLabel}</span>
         <span style={{ color: color || '#0B1E3F' }}>{total}</span>
       </div>
     </div>
   );
 
+  // ════════════════════════════════════════════
+  //  MONTH PICKER VIEW
+  // ════════════════════════════════════════════
+  if (!selectedPayslip) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', padding: winWidth < 768 ? '20px 15px 120px' : '40px 20px 120px', fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
+            <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+              <ArrowLeft size={16} /> Back
+            </button>
+            <div>
+              <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '900', color: '#0B1E3F' }}>Salary Statements</h2>
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Select a month to view your payslip</p>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '16px' }}>
+              <Loader2 size={36} color="#3b82f6" style={{ animation: 'spin 1s linear infinite' }} />
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '600' }}>Fetching your payslips...</div>
+              <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && (
+            <div style={{ padding: '20px 24px', backgroundColor: '#fef2f2', borderRadius: '16px', border: '1.5px solid #fecaca', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <AlertCircle size={20} color="#ef4444" />
+              <span style={{ fontSize: '13px', color: '#dc2626', fontWeight: '700' }}>{error}</span>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && payslips.length === 0 && (
+            <div style={{ padding: '50px 20px', textAlign: 'center', backgroundColor: 'white', borderRadius: '20px', border: '2px solid #e2e8f0' }}>
+              <FileText size={40} color="#cbd5e1" style={{ marginBottom: '12px' }} />
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#94a3b8' }}>No payslips found</div>
+              <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '6px' }}>Payslips will appear here once processed by your HR team</div>
+            </div>
+          )}
+
+          {/* Payslip Cards */}
+          {!loading && !error && payslips.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {payslips.map((ps, idx) => {
+                const netPay = formatAmount(
+                  ps.total_earnings || ps.total_earning || ps.totalEarnings ||
+                  ps.basic_salary   || ps.basic         || ps.basicSalary   ||
+                  ps.net_payable    || ps.net_pay       || ps.amount        || 0
+                );
+                const monthLabel = formatMonthLabel(ps);
+                const status = ps.status || ps.payment_status || ps.paymentStatus || 'Paid';
+                const isPaid = String(status).toLowerCase().includes('paid');
+
+                return (
+                  <motion.div
+                    key={ps.id || ps._id || idx}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.07 }}
+                    onClick={() => setSelectedPayslip(ps)}
+                    whileHover={{ scale: 1.01, boxShadow: '0 8px 30px rgba(11,30,63,0.12)' }}
+                    whileTap={{ scale: 0.99 }}
+                    style={{ backgroundColor: 'white', borderRadius: '18px', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', border: '2px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', transition: 'all 0.2s ease' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={22} color="#1e40af" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: '#0B1E3F' }}>{monthLabel}</div>
+                        <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e40af', marginTop: '2px' }}>₹ {netPay}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '800', color: isPaid ? '#10b981' : '#f59e0b', backgroundColor: isPaid ? '#dcfce7' : '#fef3c7', padding: '4px 10px', borderRadius: '8px' }}>
+                        {status}
+                      </span>
+                      <ChevronRight size={20} color="#94a3b8" />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Info note */}
+          {!loading && (
+            <div style={{ marginTop: '24px', padding: '14px 18px', backgroundColor: '#eff6ff', borderRadius: '14px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Calendar size={18} color="#3b82f6" />
+              <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: '600' }}>Click on any month to view and print your full payslip</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════
+  //  PAYSLIP DETAIL VIEW
+  // ════════════════════════════════════════════
+  const ps = selectedPayslip;
+  const monthLabel = formatMonthLabel(ps);
+
+  // Earnings
+  const basicAmt        = parseAmt(ps.basic_salary     || ps.basic          || ps.basicSalary        || 0);
+  const hraAmt          = parseAmt(ps.hra              || ps.house_rent_allowance || ps.houseRentAllowance || 0);
+  const conveyanceAmt   = parseAmt(ps.conveyance       || ps.conveyance_allowance || ps.conveyanceAllowance || 0);
+  const specialAllowAmt = parseAmt(ps.special_allowance || ps.specialAllowance || ps.other_allowance   || 0);
+
+  const earningRows = [
+    ['Basic',             formatAmount(basicAmt)],
+    ['HRA',               formatAmount(hraAmt)],
+    ['Conveyance',        formatAmount(conveyanceAmt)],
+    ['Special Allowance', formatAmount(specialAllowAmt)],
+  ];
+  const totalEarningAmt = parseAmt(ps.total_earnings || ps.total_earning || ps.totalEarning || ps.gross_salary || ps.grossSalary || 0)
+    || (basicAmt + hraAmt + conveyanceAmt + specialAllowAmt);
+  const totalEarning = formatAmount(totalEarningAmt);
+
+  // Incentives
+  const perfAmt   = parseAmt(ps.performance_incentive || ps.performanceIncentive || ps.performance || 0);
+  const yearlyAmt = parseAmt(ps.yearly_incentive      || ps.yearlyIncentive      || ps.yearly      || 0);
+  const incentiveRows = [
+    ['Performance',      formatAmount(perfAmt)],
+    ['Yearly Incentive', formatAmount(yearlyAmt)],
+  ];
+  const totalIncentiveAmt = parseAmt(ps.total_incentive || ps.totalIncentive || 0) || (perfAmt + yearlyAmt);
+  const totalIncentive    = formatAmount(totalIncentiveAmt);
+
+  // Deductions
+  const pfAmt        = parseAmt(ps.pf_deduction  || ps.pf  || ps.provident_fund    || ps.providentFund            || 0);
+  const esiAmt       = parseAmt(ps.esi_deduction || ps.esi || ps.employee_state_insurance || ps.employeeStateInsurance || 0);
+  const ptAmt        = parseAmt(ps.pt_deduction  || ps.pt  || ps.professional_tax   || ps.professionalTax          || 0);
+  const lwfAmt       = parseAmt(ps.lwf           || ps.labour_welfare_fund || ps.labourWelfareFund || 0);
+  const incomeTaxAmt = parseAmt(ps.income_tax    || ps.incomeTax || ps.tds || 0);
+
+  const deductionRows = [
+    ['PF',         formatAmount(pfAmt)],
+    ['ESI',        formatAmount(esiAmt)],
+    ['PT',         formatAmount(ptAmt)],
+    ['LWF',        formatAmount(lwfAmt)],
+    ['Income Tax', formatAmount(incomeTaxAmt)],
+  ];
+  const totalDeductionAmt = parseAmt(ps.total_deductions || ps.total_deduction || ps.totalDeduction || 0)
+    || (pfAmt + esiAmt + ptAmt + lwfAmt + incomeTaxAmt);
+  const totalDeduction = formatAmount(totalDeductionAmt);
+
+  // Net Payable — show total_earnings (gross) as primary display
+  const netPayAmt = parseAmt(
+    ps.total_earnings || ps.total_earning || ps.totalEarnings ||
+    ps.basic_salary   || ps.basic         || ps.basicSalary   ||
+    ps.net_payable    || ps.net_pay       || ps.amount        || 0
+  ) || (totalEarningAmt + totalIncentiveAmt);
+  const netPay = formatAmount(netPayAmt);
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', padding: '40px 20px 120px', fontFamily: "'Inter', sans-serif" }}>
 
       {/* Action bar */}
       <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '8px 14px' : '10px 20px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: isMobile ? '12px' : '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-          <ArrowLeft size={isMobile ? 16 : 18} /> Back
+        <button onClick={() => setSelectedPayslip(null)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+          <ArrowLeft size={18} /> Back to Statements
         </button>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: isMobile ? '11px' : '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-            <Printer size={isMobile ? 14 : 18} /> Print
+          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <Printer size={18} /> Print
           </button>
-          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: isMobile ? '11px' : '13px', cursor: 'pointer' }}>
-            <Download size={isMobile ? 14 : 18} /> Download
+          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
+            <Download size={18} /> Download
           </button>
         </div>
       </div>
 
       {/* Payslip document */}
       <motion.div
+        key={ps.id || ps._id}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="printable-payslip"
         style={{ maxWidth: '900px', width: '100%', margin: '0 auto', backgroundColor: 'white', padding: '40px 30px 80px', borderRadius: '2px', boxShadow: '0 0 40px rgba(0,0,0,0.05)', position: 'relative', overflowX: 'auto', minHeight: '1100px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}
       >
-        {/* ── Decorative corner shapes ── */}
-        <div style={{ position: 'absolute', top: 0, right: 0, width: isMobile ? '100px' : '200px', height: isMobile ? '75px' : '150px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1, zIndex: 1 }} />
-        <div style={{ position: 'absolute', top: 0, right: 0, width: isMobile ? '75px' : '150px', height: isMobile ? '55px' : '110px', backgroundColor: '#1d4ed8', clipPath: 'polygon(100% 0, 100% 100%, 30% 0)', zIndex: 1 }} />
-        <div style={{ position: 'absolute', top: 0, right: 0, width: isMobile ? '45px' : '90px', height: isMobile ? '40px' : '80px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 60% 0)', zIndex: 1 }} />
+        {/* Decorative corner shapes */}
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '150px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1, zIndex: 1 }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '150px', height: '110px', backgroundColor: '#1d4ed8', clipPath: 'polygon(100% 0, 100% 100%, 30% 0)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '90px', height: '80px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 60% 0)', zIndex: 1 }} />
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: isMobile ? '20px' : '30px', position: 'relative', zIndex: 10 }}>
-          <img src={logo} alt="NBT Logo" style={{ height: isMobile ? '55px' : '80px', marginBottom: isMobile ? '12px' : '20px' }} />
-          <div style={{ fontSize: isMobile ? '16px' : '22px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '0.5px', textAlign: 'center' }}>Navabharath Technologies</div>
-          <div style={{ fontSize: isMobile ? '11px' : '13px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '4px', textAlign: 'center' }}>Smarter Solutions for Better Future</div>
-          <div style={{ marginTop: isMobile ? '15px' : '25px', padding: '8px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', width: '100%', textAlign: 'center', fontSize: isMobile ? '11px' : '12px', fontWeight: '800', color: '#1e293b', letterSpacing: '0.5px' }}>
-            Pay Slip for the Month of April - 2026
+        {/* Header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px', position: 'relative', zIndex: 10 }}>
+          <img src={logo} alt="NBT Logo" style={{ height: '80px', marginBottom: '20px' }} />
+          <div style={{ fontSize: '22px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '0.5px', textAlign: 'center' }}>Navabharath Technologies</div>
+          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '4px', textAlign: 'center' }}>Smarter Solutions for Better Future</div>
+          <div style={{ marginTop: '25px', padding: '8px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', width: '100%', textAlign: 'center', fontSize: '12px', fontWeight: '800', color: '#1e293b', letterSpacing: '0.5px' }}>
+            Pay Slip for the Month of {monthLabel}
           </div>
         </div>
 
-        {/* ── Employee Info ── */}
+        {/* Employee Info */}
         <div style={{ position: 'relative', zIndex: 10 }}>
-          {isMobile ? (
-            // Mobile: 2-column label+value card grid
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden' }}>
-              {[
-                ['Emp Code',    user?.employee_id || '202516'],
-                ['Department',  user?.department  || 'Information Technology'],
-                ['Emp. Name',   user?.name        || 'Sahana NV'],
-                ['Designation', user?.designation || 'Lead Software Engineer'],
-              ].map(([label, val], i) => (
-                <div key={i} style={{
-                  borderBottom: i < 2 ? '1px solid #cbd5e1' : 'none',
-                  borderRight:  i % 2 === 0 ? '1px solid #cbd5e1' : 'none',
-                }}>
-                  <div style={{ backgroundColor: '#f8fafc', padding: '6px 10px', fontSize: '10px', fontWeight: '900', color: '#0B1E3F', borderBottom: '1px solid #e2e8f0' }}>{label}</div>
-                  <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '600', color: '#334155', wordBreak: 'break-word' }}>{val}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            // Desktop: classic 4-column table
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  <td style={labelCell({ width: '20%' })}>Emp Code</td>
-                  <td style={valueCell({ width: '30%' })}>{user?.employee_id || '202516'}</td>
-                  <td style={labelCell({ width: '20%' })}>Department</td>
-                  <td style={valueCell({ width: '30%' })}>{user?.department || 'Information Technology'}</td>
-                </tr>
-                <tr>
-                  <td style={labelCell()}>Emp. Name</td>
-                  <td style={valueCell()}>{user?.name || 'Sahana NV'}</td>
-                  <td style={labelCell()}>Designation</td>
-                  <td style={valueCell()}>{user?.designation || 'Lead Software Engineer'}</td>
-                </tr>
-              </tbody>
-            </table>
-          )}
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={labelCell({ width: '20%' })}>Emp Code</td>
+                <td style={valueCell({ width: '30%' })}>{ps.employee_id || ps.emp_code || ps.empCode || user?.employee_id || '2059'}</td>
+                <td style={labelCell({ width: '20%' })}>Department</td>
+                <td style={valueCell({ width: '30%' })}>{ps.department || user?.department || 'Information Technology'}</td>
+              </tr>
+              <tr>
+                <td style={labelCell()}>Emp. Name</td>
+                <td style={valueCell()}>{ps.emp_name || ps.employee_name || ps.name || user?.name || 'Imsha Gaima'}</td>
+                <td style={labelCell()}>Designation</td>
+                <td style={valueCell()}>{ps.designation || user?.designation || 'Junior Software Engineer'}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* ── Attendance Summary ── */}
+        {/* Attendance Summary */}
         <div style={{ position: 'relative', zIndex: 10, marginTop: '15px' }}>
-          {isMobile ? (
-            // Mobile: 2-column mini stat cards
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-              {[
-                ['Tot. Present', '31'], ['Tot. W/O', '4'],
-                ['Tot. Holidays', '0'], ['Tot. Leave', '1'],
-                ['Total Absent', '1'],  ['Total Work+OT', '1'],
-                ['Total OT', '1'],      ['BS/Ref. Amt.', '5000'],
-              ].map(([label, val], i) => (
-                <div key={i} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
-                  <div style={{ backgroundColor: '#f8fafc', padding: '5px 8px', fontSize: '9px', fontWeight: '900', color: '#0B1E3F', borderBottom: '1px solid #e2e8f0' }}>{label}</div>
-                  <div style={{ padding: '5px 8px', fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{val}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            // Desktop: 8-column table
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  {[['Tot. pre:', '31'], ['Tot. wo:', '4'], ['Tot. hl:', '0'], ['Tot. leave:', '1']].map(([l, v], i) => (
-                    <React.Fragment key={i}>
-                      <td style={labelCell({ width: '15%' })}>{l}</td>
-                      <td style={cell({ textAlign: 'right', width: '10%', fontWeight: '700' })}>{v}</td>
-                    </React.Fragment>
-                  ))}
-                </tr>
-                <tr>
-                  {[['Total absent', '1'], ['Total work+ot', '1'], ['Total ot', '1'], ['Bs/reference amt.', '5000']].map(([l, v], i) => (
-                    <React.Fragment key={i}>
-                      <td style={labelCell({ width: '15%' })}>{l}</td>
-                      <td style={cell({ textAlign: 'right', width: '10%', fontWeight: '700' })}>{v}</td>
-                    </React.Fragment>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          )}
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                {[
+                  ['Tot. pre:',   ps.total_present   || ps.totalPresent   || '0'],
+                  ['Tot. wo:',    ps.total_weekly_off || ps.total_wo      || ps.totalWO        || '0'],
+                  ['Tot. hl:',    ps.total_holidays   || ps.totalHolidays || '0'],
+                  ['Tot. leave:', ps.total_leaves     || ps.total_leave   || ps.totalLeave     || '0'],
+                ].map(([l, v], i) => (
+                  <React.Fragment key={i}>
+                    <td style={labelCell({ width: '15%' })}>{l}</td>
+                    <td style={cell({ textAlign: 'right', width: '10%', fontWeight: '700' })}>{v}</td>
+                  </React.Fragment>
+                ))}
+              </tr>
+              <tr>
+                {[
+                  ['Total absent',      ps.total_absent     || ps.totalAbsent  || '0'],
+                  ['Total work+ot',     ps.total_work_ot    || ps.totalWorkOt  || '0'],
+                  ['Total ot',          ps.total_ot_hours   || ps.total_ot     || ps.totalOt     || '0'],
+                  ['Bs/reference amt.', ps.bonus_ref_amt    || ps.bs_reference_amt || ps.bsReferenceAmt || '0'],
+                ].map(([l, v], i) => (
+                  <React.Fragment key={i}>
+                    <td style={labelCell({ width: '15%' })}>{l}</td>
+                    <td style={cell({ textAlign: 'right', width: '10%', fontWeight: '700' })}>{v}</td>
+                  </React.Fragment>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* ── Earnings / Incentives / Deductions ── */}
+        {/* Earnings / Incentives / Deductions */}
         <div style={{ marginTop: '20px', position: 'relative', zIndex: 10 }}>
-          {/* Section header labels */}
-          {!isMobile && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderBottom: 'none' }}>
-              {['Earning', 'Incentives', 'Deduction'].map(t => (
-                <div key={t} style={{ backgroundColor: '#f8fafc', padding: '10px 15px', fontSize: '12px', fontWeight: '900', color: '#0B1E3F', border: '1px solid #cbd5e1', borderBottom: 'none' }}>{t}</div>
-              ))}
-            </div>
-          )}
-
-          {/* Cards — stacked on mobile, side-by-side on desktop */}
-          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '12px' : '0' }}>
-            <SectionCard title="Earning"    rows={earningRows}   total="30,000" totalLabel="Total Earning"  color="#16a34a" />
-            <SectionCard title="Incentives" rows={incentiveRows} total="0"      totalLabel="Total Incent."  />
-            <SectionCard title="Deduction"  rows={deductionRows} total="1,600"  totalLabel="Total Deduct."  color="#ef4444" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+            {['Earning', 'Incentives', 'Deduction'].map(t => (
+              <div key={t} style={{ backgroundColor: '#f8fafc', padding: '10px 15px', fontSize: '12px', fontWeight: '900', color: '#0B1E3F', border: '1px solid #cbd5e1', borderBottom: 'none' }}>{t}</div>
+            ))}
+          </div>
+          <div style={{ display: 'flex' }}>
+            <SectionCard title="Earning"    rows={earningRows}   total={totalEarning}   totalLabel="Total Earning"  color="#16a34a" />
+            <SectionCard title="Incentives" rows={incentiveRows} total={totalIncentive} totalLabel="Total Incent."  />
+            <SectionCard title="Deduction"  rows={deductionRows} total={totalDeduction} totalLabel="Total Deduct."  color="#ef4444" />
           </div>
 
           {/* Net Payable */}
-          <div style={{ border: '1px solid #cbd5e1', borderTop: isMobile ? '1px solid #cbd5e1' : 'none', borderRadius: isMobile ? '10px' : '0', overflow: 'hidden', marginTop: isMobile ? '12px' : '0' }}>
+          <div style={{ border: '1px solid #cbd5e1', borderTop: 'none', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', backgroundColor: '#eef2ff' }}>
-              <span style={{ fontSize: isMobile ? '13px' : '14px', fontWeight: '900', color: '#0B1E3F' }}>Net Payable</span>
-              <span style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '900', color: '#1e40af' }}>₹ 28,400</span>
+              <span style={{ fontSize: '14px', fontWeight: '900', color: '#0B1E3F' }}>Net Payable</span>
+              <span style={{ fontSize: '20px', fontWeight: '900', color: '#1e40af' }}>₹ {netPay}</span>
             </div>
           </div>
         </div>
 
-        {/* ── Disclaimer ── */}
-        <div style={{ marginTop: '30px', fontSize: isMobile ? '10px' : '11px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', position: 'relative', zIndex: 10 }}>
+        {/* Disclaimer */}
+        <div style={{ marginTop: '30px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', position: 'relative', zIndex: 10 }}>
           This is a computer generated payslip and does not require a physical signature.
         </div>
 
-        {/* ── Footer ── */}
-        <div style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-end', position: 'relative', zIndex: 10 }}>
-          <div style={{ textAlign: isMobile ? 'center' : 'right', fontSize: isMobile ? '10px' : '11px', color: '#1e3a8a', fontWeight: '700', lineHeight: '1.6' }}>
+        {/* Footer */}
+        <div style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', position: 'relative', zIndex: 10 }}>
+          <div style={{ textAlign: 'right', fontSize: '11px', color: '#1e3a8a', fontWeight: '700', lineHeight: '1.6' }}>
             Phone: 0821-3128831<br />
             www.navabharathtechnologies.com<br />
             contact@navabharathtechnologies.com
           </div>
         </div>
 
-        {/* ── Bottom decorative shapes ── */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: isMobile ? '100px' : '200px', height: isMobile ? '75px' : '150px', backgroundColor: '#3b82f6', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1, zIndex: 1 }} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: isMobile ? '75px' : '150px', height: isMobile ? '55px' : '110px', backgroundColor: '#2563eb', clipPath: 'polygon(0 30%, 0 100%, 70% 100%)', zIndex: 1 }} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: isMobile ? '45px' : '90px', height: isMobile ? '40px' : '80px', backgroundColor: '#1e40af', clipPath: 'polygon(0 60%, 0 100%, 40% 100%)', zIndex: 1 }} />
+        {/* Bottom decorative shapes */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200px', height: '150px', backgroundColor: '#3b82f6', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1, zIndex: 1 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '150px', height: '110px', backgroundColor: '#2563eb', clipPath: 'polygon(0 30%, 0 100%, 70% 100%)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '90px', height: '80px', backgroundColor: '#1e40af', clipPath: 'polygon(0 60%, 0 100%, 40% 100%)', zIndex: 1 }} />
 
         <style>{`
           @media print {

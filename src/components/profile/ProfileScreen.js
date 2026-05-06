@@ -208,7 +208,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       padding: window.innerWidth < 768 ? '20px 15px 120px' : '30px 40px 120px',
     },
     banner: {
-      height: winWidth < 768 ? '200px' : '180px',
+      height: winWidth < 768 ? '155px' : '150px',
       backgroundColor: '#10274A',
       borderRadius: '20px 20px 0 0',
       position: 'relative',
@@ -231,16 +231,17 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       backgroundColor: 'white',
       borderRadius: '0 0 25px 25px',
       boxShadow: '0 15px 35px rgba(0,0,0,0.06)',
-      padding: winWidth < 768 ? '0 20px 20px' : '0 30px 10px',
+      padding: winWidth < 768 ? '0 20px 15px' : '0 30px 10px',
       position: 'relative',
       marginTop: '-1px'
     },
     headerRow: {
       display: 'flex',
       flexDirection: winWidth < 768 ? 'column' : 'row',
-      alignItems: winWidth < 768 ? 'center' : 'flex-end',
-      marginTop: winWidth < 768 ? '-55px' : '-45px',
-      paddingBottom: winWidth < 768 ? '20px' : '15px',
+      alignItems: winWidth < 768 ? 'center' : 'center', // Changed from flex-end for better vertical alignment
+      marginTop: winWidth < 768 ? '-45px' : '-55px', // Slightly reduced overlap for more top space
+      paddingBottom: winWidth < 768 ? '25px' : '35px', // Balanced with top gap
+      paddingTop: winWidth < 768 ? '15px' : '25px',
       borderBottom: '1px solid #f1f5f9',
       gap: winWidth < 1024 ? '15px' : '30px',
       textAlign: winWidth < 768 ? 'center' : 'left',
@@ -249,7 +250,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     avatarContainer: {
       position: 'relative',
       zIndex: 5,
-      marginBottom: winWidth < 768 ? '10px' : '0'
+      marginBottom: '0',
+      marginTop: '10px' // Added small top offset for breathing room
     },
     avatar: {
       width: winWidth < 768 ? '110px' : '130px',
@@ -625,7 +627,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         </div>
 
         <div style={styles.infoGrid}>
-          <div style={styles.infoCard}>
+          <div style={{ ...styles.infoCard, backgroundColor: '#ebf2f9', border: '2px solid #cbd5e1' }}>
             <div style={styles.iconCircle}><Users size={18} color="#3863a8" /></div>
             <div>
               <div style={styles.managerLabel}>Team</div>
@@ -633,7 +635,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             </div>
           </div>
 
-          <div style={styles.infoCard}>
+          <div style={{ ...styles.infoCard, backgroundColor: '#ebf2f9', border: '2px solid #cbd5e1' }}>
             <div style={styles.iconCircle}><Mail size={18} color="#3863a8" /></div>
             <div>
               <div style={styles.managerLabel}>Email address</div>
@@ -641,7 +643,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             </div>
           </div>
 
-          <div style={styles.infoCard}>
+          <div style={{ ...styles.infoCard, backgroundColor: '#ebf2f9', border: '2px solid #cbd5e1' }}>
             <div style={styles.iconCircle}><Calendar size={18} color="#3863a8" /></div>
             <div>
               <div style={styles.managerLabel}>Date of joining</div>
@@ -705,7 +707,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         </div>
 
         <div style={styles.infoGrid}>
-          <div style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#e2e8f0', backgroundColor: '#ffffff' }} onClick={() => setShowPasswordModal(true)}>
+          <div style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }} onClick={() => setShowPasswordModal(true)}>
             <div style={{ ...styles.iconCircle, backgroundColor: '#f1f5f9' }}><Shield size={18} color="#0B1E3F" /></div>
             <div>
               <div style={{ ...styles.managerLabel, color: '#64748b' }}>Security settings</div>
@@ -713,7 +715,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             </div>
           </div>
 
-          <div style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#e2e8f0', backgroundColor: '#ffffff' }} onClick={() => onNavigate?.('TICKET')}>
+          <div style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }} onClick={() => onNavigate?.('TICKET')}>
             <div style={{ ...styles.iconCircle, backgroundColor: '#f1f5f9' }}><AlertCircle size={18} color="#0B1E3F" /></div>
             <div>
               <div style={{ ...styles.managerLabel, color: '#64748b' }}>Help & support</div>

@@ -287,89 +287,83 @@ const ServiceCertificateScreen = ({ onBack }) => {
 
         {/* Form Section */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={s.card}>
-            <div style={s.sectionTitle}><FileBadge size={22} color="#10274A" /> Service Certificate Application</div>
+          {/* Service Certificate Application Card - ONLY show if assets are submitted (or view-only mode) */}
+          {(hasSubmittedAssets || !isOwnProfile) && (
+            <div style={{ ...s.card, order: hasSubmittedAssets ? 1 : 2 }}>
+              <div style={s.sectionTitle}><FileBadge size={22} color="#10274A" /> Service Certificate Application</div>
 
-            {!isOwnProfile ? (
-              <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '15px', border: '1.5px solid #e2e8f0' }}>
-                <Shield size={32} color="#64748b" style={{ marginBottom: '10px' }} />
-                <div style={{ fontSize: '14px', fontWeight: '800', color: '#10274A' }}>VIEW ONLY MODE</div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>Team Leaders can only view request history for their members.</div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: '25px' }}>
-                  <label style={s.label}>Purpose of Request</label>
-                  <select
-                    style={s.select}
-                    value={purpose}
-                    onChange={(e) => setPurpose(e.target.value)}
-                    required
-                  >
-                    <option value="">Select Purpose</option>
-                    <option value="Higher Education">Higher Education</option>
-                    <option value="Bank Loan / Financial">Bank Loan / Financial</option>
-                    <option value="Visa / Immigration">Visa / Immigration</option>
-                    <option value="Job Change">Internal Movement / Job Change</option>
-                    <option value="Other">Other (Specify below)</option>
-                  </select>
+              {!isOwnProfile ? (
+                <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '15px', border: '1.5px solid #e2e8f0' }}>
+                  <Shield size={32} color="#64748b" style={{ marginBottom: '10px' }} />
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#10274A' }}>VIEW ONLY MODE</div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>Team Leaders can only view request history for their members.</div>
                 </div>
-
-                {purpose === 'Other' && (
+              ) : (
+                <form onSubmit={handleSubmit}>
                   <div style={{ marginBottom: '25px' }}>
-                    <label style={s.label}>Specify Reason</label>
-                    <textarea
-                      style={s.textarea}
-                      placeholder="Describe why you need the certificate..."
-                      value={otherPurpose}
-                      onChange={(e) => setOtherPurpose(e.target.value)}
+                    <label style={s.label}>Purpose of Request</label>
+                    <select
+                      style={s.select}
+                      value={purpose}
+                      onChange={(e) => setPurpose(e.target.value)}
                       required
-                    />
+                    >
+                      <option value="">Select Purpose</option>
+                      <option value="Higher Education">Higher Education</option>
+                      <option value="Bank Loan / Financial">Bank Loan / Financial</option>
+                      <option value="Visa / Immigration">Visa / Immigration</option>
+                      <option value="Job Change">Internal Movement / Job Change</option>
+                      <option value="Other">Other (Specify below)</option>
+                    </select>
                   </div>
-                )}
 
-                {/* Dynamic Employee Info (Read-only) */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px', marginBottom: '25px', padding: '20px', backgroundColor: '#f8fafc', borderRadius: '20px' }}>
-                  <div>
-                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Position</div>
-                    <div style={{ fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: '#1e293b' }}>{profileData.designation}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Employee ID</div>
-                    <div style={{ fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: '#1e293b' }}>{profileData.empId}</div>
-                  </div>
-                </div>
+                  {purpose === 'Other' && (
+                    <div style={{ marginBottom: '25px' }}>
+                      <label style={s.label}>Specify Reason</label>
+                      <textarea
+                        style={s.textarea}
+                        placeholder="Describe why you need the certificate..."
+                        value={otherPurpose}
+                        onChange={(e) => setOtherPurpose(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
 
-                <motion.button
-                  whileHover={hasSubmittedAssets ? { scale: 1.02 } : {}}
-                  whileTap={hasSubmittedAssets ? { scale: 0.98 } : {}}
-                  style={{
-                    ...s.submitBtn,
-                    opacity: (isSubmitting || !hasSubmittedAssets) ? 0.6 : 1,
-                    cursor: hasSubmittedAssets ? 'pointer' : 'not-allowed',
-                    backgroundColor: hasSubmittedAssets ? '#10274A' : '#94a3b8'
-                  }}
-                  disabled={isSubmitting || !hasSubmittedAssets}
-                >
-                  {isSubmitting ? <Clock className="animate-spin" size={20} /> : (hasSubmittedAssets ? <Send size={20} /> : <ShieldCheck size={20} />)}
-                  {isSubmitting ? 'Processing Request...' : (hasSubmittedAssets ? 'Submit Application' : 'Declare Assets to Unlock')}
-                </motion.button>
-
-                {!hasSubmittedAssets && (
-                  <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <AlertCircle size={16} color="#b45309" />
-                    <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '700' }}>
-                      Asset declaration is mandatory before applying for a service certificate.
-                    </span>
+                  {/* Dynamic Employee Info (Read-only) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px', marginBottom: '25px', padding: '20px', backgroundColor: '#f8fafc', borderRadius: '20px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Position</div>
+                      <div style={{ fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: '#1e293b' }}>{profileData.designation}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Employee ID</div>
+                      <div style={{ fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: '#1e293b' }}>{profileData.empId}</div>
+                    </div>
                   </div>
-                )}
-              </form>
-            )}
-          </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      ...s.submitBtn,
+                      opacity: isSubmitting ? 0.6 : 1,
+                      cursor: 'pointer',
+                      backgroundColor: '#10274A'
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? <Clock className="animate-spin" size={20} /> : <Send size={20} />}
+                    {isSubmitting ? 'Processing Request...' : 'Submit Application'}
+                  </motion.button>
+                </form>
+              )}
+            </div>
+          )}
 
           {/* Asset Submission Card */}
           {(isOwnProfile || hasSubmittedAssets) && (
-            <div style={s.card}>
+            <div style={{ ...s.card, order: hasSubmittedAssets ? 2 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div style={{ ...s.sectionTitle, color: '#6366f1', marginBottom: 0 }}>
                   <Briefcase size={22} color="#6366f1" /> Professional Asset Declaration

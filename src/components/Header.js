@@ -36,8 +36,8 @@ const Header = ({ setActiveTab, isNewJoinee }) => {
                 onClick={() => setActiveTab('HOME')}
                 style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '5px' : '15px', cursor: 'pointer', flexShrink: 0 }}
             >
-                <img src={logo} alt="Logo" style={{ height: winWidth < 768 ? '45px' : '70px', width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))', objectFit: 'contain' }} />
-                <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '14px' : '26px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '-1px', whiteSpace: 'nowrap' }}>NBT HUB</h1>
+                <img src={logo} alt="Logo" style={{ height: winWidth < 768 ? '55px' : '95px', width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))', objectFit: 'contain' }} />
+                <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '12px' : '20px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '-1px', whiteSpace: 'nowrap' }}>NBT HUB</h1>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '8px' : '20px', minWidth: 0 }}>

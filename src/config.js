@@ -109,5 +109,6 @@ export const API_ENDPOINTS = {
   ASSETS: `${BASE_URL}/api/assets`,
   MY_ASSETS: (id) => `${BASE_URL}/api/my-assets?employee_id=${String(id || '').split(':')[0]}`,
   USER_SEARCH: (query) => `${BASE_URL}/api/users/search?query=${query}`,
-  SUGGESTIONS: `${BASE_URL}/api/suggestions`
+  SUGGESTIONS: `${BASE_URL}/api/suggestions`,
+  MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my`
 };

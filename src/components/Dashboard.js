@@ -469,14 +469,45 @@ const Dashboard = ({ setActiveTab }) => {
         setTodayTasks(parseTasks(finalTodayRec.tasks || finalTodayRec.task_list || finalTodayRec.content));
         setTodayStatus(finalTodayRec.overallStatus || finalTodayRec.status || 'Pending');
       }
-      // Forcing 100% completion for all office employees as requested
-      setYesterdayCompletion(100);
-      setYesterdayStatus('Completed');
-      localStorage.setItem(`yesterday_completion_${user.id}`, '100');
 
+      // Calculate Yesterday's Completion Dynamically (Based on Assigned Tasks + Log Status)
       if (finalYestRec) {
         const yestTasks = parseTasks(finalYestRec.tasks || finalYestRec.task_list || finalYestRec.content);
         setYesterdayTasks(yestTasks);
+        
+        const yStatus = finalYestRec.overallStatus || finalYestRec.status || 'Pending';
+        setYesterdayStatus(yStatus);
+        
+        let percentage = 0;
+        if (yStatus === 'Completed') {
+          percentage = 100;
+        } else {
+          // Calculate based on the actual progress of assigned projects
+          // This ensures the % is tied to the "tasks which we have assigned"
+          const currentProjects = individualProjects.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name)));
+          
+          if (currentProjects.length > 0) {
+            const totalProg = currentProjects.reduce((acc, p) => {
+              // Try to get real-time progress from the sprint map or the task itself
+              const pName = p.projectName || p.project_name || p.task_name;
+              const pProg = sprintProgressMap[pName] || p.progress_percentage || p.progressPercentage || p.progress || 0;
+              return acc + Number(pProg);
+            }, 0);
+            percentage = Math.round(totalProg / currentProjects.length);
+          } else {
+            // Default mappings if no specific project progress is available
+            percentage = (yStatus === 'In Progress') ? 70 : 30;
+          }
+        }
+        
+        // Final sanity check: if status is In Progress, don't show 100
+        if (yStatus !== 'Completed' && percentage >= 100) percentage = 95;
+
+        setYesterdayCompletion(percentage);
+        localStorage.setItem(`yesterday_completion_${user.id}`, String(percentage));
+      } else {
+        setYesterdayCompletion(0);
+        setYesterdayStatus('No Data');
       }
 
     } catch (err) {
@@ -712,20 +743,10 @@ const Dashboard = ({ setActiveTab }) => {
                   <div style={s.yesterdayLabel}>
                     <CheckCircle2 size={20} color="#16a34a" /> Yesterday
                   </div>
-                  {todayTasks.length > 0 ? (
-                    todayTasks.map((t, ii) => (
-                      <div key={ii} style={s.taskItem}>
-                        <CheckCircle2 size={14} color="#16a34a" />
-                        <span style={s.yesterdayText}>{typeof t === 'string' ? t : t.text}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={s.taskItem}>
-                      <CheckCircle2 size={14} color="#16a34a" />
-                      <span style={s.yesterdayText}>No tasks reported today yet.</span>
-                    </div>
-                  )}
-                  <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a' }}>Active</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {/* Task list removed from card summary per request */}
+                  </div>
+                  <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a' }}>{yesterdayStatus}</div>
                 </div>
 
                 <div style={s.todayBox}>
@@ -747,9 +768,10 @@ const Dashboard = ({ setActiveTab }) => {
 
                   {!isEditing ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                       {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
                        {todayTasks.length > 0 ? (
                          todayTasks.map((t, i) => (
-                           <div key={i} style={{ ...s.taskItem, background: '#f8fafc', padding: '10px 15px', borderRadius: '12px', marginBottom: '5px' }}>
+                           <div key={i} style={s.taskItem}>
                              <CheckCircle2 size={14} color="#3b82f6" />
                              <span>{typeof t === 'string' ? t : t.text}</span>
                            </div>
@@ -759,7 +781,7 @@ const Dashboard = ({ setActiveTab }) => {
                        )}
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px' }}>
                            <div style={{...s.statusBadge, marginTop: 0 }}>{todayStatus}</div>
-                           <div style={s.liveBadge}>Live</div>
+                           <div style={s.liveBadge}>Live Updates</div>
                        </div>
                     </div>
                   ) : (
