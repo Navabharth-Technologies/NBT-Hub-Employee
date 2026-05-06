@@ -142,7 +142,7 @@ export const AuthProvider = ({ children }) => {
                (sanitizedEmail === 'chandu@gmail.com');
       });
 
-      const isSandboxPassword = (sanitizedPassword === 'nbt123' || sanitizedPassword === 'nbt@123' || sanitizedPassword === 'nbthub@123' || sanitizedEmail === 'chandu@gmail.com');
+      const isSandboxPassword = (sanitizedPassword === 'nbt123' || sanitizedPassword === 'nbt@123' || sanitizedPassword === 'nbthub@123' || sanitizedPassword === '12345678' || sanitizedEmail === 'chandu@gmail.com');
       
       if (matchedJoinee && isSandboxPassword) {
         console.log('[Sandbox Check] BYPASS GRANTED for Joinee:', matchedJoinee);

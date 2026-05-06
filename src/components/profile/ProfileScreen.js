@@ -162,12 +162,12 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       const payload = {
         email: user?.email,
         id: user?.id || user?.employee_id || user?.empId,
-        password: passData.old,           // Common legacy key
-        currentPassword: passData.old,    // Standard camelCase
-        current_password: passData.old,   // Standard snake_case
-        oldPassword: passData.old,        // Alternative
-        newPassword: passData.new,        // Standard camelCase
-        new_password: passData.new        // Standard snake_case
+        password: passData.new,           // Primary field for many backends
+        currentPassword: passData.old,    
+        current_password: passData.old,   
+        oldPassword: passData.old,        
+        newPassword: passData.new,        
+        new_password: passData.new        
       };
 
       const res = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
