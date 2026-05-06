@@ -208,16 +208,14 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       padding: window.innerWidth < 768 ? '20px 15px 120px' : '30px 40px 120px',
     },
     banner: {
-      height: winWidth < 768 ? '180px' : '160px',
+      height: winWidth < 768 ? '200px' : '180px',
       backgroundColor: '#10274A',
       borderRadius: '20px 20px 0 0',
       position: 'relative',
       overflow: 'hidden',
       display: 'flex',
-      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'flex-start',
-      paddingTop: winWidth < 768 ? '45px' : '50px'
+      justifyContent: 'center'
     },
     bannerText: {
       color: 'rgba(255,255,255,0.85)',
@@ -242,16 +240,16 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       flexDirection: winWidth < 768 ? 'column' : 'row',
       alignItems: winWidth < 768 ? 'center' : 'flex-end',
       marginTop: winWidth < 768 ? '-55px' : '-45px',
-      paddingBottom: '10px',
+      paddingBottom: winWidth < 768 ? '20px' : '15px',
       borderBottom: '1px solid #f1f5f9',
-      gap: winWidth < 1024 ? '8px' : '30px',
+      gap: winWidth < 1024 ? '15px' : '30px',
       textAlign: winWidth < 768 ? 'center' : 'left',
       flexWrap: 'wrap'
     },
     avatarContainer: {
       position: 'relative',
       zIndex: 5,
-      marginBottom: '0px'
+      marginBottom: winWidth < 768 ? '10px' : '0'
     },
     avatar: {
       width: winWidth < 768 ? '110px' : '130px',
