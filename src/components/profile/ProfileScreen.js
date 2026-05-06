@@ -219,7 +219,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     },
     bannerText: {
       color: 'rgba(255,255,255,0.85)',
-      fontSize: winWidth < 768 ? '14px' : '18px',
+      fontSize: winWidth < 768 ? '22px' : '32px',
       fontWeight: '800',
       letterSpacing: '0.3px',
       textAlign: 'center',
