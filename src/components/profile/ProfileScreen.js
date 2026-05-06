@@ -239,7 +239,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       display: 'flex',
       flexDirection: winWidth < 768 ? 'column' : 'row',
       alignItems: winWidth < 768 ? 'center' : 'flex-end',
-      marginTop: winWidth < 768 ? '-45px' : '-35px',
+      marginTop: winWidth < 768 ? '-25px' : '-35px',
       paddingBottom: '15px',
       borderBottom: '1px solid #f1f5f9',
       gap: winWidth < 1024 ? '15px' : '30px',
@@ -249,7 +249,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     avatarContainer: {
       position: 'relative',
       zIndex: 5,
-      marginBottom: winWidth < 768 ? '10px' : '0'
+      marginBottom: winWidth < 768 ? '-5px' : '0'
     },
     avatar: {
       width: winWidth < 768 ? '110px' : '130px',

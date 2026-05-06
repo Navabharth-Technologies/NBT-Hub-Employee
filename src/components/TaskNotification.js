@@ -38,6 +38,8 @@ const TaskNotification = ({ onOpenTask }) => {
 
     try {
       const token = localStorage.getItem('token');
+      if (token === 'joinee-sandbox-secure-nbt') return; // Silence 401s in sandbox mode
+      
       const headers = { 'Authorization': `Bearer ${token?.trim()}` };
 
       // 1. Fetch Assigned Tasks
