@@ -38,7 +38,9 @@ function App() {
   const [activeTab, setActiveTab] = useState('HOME');
   const [activeTabState, setActiveTabState] = useState(null);
   const [isNewJoinee, setIsNewJoinee] = useState(false);
+  const [isNavVisible, setIsNavVisible] = useState(true);
   const scrollRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
 
   React.useEffect(() => {
     const checkJoineeStatus = async () => {
@@ -73,20 +75,21 @@ function App() {
     checkJoineeStatus();
   }, [user]);
 
-  const [isNavVisible, setIsNavVisible] = useState(false);
-  const scrollTimeoutRef = useRef(null);
+  const showNav = () => {
+    setIsNavVisible(true);
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+  };
+
+  const hideNavTemporarily = () => {
+    setIsNavVisible(false);
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsNavVisible(true);
+    }, 3000);
+  };
 
   const handleScroll = () => {
-    // Show nav on scroll
-    setIsNavVisible(true);
-
-    // Clear existing timeout
-    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-
-    // Hide nav after 3 seconds of no scrolling
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsNavVisible(false);
-    }, 3000);
+    showNav();
   };
 
   useEffect(() => {
@@ -140,7 +143,7 @@ function App() {
 
   return (
     <ThreadProvider>
-      <div className="App" style={{ overflowX: 'hidden' }}>
+      <div className="App" style={{ overflowX: 'hidden' }} onClick={hideNavTemporarily}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
         <main ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto" }}>
           {renderTab()}

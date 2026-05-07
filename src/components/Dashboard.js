@@ -671,7 +671,7 @@ const Dashboard = ({ setActiveTab }) => {
             <Calendar size={20} color="#3B5998" /> Attendance Tracking
           </div>
           <div 
-            onClick={() => setActiveTab('ATTENDANCE')}
+            onClick={(e) => { e.stopPropagation(); setActiveTab('ATTENDANCE'); }}
             style={{ 
               padding: '30px', 
               backgroundColor: '#eff6ff', 
@@ -707,7 +707,7 @@ const Dashboard = ({ setActiveTab }) => {
               
               <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '35px' }}>
                 <div 
-                  onClick={() => setActiveTab('PROJECTS', { view: 'INDIVIDUAL' })}
+                  onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'INDIVIDUAL' }); }}
                   style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#3B5998', borderRadius: '35px', border: '1.5px solid #3B5998', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 15px 30px rgba(59, 89, 152, 0.15)' }}
                 >
                   <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: winWidth < 768 ? '10px' : '15px', borderRadius: '50%' }}>
@@ -721,7 +721,7 @@ const Dashboard = ({ setActiveTab }) => {
                 </div>
  
                 <div 
-                  onClick={() => setActiveTab('PROJECTS', { view: 'TEAM' })}
+                  onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'TEAM' }); }}
                   style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#f8fafc', borderRadius: '35px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
                   <div style={{ backgroundColor: '#eff6ff', padding: '15px', borderRadius: '50%' }}>
@@ -737,7 +737,7 @@ const Dashboard = ({ setActiveTab }) => {
 
               <div style={s.taskGrid}>
                 <div 
-                  onClick={() => setActiveTab('FOCUS_LOGS')}
+                  onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
                   style={{ ...s.yesterdayBox, cursor: 'pointer' }}
                 >
                   <div style={s.yesterdayLabel}>
@@ -749,7 +749,7 @@ const Dashboard = ({ setActiveTab }) => {
                   <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a' }}>{yesterdayStatus}</div>
                 </div>
 
-                <div style={s.todayBox}>
+                <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
                   <div style={s.todayHeader}>
                     <div style={s.todayLabel}>
                       <TrendingUp size={20} color="#1E40AF" /> Today
@@ -834,7 +834,7 @@ const Dashboard = ({ setActiveTab }) => {
             </motion.div>
           </div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} style={{ ...s.statsCard, minHeight: 'fit-content', padding: '30px', borderRadius: winWidth < 768 ? '25px' : '45px' }}>
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} style={{ ...s.statsCard, minHeight: 'fit-content', padding: '30px', borderRadius: winWidth < 768 ? '25px' : '45px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F', textAlign: 'center', letterSpacing: '0.5px', marginBottom: '24px' }}>Yesterday's<br />completion</div>
             <div style={{ width: '130px', height: '130px', borderRadius: '50%', background: `radial-gradient(closest-side, white 79%, transparent 80% 100%), conic-gradient(#0B1E3F ${yesterdayCompletion}%, #f1f5f9 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
               <span style={{ fontSize: '24px', fontWeight: '900', color: '#1e293b' }}>{yesterdayCompletion}%</span>
@@ -846,7 +846,7 @@ const Dashboard = ({ setActiveTab }) => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: '32px', marginTop: '32px' }}>
-          <div style={{ ...s.mainCard, display: 'flex', flexDirection: 'column', minHeight: 'auto' }}>
+          <div style={{ ...s.mainCard, display: 'flex', flexDirection: 'column', minHeight: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
               <div style={{ fontSize: '20px', fontWeight: '800', color: '#e11d48', display: 'flex', alignItems: 'center', gap: '10px' }}><Gift size={24} /> Birthdays</div>
               <div style={{ fontSize: '10px', fontWeight: '800', color: '#fb7185' }}>Celebrations</div>
@@ -874,7 +874,7 @@ const Dashboard = ({ setActiveTab }) => {
             <button onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('BIRTHDAYS'); }} style={{ marginTop: '20px', padding: '12px', width: '100%', borderRadius: '15px', border: '1.5px solid #ffe4e6', backgroundColor: 'transparent', color: '#e11d48', fontSize: '11px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s', display: 'block' }}>More celebrations</button>
           </div>
 
-          <div style={{ ...s.mainCard, display: 'flex', flexDirection: 'column', minHeight: 'auto' }}>
+          <div style={{ ...s.mainCard, display: 'flex', flexDirection: 'column', minHeight: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
               <div style={{ fontSize: '20px', fontWeight: '800', color: '#d97706', display: 'flex', alignItems: 'center', gap: '10px' }}><Calendar size={24} /> Holidays</div>
               <div style={{ fontSize: '10px', fontWeight: '800', color: '#fbbf24' }}>Public calendar</div>
@@ -897,7 +897,7 @@ const Dashboard = ({ setActiveTab }) => {
 
         {/* Team Suggestions */}
         {suggestions.length > 0 && (
-          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{ fontSize: '16px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileText size={24} color="#f59e0b" /> Team Suggestions
