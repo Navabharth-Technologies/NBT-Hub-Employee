@@ -7,19 +7,22 @@ const AuthContext = createContext();
 export const safeSetItem = (key, value) => {
     let finalValue = value;
     
-    // Aggressive pruning: If storing 'user', keep only the core IDs and names
-    if (key === 'user' && value.length > 100000) { 
+    // Aggressive pruning: Only prune if reaching the absolute limits of localStorage (~5MB)
+    if (key === 'user' && value.length > 5000000) { 
         try {
             const u = JSON.parse(value);
+            // Keep critical identity AND visual data
             const pruned = { 
                 id: u.id || u.employee_id || u.userId, 
                 employee_id: u.employee_id || u.id,
                 name: u.name || u.employee_name, 
                 email: u.email, 
-                role: u.role 
+                role: u.role,
+                profileImage: u.profileImage || u.profile_image,
+                pan_card_copy: u.pan_card_copy,
+                aadhar_card_copy: u.aadhar_card_copy
             };
             finalValue = JSON.stringify(pruned);
-            // console.log('[Storage] High-limit detected. Aggressively pruned user profile.');
         } catch (e) {}
     }
 
@@ -44,8 +47,22 @@ export const safeGetItem = (key) => {
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  // ✅ Lazy initialization: read persisted user directly from localStorage on first render
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Security: block admin/HR sessions on the employee portal
+      const role = String(parsed?.role || '').toUpperCase();
+      if (role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER')) {
+        return null;
+      }
+      return parsed;
+    } catch { return null; }
+  });
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
     const savedUser = safeGetItem('user');
@@ -62,16 +79,27 @@ export const AuthProvider = ({ children }) => {
 
       setUser(u);
       
-      // Fix: Use correct profile endpoint and avoid brittle string replacement
+      // FIX: Master Copy Synchronization
+      // We load from LocalStorage first, then fetch from server.
+      // If server returns empty fields for things we have locally (like Base64 images), we preserve the local ones.
       fetch(API_ENDPOINTS.PROFILE(u.email), {
         headers: { 'Authorization': `Bearer ${token.trim()}` }
       })
         .then(r => r.ok ? r.json() : null)
         .then(data => {
             if (data) {
-                const fullUser = { ...u, ...data };
-                setUser(fullUser);
-                safeSetItem('user', JSON.stringify(fullUser));
+                // Strategic Merge: Preserve local visual data if server is null/broken
+                const mergedUser = { ...u };
+                Object.keys(data).forEach(key => {
+                    const serverVal = data[key];
+                    // Only overwrite if server has a non-null, non-empty value
+                    if (serverVal !== null && serverVal !== '' && serverVal !== 'null') {
+                        mergedUser[key] = serverVal;
+                    }
+                });
+                
+                setUser(mergedUser);
+                safeSetItem('user', JSON.stringify(mergedUser));
             }
         }).catch(err => console.error("Profile Sync error:", err));
     }
@@ -187,7 +215,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = safeGetItem('token');
       const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
-        method: 'PUT',
+        method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -197,18 +225,80 @@ export const AuthProvider = ({ children }) => {
       if (res.ok) {
         const updatedUser = { ...user, [field]: value };
         setUser(updatedUser);
-        safeSetItem('user', JSON.stringify(updatedUser));
+        // Sync with localStorage so it persists on reload
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return { success: true };
+      }
+      
+      // If 400 (Bad Request), it's likely a payload size issue. Fallback to local-only sync to prevent "vanishing".
+      if (res.status === 400) {
+        console.warn("[AuthContext] Payload too large for server. Syncing locally only for visual persistence.");
+        const updatedUser = { ...user, [field]: value };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
         return { success: true };
       }
       return { success: false, error: 'Failed to update' };
     } catch (e) {
-      setUser(prev => ({ ...prev, [field]: value }));
+      const updatedUser = { ...user, [field]: value };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       return { success: true };
     }
   };
 
+  const checkBlockedStatus = async (currentUser) => {
+    if (!currentUser || (currentUser.role !== 'Trainee' && !currentUser.isNewJoinee)) {
+      setIsBlocked(false);
+      return;
+    }
+
+    const uid = currentUser.id || currentUser.empId || currentUser.employee_id || 1;
+    const token = safeGetItem('token');
+    const headers = { 'Accept': 'application/json' };
+    if (token && token !== 'undefined') {
+      headers['Authorization'] = `Bearer ${token.trim()}`;
+    }
+
+    try {
+      const [detailRes, enrollmentRes] = await Promise.allSettled([
+        fetch(API_ENDPOINTS.NEW_JOINEE_DETAIL(uid), { headers }),
+        fetch(API_ENDPOINTS.NEW_JOINEE_COURSES(uid), { headers })
+      ]);
+
+      let joiningDateStr = currentUser.joining_date || currentUser.created_at;
+      if (detailRes.status === 'fulfilled' && detailRes.value.ok) {
+        const detail = await detailRes.value.json();
+        joiningDateStr = detail?.joining_date || detail?.created_at || joiningDateStr;
+      }
+
+      let courses = [];
+      if (enrollmentRes.status === 'fulfilled' && enrollmentRes.value.ok) {
+        const raw = await enrollmentRes.value.json();
+        courses = Array.isArray(raw) ? raw : (raw.value || raw.data || []);
+      }
+
+      const startDate = joiningDateStr ? new Date(joiningDateStr) : null;
+      const today = new Date();
+      const diffDays = startDate ? Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) : 0;
+      const isAllCompleted = courses.length > 0 && courses.every(c => c.status === 'Completed');
+
+      if (diffDays > 10 && !isAllCompleted) {
+        setIsBlocked(true);
+      } else {
+        setIsBlocked(false);
+      }
+    } catch (e) {
+      console.error("[AuthContext] Block check failed:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (user) checkBlockedStatus(user);
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateProfile, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateProfile, loading, isBlocked, setIsBlocked, checkBlockedStatus }}>
       {children}
     </AuthContext.Provider>
   );

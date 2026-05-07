@@ -1,12 +1,13 @@
-import React, { useState, useEffect, cloneElement } from 'react';
+import React, { useState, useEffect, cloneElement, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, Save, CreditCard, Building2, FileText, ChevronDown,
+  ChevronLeft, ChevronRight, Save, CreditCard, Building2, FileText, ChevronDown,
   Shield, AlertCircle, CheckCircle2, User, Hash, Landmark, RefreshCw,
   Briefcase, MapPin, Mail, Phone, GraduationCap, History, DollarSign,
-  FileCheck, Users, Calendar, Heart, Globe, Trash2, Pencil, Camera, Image as ImageIcon, Eye
+  FileCheck, Users, Calendar, Heart, Globe, Trash2, Pencil, Camera, Image as ImageIcon, Eye, Check, X
 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
 
@@ -38,9 +39,12 @@ const SECTIONS = [
       { key: 'father_husband_name', label: "Father/Husband's Name", type: 'text' },
       { key: 'category', label: 'Category', type: 'select', options: ['General', 'OBC', 'SC', 'ST', 'Other'] },
       { key: 'pan_number', label: 'PAN Number', type: 'text', placeholder: 'ABCDE1234F' },
-      { key: 'pan_card_copy', label: 'PAN Card Proof', type: 'file' },
+      { key: 'pancard_photo', label: 'PAN Card Proof', type: 'file' },
       { key: 'aadhar_number', label: 'Aadhar Number', type: 'text', placeholder: '1234 5678 9012' },
-      { key: 'aadhar_card_copy', label: 'Aadhar Card Proof', type: 'file' },
+      { key: 'adharcard_photo', label: 'Aadhar Card Proof', type: 'file' },
+      { key: 'voter_id', label: 'Voter ID Number', type: 'text' },
+      { key: 'voter_id_photo', label: 'Voter ID Proof', type: 'file' },
+      { key: 'passport_photo', label: 'Passport Photo', type: 'file' },
     ]
   },
   {
@@ -86,35 +90,23 @@ const SECTIONS = [
       { key: 'edu_completion_year', label: 'EDU Completion Year', type: 'text' },
       { key: 'college', label: 'College', type: 'text' },
       { key: 'university', label: 'University', type: 'text' },
-      { key: 'languages_known', label: 'Languages Known', type: 'text' },
-      
+      {
+        key: 'languages_known',
+        label: 'Languages Known',
+        type: 'multiselect',
+        options: ['English', 'Hindi', 'Kannada', 'Telugu', 'Tamil', 'Malayalam', 'Marathi', 'Gujarati', 'Punjabi', 'Bengali', 'Odia', 'Urdu']
+      },
+
       { type: 'header', label: 'Academic Milestones & Proofs' },
-      { key: 'sslc_percentage', label: 'SSLC Percentage', type: 'text' },
-      { key: 'sslc_marks_card', label: 'SSLC Marks Card', type: 'file' },
-      
-      { key: 'puc_percentage', label: 'PUC / 12th Percentage', type: 'text' },
-      { key: 'puc_marks_card', label: 'PUC Marks Card / 12th', type: 'file' },
-      
-      { key: 'graduation_percentage', label: 'Graduation Percentage / CGPA', type: 'text' },
-      { key: 'graduation_certificate', label: 'Graduation Certificate', type: 'file' },
-      
-      { type: 'header', label: 'Professional History & Proofs' },
-      { key: 'previous_organization', label: 'Previous Organization', type: 'text' },
-      { key: 'previous_experience', label: 'Previous Experience (Years)', type: 'text' },
-      { key: 'exp_letter_copy', label: 'Experience Letter', type: 'file' },
+      { key: 'sslc_percentage', label: 'SSLC Percentage', type: 'text', placeholder: 'Enter SSLC Percentage' },
+      { key: 'puc_percentage', label: '12th or equivalent Percentage', type: 'text', placeholder: 'Enter 12th or equivalent Percentage' },
+
+      { key: 'sslc_markscard', label: 'SSLC Marks Card', type: 'file' },
+      { key: 'puc_markscard', label: '12th or equivalent Marks Card', type: 'file' },
+
+      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'Enter Graduation Percentage / CGPA' },
+      { key: 'ug_pg_markscard', label: 'Graduation Certificate', type: 'file' },
       { key: 'source', label: 'Source (How you found us)', type: 'text' },
-    ]
-  },
-  {
-    id: 'exit',
-    label: 'Exit & Retention',
-    icon: <History size={20} />,
-    color: '#ef4444',
-    fields: [
-      { key: 'separation', label: 'Separation Date', type: 'text', placeholder: 'YYYY-MM-DD' },
-      { key: 'lwd', label: 'Last Working Day (LWD)', type: 'text' },
-      { key: 'attrition_bucket', label: 'Attrition Bucket', type: 'select', options: ['N/A', 'Resignation', 'Performance', 'Behavioral', 'Medical'] },
-      { key: 'reason', label: 'Reason of Separation', type: 'text' },
     ]
   },
   {
@@ -130,6 +122,7 @@ const SECTIONS = [
       { key: 'gross_salary_a', label: 'Gross Salary (A)', type: 'text' },
       { key: 'salary', label: 'Net Salary', type: 'text' },
       { key: 'pt', label: 'Professional Tax (PT)', type: 'text' },
+      { key: 'passbook_photo', label: 'Bank Passbook / Cancelled Cheque', type: 'file' },
     ]
   },
   {
@@ -158,15 +151,33 @@ const SECTIONS = [
       { key: 'doj', label: 'Joining Date', type: 'text', placeholder: 'YYYY-MM-DD' },
       { key: 'lwd', label: 'Last Working Day', type: 'text', placeholder: 'YYYY-MM-DD' },
       { key: 'asset_name', label: 'Laptop Details', type: 'textarea' },
-      { key: 'has_mouse', label: 'Mouse', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_keyboard', label: 'Keyboard', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_laptop_stand', label: 'Laptop Stand', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_ruf_pad', label: 'Ruf Pad', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_pendrive', label: 'Pendrive', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_mobile', label: 'Company Mobile', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_camera', label: 'External Camera', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_headphone', label: 'Earphone/Headphone', type: 'select', options: ['No', 'Yes'] },
-      { key: 'has_tablet', label: 'Tablet', type: 'select', options: ['No', 'Yes'] },
+      { key: 'has_mouse', label: 'Mouse', type: 'boolean' },
+      { key: 'has_keyboard', label: 'Keyboard', type: 'boolean' },
+      { key: 'has_laptop_stand', label: 'Laptop Stand', type: 'boolean' },
+      { key: 'has_ruf_pad', label: 'Ruf Pad', type: 'boolean' },
+      { key: 'has_pendrive', label: 'Pendrive', type: 'boolean' },
+      { key: 'has_mobile', label: 'Company Mobile', type: 'boolean' },
+      { key: 'has_camera', label: 'External Camera', type: 'boolean' },
+      { key: 'has_headphone', label: 'Earphone/Headphone', type: 'boolean' },
+      { key: 'has_tablet', label: 'Tablet', type: 'boolean' },
+    ]
+  },
+  {
+    id: 'exit',
+    label: 'Experience',
+    icon: <History size={20} />,
+    color: '#ef4444',
+    fields: [
+      { key: 'previous_organization', label: 'Previous Organization', type: 'text' },
+      { key: 'previous_experience', label: 'Previous Experience (Years)', type: 'text' },
+      { key: 'total_experience', label: 'Total Experience (Years)', type: 'text' },
+      { key: 'experience_letter_photo', label: 'Experience Letter', type: 'file' },
+      { key: 'separation', label: 'Separation Date', type: 'text', placeholder: 'YYYY-MM-DD' },
+      { key: 'lwd', label: 'Last Working Day (LWD)', type: 'text' },
+      { key: 'attrition_bucket', label: 'Attrition Bucket', type: 'select', options: ['N/A', 'Resignation', 'Performance', 'Behavioral', 'Medical'] },
+      { key: 'reason', label: 'Primary Reason', type: 'text' },
+      { type: 'header', label: 'Salary Proof' },
+      { key: 'previous_company_payslip', label: 'Last 3 months payslip (Consolidated PDF)', type: 'file' },
     ]
   }
 ];
@@ -176,7 +187,7 @@ export default function DocumentsScreen({ onBack }) {
   const { employeeId } = useParams();
 
   const [form, setForm] = useState({
-    emp_name: '', gender: 'Male', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: 'General',
+    emp_name: '', gender: '', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: 'General',
     designation: '', department: '', process: '', supervisor_l1: '', supervisor_l2: '', doj: '', ft_pt: 'Full Time', status: 'Active', place: '', moved: '', official_email_id: '',
     contact_no: '', emergency_contact_no: '', personal_email_id: '', present_address: '', permanent_address: '', state: '',
     qualification: '', edu_completion_year: '', college: '', university: '', previous_organization: '', previous_experience: '', source: '', languages_known: '',
@@ -185,8 +196,11 @@ export default function DocumentsScreen({ onBack }) {
     bgv_status: 'Pending', appointment_letter: 'Not Sent', approved_by_ceo: 'No', onboarding_doc_completed: 'No', id_card: 'Not Issued', onboarding_link: '',
     emp_id: '', doj: '', lwd: '', asset_name: '',
     has_mouse: 'No', has_keyboard: 'No', has_laptop_stand: 'No', has_ruf_pad: 'No', has_pendrive: 'No', has_mobile: 'No', has_camera: 'No', has_headphone: 'No', has_tablet: 'No',
-    pan_card_copy: '', aadhar_card_copy: '', exp_letter_copy: '', sslc_marks_card: '', graduation_certificate: '',
-    sslc_percentage: '', puc_percentage: '', graduation_percentage: '', puc_marks_card: ''
+    pancard_photo: '', adharcard_photo: '', experience_letter_photo: '', sslc_markscard: '', ug_pg_markscard: '',
+    sslc_percentage: '', puc_percentage: '', ug_pg_percentage: '', puc_markscard: '',
+    total_experience: '',
+    previous_company_payslip: '',
+    voter_id: '', voter_id_photo: '', passport_photo: '', passbook_photo: ''
   });
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -194,10 +208,23 @@ export default function DocumentsScreen({ onBack }) {
   const [toast, setToast] = useState(null);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const isMobile = winWidth < 768;
-  const isTablet = winWidth < 1024;
+  const isTablet = winWidth < 1100;
   const [activeSection, setActiveSection] = useState('primary');
   const [isEditing, setIsEditing] = useState(false);
   const [viewImage, setViewImage] = useState(null);
+  const tabsRef = useRef(null);
+
+  const scrollTabs = (direction) => {
+    if (tabsRef.current) {
+      console.log(`[Nav] Scrolling ${direction}`);
+      const { clientWidth } = tabsRef.current;
+      const scrollAmount = clientWidth * 0.7;
+      tabsRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
@@ -206,152 +233,211 @@ export default function DocumentsScreen({ onBack }) {
   }, []);
 
   const loadAssets = async () => {
+    // Determine UID (support current user or viewed profile)
     const uid = employeeId || user?.employee_id || user?.id || user?.userId;
-    if (!uid) return;
-    
-
+    console.log(`[Assets Request] Starting fetch for UID: ${uid}`);
 
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (!token || token === 'undefined') return;
+      const token = localStorage.getItem('token');
+      // Using API_ENDPOINTS for target environment compatibility
+      const res = await fetch(API_ENDPOINTS.MY_ASSETS(uid), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-      const headers = { 'Accept': 'application/json' };
-      // Sandbox bypass: if token is the hardcoded demo string, some backends might reject 'Bearer '
-      if (token === 'joinee-sandbox-secure-nbt') {
-          headers['Authorization'] = token;
-      } else {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
-      }
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
 
-      const res = await fetch(API_ENDPOINTS.MY_ASSETS(uid), { headers });
-      
-      if (res.status === 401 && headers['Authorization'].startsWith('Bearer ')) {
-          // Fallback: try without 'Bearer ' prefix if 401 occurs
-          const retryRes = await fetch(API_ENDPOINTS.MY_ASSETS(uid), {
-              headers: { ...headers, 'Authorization': token.trim() }
-          });
-          if (retryRes.ok) {
-              const data = await retryRes.json();
-              processAssets(data);
-              return;
-          }
-      }
-
-      if (!res.ok) throw new Error(`Status: ${res.status}`);
       const data = await res.json();
-      processAssets(data);
-    } catch (err) {
-      console.error('%c [Assets Error] ', 'background: red; color: white;', err.message);
-    }
-  };
-
-  const processAssets = (data) => {
-      // Handle both single objects and arrays
       const assetData = Array.isArray(data) ? (data.length > 0 ? data[0] : null) : data;
-      
+
       if (assetData) {
+        console.log("[Assets Debug] Raw record:", assetData);
         const assetUpdates = {};
+
         Object.keys(assetData).forEach(key => {
           let val = assetData[key] === null ? '' : assetData[key];
-          const lowerKey = key.toLowerCase();
-          
-          if (typeof val === 'string' && val.includes('T') && val.length > 10) {
+          const lowerKey = key.toLowerCase().trim();
+
+          // FIX: Improved Date Check (don't corrupt laptop details containing 'T')
+          const isISODate = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val);
+          if (isISODate) {
             val = val.substring(0, 10);
           }
 
-          assetUpdates[lowerKey] = val;
-          if (lowerKey === 'employee_id') assetUpdates['emp_id'] = val;
-          if (lowerKey === 'employee_name') assetUpdates['emp_name'] = val;
-          if (lowerKey === 'joining_date') assetUpdates['doj'] = val;
-          if (lowerKey === 'last_working_date') assetUpdates['lwd'] = val;
-          if (lowerKey === 'laptop_details') assetUpdates['asset_name'] = val;
-          
-          if (lowerKey === 'mouse') assetUpdates['has_mouse'] = val;
-          if (lowerKey === 'keyboard') assetUpdates['has_keyboard'] = val;
-          if (lowerKey === 'laptop_stand') assetUpdates['has_laptop_stand'] = val;
-          if (lowerKey === 'ruf_pad') assetUpdates['has_ruf_pad'] = val;
-          if (lowerKey === 'pendrive') assetUpdates['has_pendrive'] = val;
-          if (lowerKey === 'mobile') assetUpdates['has_mobile'] = val;
-          if (lowerKey === 'camera') assetUpdates['has_camera'] = val;
-          if (lowerKey === 'earphone_headphone') assetUpdates['has_headphone'] = val;
-          if (lowerKey === 'tablet') assetUpdates['has_tablet'] = val;
+          // Map core identification values
+          if (lowerKey === 'employee_id' || lowerKey === 'emp_id') assetUpdates['emp_id'] = val;
+          if (lowerKey === 'employee_name' || lowerKey === 'emp_name') assetUpdates['emp_name'] = val;
+          if (lowerKey === 'joining_date' || lowerKey === 'doj') assetUpdates['doj'] = val;
+          if (lowerKey === 'last_working_date' || lowerKey === 'lwd') assetUpdates['lwd'] = val;
+          if (lowerKey === 'laptop_details' || lowerKey === 'asset_name') assetUpdates['asset_name'] = val;
+          if (lowerKey === 'asset_serial_no' || lowerKey === 'serial_number') assetUpdates['serial_number'] = val;
+
+          const toYesNo = (v) => {
+            if (v === true || v === 1 || String(v).toLowerCase().trim() === 'yes' || String(v).toLowerCase().trim() === 'true') return 'Yes';
+            return 'No';
+          };
+
+          // Map peripherals using exact column names from the 'assets' table as shown in DB screenshot
+          if (lowerKey === 'mouse') assetUpdates['has_mouse'] = toYesNo(val);
+          if (lowerKey === 'keyboard') assetUpdates['has_keyboard'] = toYesNo(val);
+          if (lowerKey === 'laptop_stand') assetUpdates['has_laptop_stand'] = toYesNo(val);
+          if (lowerKey === 'ruf_pad') assetUpdates['has_ruf_pad'] = toYesNo(val);
+          if (lowerKey === 'pendrive') assetUpdates['has_pendrive'] = toYesNo(val);
+          if (lowerKey === 'mobile' || lowerKey === 'company_mobile') assetUpdates['has_mobile'] = toYesNo(val);
+          if (lowerKey === 'camera' || lowerKey === 'external_camera') assetUpdates['has_camera'] = toYesNo(val);
+          if (lowerKey === 'earphone_headphone' || lowerKey === 'earphone') assetUpdates['has_headphone'] = toYesNo(val);
+          if (lowerKey === 'tablet') assetUpdates['has_tablet'] = toYesNo(val);
         });
 
-        setForm(prev => ({ ...prev, ...assetUpdates }));
+        console.log("[Assets Debug] Calculated updates:", assetUpdates);
+
+        setForm(prev => {
+          const merged = { ...prev, ...assetUpdates };
+          // Prevent overwriting a good name with an empty one
+          if (!assetUpdates['emp_name'] && prev.emp_name && prev.emp_name !== 'Not Provided') {
+            merged.emp_name = prev.emp_name;
+          }
+          return merged;
+        });
       }
+    } catch (err) {
+      console.error("[Assets Load Error]:", err.message);
+    }
+  };
+
+  const fetchUserDataFromUsersTable = async (targetId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(API_ENDPOINTS.USERS, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const usersList = await res.json();
+        const searchId = targetId || employeeId || user?.employee_id || user?.id;
+
+        const foundUser = usersList.find(u =>
+          String(u.employee_id || u.id || u.userId || '').toLowerCase() === String(searchId || '').toLowerCase() ||
+          (u.email && user?.email && String(u.email).toLowerCase() === String(user?.email).toLowerCase())
+        );
+
+        if (foundUser) {
+          console.log("[Users Table Sync] Found user:", foundUser.name);
+          setForm(prev => ({
+            ...prev,
+            emp_name: prev.emp_name && prev.emp_name !== 'Not Provided' ? prev.emp_name : (foundUser.name || foundUser.userName || ''),
+            emp_id: prev.emp_id && prev.emp_id !== 'Not Provided' ? prev.emp_id : (foundUser.employee_id || foundUser.id || ''),
+            official_email_id: prev.official_email_id || foundUser.email || ''
+          }));
+          return foundUser;
+        }
+      }
+    } catch (err) {
+      console.error('Fetch Users Table Error:', err);
+    }
+    return null;
   };
 
   const loadDocs = async () => {
-    const uid = employeeId || user?.employee_id || user?.id || user?.userId;
-    if (!uid) return;
-
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (!token || token === 'undefined') return;
+      const token = localStorage.getItem('token');
+      const endpoint = employeeId
+        ? API_ENDPOINTS.EMPLOYEE_PROFILE(employeeId)
+        : API_ENDPOINTS.MY_EMPLOYEE_PROFILE;
 
-      const headers = { 'Accept': 'application/json' };
-      if (token === 'joinee-sandbox-secure-nbt') {
-          headers['Authorization'] = token;
-      } else {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
-      }
-
-      // STRATEGY: Regular employees should use the standard profile endpoint which is more reliable.
-      // Admins or Manager-View (with employeeId) use the specialized employee-profile endpoint.
-      const isPowerUser = ['admin', 'hr', 'ceo', 'manager'].includes(user?.role?.toLowerCase());
-      
-      let endpoint;
-      if (employeeId) {
-          endpoint = API_ENDPOINTS.EMPLOYEE_PROFILE(employeeId);
-      } else if (isPowerUser) {
-          endpoint = API_ENDPOINTS.MY_EMPLOYEE_PROFILE;
-      } else {
-          endpoint = API_ENDPOINTS.PROFILE(user?.email);
-      }
-
-      let res = await fetch(endpoint, { headers });
-      
-      // Fallback: If specialized endpoint fails (401/403/404), try the basic profile one
-      if (!res.ok && endpoint !== API_ENDPOINTS.PROFILE(user?.email)) {
-          console.log("[Profile] specialized endpoint failed/forbidden, trying basic profile fallback...");
-          res = await fetch(API_ENDPOINTS.PROFILE(user?.email), { headers });
-      }
-
+      const res = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const result = await res.json();
         const docData = result.data || (Array.isArray(result) ? result[0] : result);
 
         if (docData) {
+          console.group("%c Profile Data Sync ", 'background: #0B1E3F; color: white; border-radius: 4px; padding: 2px 6px;');
+          console.log("Raw Backend Data:", docData);
+          console.groupEnd();
+
           const cleanData = {};
           Object.keys(docData).forEach(key => {
             let val = docData[key];
-
-            // Ultimate Fix: Deduplicate repeating values even with mixed delimiters/spacing
-            if (typeof val === 'string' && (val.includes(',') || val.includes(';'))) {
-              const parts = val.split(/[;,]/).map(p => p.trim()).filter(p => p.length > 0);
-              const unique = Array.from(new Set(parts.map(p => p.toLowerCase())));
-              if (unique.length > 0) val = parts.find(p => p.toLowerCase() === unique[0]);
-            }
-
-            // Date Fix: Truncate ISO timestamps (T00:00:00.000Z) to YYYY-MM-DD
-            if (typeof val === 'string' && val.includes('T') && val.length > 10) {
+            if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
               val = val.substring(0, 10);
             }
-
-            // Normalize DB naming convention (snake_case) to Frontend form keys
-            // FIX: Convert null values to empty strings to avoid breaking React inputs
-            cleanData[key.toLowerCase()] = val === null ? '' : val;
+            cleanData[key.toLowerCase().replace(/\s/g, '_')] = val === null ? '' : val;
           });
 
-          // Fallback mapping for core organizational fields if profile record is empty/outdated
+          const empIdVal = cleanData.emp_id || cleanData.employee_id || cleanData.employeeid || cleanData.userid || cleanData.id || cleanData.emp_no;
+          const empNameVal = cleanData.emp_name || cleanData.employee_name || cleanData.employeename || cleanData.user_name || cleanData.username || cleanData.name || cleanData.full_name;
+          if (empIdVal) cleanData.emp_id = empIdVal;
+          if (empNameVal) cleanData.emp_name = empNameVal;
+
+          const dojVal = cleanData.doj || cleanData.joining_date || cleanData.date_of_joining || cleanData.dateofjoining || cleanData.joiningdate;
+          if (dojVal) cleanData.doj = dojVal;
+
+          const lwdVal = cleanData.lwd || cleanData.last_working_day || cleanData.last_working_date || cleanData.lwd_date;
+          if (lwdVal) cleanData.lwd = lwdVal;
+
+          // Aggressive Name Resolution
+          const isOwnProfile = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
+          if (isOwnProfile && (!cleanData.emp_name || cleanData.emp_name === 'Not Provided')) {
+            cleanData.emp_name = user?.name || user?.userName || '';
+          }
+
+          if (isOwnProfile && (!cleanData.emp_id || cleanData.emp_id === 'Not Provided')) {
+            cleanData.emp_id = user?.employee_id || user?.empId || user?.id || '';
+          }
+
           if (!cleanData.designation) cleanData.designation = user?.role || user?.designation || '';
           if (!cleanData.department) cleanData.department = user?.department || user?.dept || '';
 
-
+          // No manual mapping needed anymore as keys are aligned with backend columns
+          console.log(`%c [Profile Feed] Loaded core attributes for: ${cleanData.emp_name || 'User'}`, 'color: #0ea5e9; font-weight: bold;');
           setForm(prev => ({ ...prev, ...cleanData }));
+
+          // NEW: Fetch latest resignation details if not already in cleanData
+          try {
+            const uid = empIdVal || user?.id || employeeId;
+            if (uid) {
+              const resigResp = await fetch(`${BASE_URL}/api/resignations/my?userId=${uid}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (resigResp.ok) {
+                const resigData = await resigResp.json();
+                const latest = Array.isArray(resigData) ? resigData[0] : resigData;
+                if (latest) {
+                  setForm(prev => ({
+                    ...prev,
+                    separation: latest.resignation_date || latest.resignationDate || prev.separation,
+                    lwd: latest.last_working_day || latest.lastWorkingDay || prev.lwd,
+                    reason: latest.reason || prev.reason,
+                    detailed_reason: latest.letter_content || latest.detailedReason || latest.detailed_reason || prev.detailed_reason,
+                    attrition_bucket: (latest.status === 'PENDING' || latest.status === 'Approved') ? 'Resignation' : prev.attrition_bucket
+                  }));
+                }
+              }
+            }
+          } catch (resigErr) {
+            console.warn("Failed to fetch resignation details for profile:", resigErr);
+          }
+        } else {
+          // Fallback if record is empty but user exists in context
+          if (!employeeId && user) {
+            setForm(prev => ({
+              ...prev,
+              emp_name: user.name || user.userName || '',
+              emp_id: user.employee_id || user.empId || user.id || '',
+              designation: user.role || user.designation || '',
+              official_email_id: user.email || ''
+            }));
+          }
         }
-      } else {
-        console.warn("DEBUG: Profile Info fetch failed with status:", res.status);
+      } else if (!employeeId && user) {
+        // Handle failed request by using context data
+        setForm(prev => ({
+          ...prev,
+          emp_name: user.name || user.userName || '',
+          emp_id: user.employee_id || user.empId || user.id || '',
+          designation: user.role || user.designation || '',
+          official_email_id: user.email || ''
+        }));
       }
     } catch (err) {
       console.error("Critical: Failed to fetch profile metadata:", err);
@@ -359,12 +445,37 @@ export default function DocumentsScreen({ onBack }) {
   };
 
   useEffect(() => {
-    loadAssets();
-    loadDocs();
-  }, [user, employeeId]);
+    if (user || employeeId) {
+      const init = async () => {
+        await loadDocs();
+        await loadAssets();
+        await fetchUserDataFromUsersTable();
+      };
+      init();
+    }
+  }, [employeeId, user]);
+
+  useEffect(() => {
+    const isOwnProfile = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
+    if (isOwnProfile && user && (!form.emp_name || form.emp_name === 'Not Provided')) {
+      setForm(prev => ({
+        ...prev,
+        emp_name: user.name || user.userName || prev.emp_name,
+        emp_id: user.employee_id || user.empId || user.id || prev.emp_id,
+        designation: user.role || user.designation || prev.designation,
+        official_email_id: user.email || prev.official_email_id
+      }));
+    }
+  }, [user, employeeId, form.emp_name]);
 
   const validateField = (key, value) => {
     let error = null;
+
+    // REQUIRED FIELDS CHECK
+    const required = ['emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id'];
+    if (required.includes(key) && (!value || String(value).trim() === '')) {
+      return `${key.replace('_', ' ').toUpperCase()} is required`;
+    }
 
     if (!value) return null;
 
@@ -389,6 +500,29 @@ export default function DocumentsScreen({ onBack }) {
     }
 
     return error;
+  };
+
+  const verifyIFSC = async (code) => {
+    if (!code || code.length !== 11) return;
+    try {
+      const res = await fetch(API_ENDPOINTS.BANK_IFSC(code));
+      if (res.ok) {
+        const data = await res.json();
+        // Support multiple backend field naming conventions (uppercase/lowercase)
+        const branch = data.BRANCH || data.branch;
+        const bank = data.BANK || data.bank;
+
+        if (branch) {
+          setForm(prev => ({
+            ...prev,
+            bank_branch: branch,
+            bank_name: bank || prev.bank_name
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn("IFSC Verification failed:", e);
+    }
   };
 
   const handleChange = (key, value) => {
@@ -422,6 +556,11 @@ export default function DocumentsScreen({ onBack }) {
       }
     }
 
+    if (key === 'ifsc_code' && cleanValue.length === 11) {
+      setForm(prev => ({ ...prev, bank_branch: 'Fetching...' }));
+      verifyIFSC(cleanValue);
+    }
+
     setForm(prev => ({ ...prev, ...updates }));
 
     // Clear error for this field as the user types
@@ -432,77 +571,68 @@ export default function DocumentsScreen({ onBack }) {
   const handleFileUpload = async (key, file) => {
     if (!file) return;
 
-    // Preview locally
+    // Read file as Base64 and preview locally
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setForm(prev => ({ ...prev, [key]: reader.result }));
+    reader.onloadend = async () => {
+      const base64 = reader.result;
+
+      // Instant local preview
+      setForm(prev => ({ ...prev, [key]: base64 }));
+
+      // Sync to backend via the working /api/profile/update endpoint
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            email: user?.email,
+            [key]: base64,
+          }),
+        });
+
+        if (res.ok) {
+          setToast({ type: 'success', msg: `${key.replace(/_/g, ' ').toUpperCase()} uploaded successfully!` });
+
+          // Persist in localStorage so it survives page refresh
+          try {
+            const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+            localStorage.setItem('user', JSON.stringify({ ...storedUser, [key]: base64 }));
+          } catch (_) {}
+        } else {
+          // Keep the local preview even if server rejects
+          setToast({ type: 'info', msg: 'Document saved locally. Server sync pending.' });
+        }
+      } catch (err) {
+        console.error('Upload Error:', err);
+        setToast({ type: 'info', msg: 'Document saved locally (Network error).' });
+      } finally {
+        setTimeout(() => setToast(null), 3000);
+      }
     };
     reader.readAsDataURL(file);
-
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('userId', employeeId || user?.employee_id || user?.id);
-    formData.append('fieldKey', key);
-
-    try {
-      const res = await fetch(`${BASE_URL}/api/profile/upload-document`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const serverPath = data.path || data.url;
-        
-        if (serverPath) {
-          // 1. Update local state
-          setForm(prev => ({ ...prev, [key]: serverPath }));
-          
-          // 2. Automatically persist to individual record to ensure it "stores"
-          const uid = employeeId || user?.employee_id || user?.id;
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          if (!token || token === 'undefined') return;
-          
-          await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json', 
-              'Authorization': `Bearer ${token.trim()}` 
-            },
-            body: JSON.stringify({ [key]: serverPath, employee_id: uid })
-          });
-          
-          setToast({ type: 'success', msg: `${key.replace(/_/g, ' ').toUpperCase()} stored permanently!` });
-        }
-      } else {
-        if (res.status === 404) {
-          console.warn('Backend upload endpoint not found. Image kept in local state for preview.');
-          setToast({ type: 'info', msg: 'Photo saved locally (Backend endpoint missing)' });
-        } else {
-          setToast({ type: 'error', msg: 'Failed to upload document.' });
-        }
-      }
-    } catch (err) {
-      console.error('Upload Error:', err);
-      // Fallback to local state if server is down
-      setToast({ type: 'info', msg: 'Photo updated locally (Network error)' });
-    } finally {
-      setTimeout(() => setToast(null), 3000);
-    }
   };
 
   const handleSave = async () => {
-    // Perform final exhaustive validation
+    // Perform validation for the current section to allow incremental saves
     const newErrors = {};
-    Object.keys(form).forEach(key => {
-      const error = validateField(key, form[key]);
-      if (error) newErrors[key] = error;
-    });
+    const currentSectionConfig = SECTIONS.find(s => s.id === activeSection);
+
+    if (currentSectionConfig && currentSectionConfig.fields) {
+      currentSectionConfig.fields.forEach(field => {
+        if (field.key) {
+          const error = validateField(field.key, form[field.key]);
+          if (error) newErrors[field.key] = error;
+        }
+      });
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setToast({ type: 'error', msg: 'Please fix the highlighted errors before saving.' });
+      setToast({ type: 'error', msg: 'Please fix the highlighted errors in this section before saving.' });
       setTimeout(() => setToast(null), 3000);
       return;
     }
@@ -510,73 +640,38 @@ export default function DocumentsScreen({ onBack }) {
     setSaving(true);
     try {
       const uid = employeeId || user?.employee_id || user?.id || user?.userId;
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (!token || token === 'undefined') {
-          setToast({ type: 'error', msg: 'Session expired. Please login again.' });
-          return;
-      }
+      const token = localStorage.getItem('token');
 
       // Scrub data before sending to prevent backend "appending" loops
       const sanitizedForm = {};
       Object.keys(form).forEach(key => {
         let val = form[key];
-        if (typeof val === 'string' && val.includes(',')) {
-          const parts = val.split(',').map(p => p.trim()).filter(p => p.length > 0);
-          const unique = Array.from(new Set(parts));
-          if (unique.length > 0) val = unique[0];
-        } else if (typeof val === 'string') {
+        if (typeof val === 'string') {
           val = val.trim();
+        }
+
+        // Convert "Yes"/"No" strings to booleans for fields starting with 'has_'
+        if (key.startsWith('has_')) {
+          val = (val === 'Yes');
         }
         sanitizedForm[key] = val;
       });
 
-      const payload = { 
-        ...sanitizedForm, 
-        employee_id: uid,
-        email: user?.email,
-        userId: uid
-      };
-
-      const headers = { 
-        'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${token.trim()}` 
-      };
-
-      let res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
+      const res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
         method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ ...sanitizedForm, employee_id: uid })
       });
-
-      // Fallback 1: Try without 'Bearer ' if 401
-      if (res.status === 401) {
-          res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
-              method: 'POST',
-              headers: { ...headers, 'Authorization': token.trim() },
-              body: JSON.stringify(payload)
-          });
-      }
-
-      // Fallback 2: Try standard profile update endpoint if specialized one still fails (401/403/404)
-      if (!res.ok) {
-          console.log("[Profile Save] specialized endpoint failed, trying standard update fallback...");
-          res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
-              method: 'PUT', // standard update usually uses PUT in this app
-              headers: { ...headers, 'Authorization': `Bearer ${token.trim()}` },
-              body: JSON.stringify(payload)
-          });
-      }
 
       if (res.ok) {
         setToast({ type: 'success', msg: 'Profile updated successfully!' });
         setIsEditing(false);
         await loadDocs();
       } else {
-        const err = await res.json().catch(() => ({ error: 'Server Error' }));
+        const err = await res.json();
         setToast({ type: 'error', msg: err.error || 'Failed to save changes.' });
       }
-    } catch (err) {
-      console.error("Save Error:", err);
+    } catch {
       setToast({ type: 'error', msg: 'Network error. Please try again.' });
     } finally {
       setSaving(false);
@@ -589,7 +684,18 @@ export default function DocumentsScreen({ onBack }) {
   const isAdmin = ['admin', 'manager', 'lead', 'teamleader', 'ceo', 'hr'].includes(userRole);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f4f7fa', fontFamily: "'Inter', sans-serif", padding: isMobile ? '15px 0' : (isTablet ? '25px' : '40px'), boxSizing: 'border-box', overflowX: 'hidden', width: '100%' }}>
+    <div style={{
+      height: '90vh',
+      backgroundColor: '#f4f7fa',
+      fontFamily: "'Inter', sans-serif",
+      padding: isMobile ? '0 0 15px 0' : (isTablet ? '0 25px 25px 25px' : '0 40px 20px 40px'),
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      marginTop: '0'
+    }}>
       {/* Toast */}
       <AnimatePresence>
         {toast && (
@@ -598,7 +704,7 @@ export default function DocumentsScreen({ onBack }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -30 }}
             style={{
-              position: 'fixed', top: isMobile ? '20px' : '110px', left: '50%', transform: 'translateX(-50%)',
+              position: 'fixed', top: isMobile ? '70px' : '100px', left: '50%', transform: 'translateX(-50%)',
               zIndex: 9999, backgroundColor: toast.type === 'success' ? '#0B1E3F' : '#ef4444',
               color: 'white', padding: isMobile ? '10px 20px' : '14px 28px', borderRadius: '16px',
               display: 'flex', alignItems: 'center', gap: '10px', width: isMobile ? '90%' : 'auto',
@@ -639,296 +745,523 @@ export default function DocumentsScreen({ onBack }) {
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: isMobile ? 'center' : 'center', justifyContent: 'space-between', marginBottom: isMobile ? '24px' : '32px', flexDirection: isMobile ? 'row' : 'row', gap: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '16px', justifyContent: 'flex-start' }}>
-          <button onClick={onBack} style={{ padding: isMobile ? '8px' : '12px', borderRadius: '12px', backgroundColor: 'white', border: '1.5px solid #e2e8f0', cursor: 'pointer' }}>
-            <ChevronLeft size={isMobile ? 16 : 22} color="#0B1E3F" />
-          </button>
-          <div>
-            <h1 style={{ fontSize: isMobile ? '18px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1 }}>Profile Info</h1>
-            <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata record' : 'Employee metadata record'}</p>
+      {/* Header & Mobile Nav */}
+      <div style={{
+        position: 'sticky',
+        top: '0',
+        zIndex: 1000,
+        backgroundColor: '#f4f7fa',
+        padding: isMobile ? '10px 15px 10px 15px' : '0px 40px 0px 0px',
+        display: 'flex',
+        flexDirection: (isMobile || isTablet) ? 'column' : 'row',
+        alignItems: (isMobile || isTablet) ? 'stretch' : 'center',
+        justifyContent: 'space-between',
+        marginBottom: '15px',
+        gap: isMobile ? '15px' : '20px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px' }}>
+            <button onClick={onBack} style={{
+              padding: isMobile ? '8px' : '12px',
+              borderRadius: '12px',
+              backgroundColor: 'white',
+              border: '1.5px solid #e2e8f0',
+              cursor: 'pointer',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}>
+              <ArrowLeft size={isMobile ? 20 : 24} color="#0B1E3F" strokeWidth={3} />
+            </button>
+            <div>
+              <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1 }}>Profile Info</h1>
+              <p style={{ fontSize: isMobile ? '11px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>Employee metadata record</p>
+            </div>
           </div>
+
+          {isEditing ? (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                padding: isMobile ? '8px 16px' : '14px 28px', backgroundColor: '#315A9E', color: 'white',
+                border: 'none', borderRadius: '12px', fontWeight: '900', fontSize: isMobile ? '12px' : '15px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+                boxShadow: '0 8px 20px rgba(49,90,158,0.25)'
+              }}
+            >
+              {saving ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
+              {isMobile ? 'Save' : 'Save All Details'}
+            </motion.button>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setIsEditing(true)}
+              style={{
+                padding: isMobile ? '8px 16px' : '14px 28px', backgroundColor: 'white', color: '#0B1E3F',
+                border: '1.5px solid #0B1E3F', borderRadius: '12px', fontWeight: '900', fontSize: isMobile ? '12px' : '15px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0
+              }}
+            >
+              <Pencil size={14} />
+              {isMobile ? 'Edit' : 'Edit Profile'}
+            </motion.button>
+          )}
         </div>
 
-        {isEditing ? (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              padding: isMobile ? '8px 16px' : '14px 28px', backgroundColor: '#315A9E', color: 'white',
-              border: 'none', borderRadius: '12px', fontWeight: '900', fontSize: isMobile ? '12px' : '15px',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-              boxShadow: '0 8px 20px rgba(49,90,158,0.25)',
-              justifyContent: 'center'
-            }}
-          >
-            {saving ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
-            {isMobile ? 'Save' : 'Save All Details'}
-          </motion.button>
-        ) : (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setIsEditing(true)}
-            style={{
-              padding: isMobile ? '8px 16px' : '14px 28px', backgroundColor: 'white', color: '#0B1E3F',
-              border: '1.5px solid #0B1E3F', borderRadius: '12px', fontWeight: '900', fontSize: isMobile ? '12px' : '15px',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-              justifyContent: 'center'
-            }}
-          >
-            <Pencil size={14} />
-            {isMobile ? 'Edit' : 'Edit Profile'}
-          </motion.button>
+        {/* Categories Bar (Mobile Only) */}
+        {(isMobile || isTablet) && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            width: '100%',
+            padding: '0 5px',
+            boxSizing: 'border-box',
+            marginBottom: '10px'
+          }}>
+            <button
+              onClick={() => scrollTabs('left')}
+              style={{
+                color: '#0B1E3F', cursor: 'pointer', border: '1.5px solid #e2e8f0',
+                backgroundColor: 'white', borderRadius: '50%', width: '36px', height: '36px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                zIndex: 10
+              }}>
+              <ChevronLeft size={18} strokeWidth={3} />
+            </button>
+            <div
+              ref={tabsRef}
+              style={{
+                display: 'flex',
+                flex: 1,
+                gap: '10px',
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+                padding: '8px 0',
+                margin: '0 -2px',
+
+              }}>
+              {SECTIONS.map(sec => {
+                const isActive = activeSection === sec.id;
+                const hasErrors = sec.fields.some(f => !!errors[f.key]);
+                return (
+                  <button
+                    key={sec.id}
+                    onClick={() => setActiveSection(sec.id)}
+                    style={{
+                      padding: '10px 10px',
+                      borderRadius: '12px',
+                      backgroundColor: isActive ? '#0B1E3F' : 'white',
+                      color: isActive ? 'white' : '#0B1E3F',
+                      border: `1.5px solid ${isActive ? '#0B1E3F' : (hasErrors ? '#ef4444' : '#e2e8f0')}`,
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s',
+                      boxShadow: isActive ? '0 8px 20px rgba(11,30,63,0.1)' : 'none',
+
+                    }}
+                  >
+                    {cloneElement(sec.icon, { size: 14 })}
+                    {sec.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => scrollTabs('right')}
+              style={{
+                color: '#0B1E3F', cursor: 'pointer', border: '1.5px solid #e2e8f0',
+                backgroundColor: 'white', borderRadius: '50%', width: '36px', height: '36px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                zIndex: 10
+              }}>
+              <ChevronRight size={18} strokeWidth={3} />
+            </button>
+          </div>
         )}
       </div>
 
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
-        gap: isMobile ? '20px' : '24px',
+        gap: isMobile ? '2px' : '24px',
         alignItems: 'start',
-        padding: 0,
-        width: isMobile ? '90%' : '100%',
-        margin: '0 auto'
+        padding: isMobile ? '0 15px' : '0',
+        width: '100%',
+        margin: '0 auto',
+        marginTop: '0',
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden'
       }}>
-        <div style={{ width: '100%', margin: '0' }}>
+        {!isMobile && !isTablet && (
           <div style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'row' : 'column',
-            gap: isMobile ? '8px' : '12px',
-            overflowX: isMobile ? 'auto' : 'visible',
-            padding: isMobile ? '5px 15px 15px 15px' : '0',
+            width: '100%',
+            margin: '0',
+            position: 'sticky',
+            top: '100px',
+            alignSelf: 'start',
+            maxHeight: '100%',
+            overflowY: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
-            WebkitOverflowScrolling: 'touch',
-            maxWidth: isMobile ? '100vw' : '100%'
+            paddingBottom: '20px',
+
           }}>
-            {SECTIONS.map(sec => {
-              const isActive = activeSection === sec.id;
-              const hasErrors = sec.fields.some(f => !!errors[f.key]);
+            <div
+              ref={tabsRef}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                padding: '0',
 
-              return (
-                <motion.button
-                  key={sec.id}
-                  whileHover={!isMobile ? { x: 4 } : {}}
-                  onClick={() => setActiveSection(sec.id)}
-                  style={{
-                    padding: isMobile ? '8px 14px' : '16px 20px',
-                    borderRadius: isMobile ? '12px' : '18px',
-                    cursor: 'pointer',
-                    backgroundColor: isActive ? '#0B1E3F' : 'white',
-                    color: isActive ? 'white' : '#475569',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: isMobile ? '10px' : '14px',
-                    fontWeight: '800',
-                    fontSize: isMobile ? '12px' : '15px',
-                    textAlign: 'left',
-                    border: `1.5px solid ${isActive ? '#0B1E3F' : (hasErrors ? '#ef4444' : '#e2e8f0')}`,
-                    transition: 'all 0.2s',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{ color: isActive ? 'white' : sec.color }}>{cloneElement(sec.icon, { size: isMobile ? 16 : 20 })}</div>
-                  <div>{sec.label}</div>
+              }}>
+              {SECTIONS.map(sec => {
+                const isActive = activeSection === sec.id;
+                const hasErrors = sec.fields.some(f => !!errors[f.key]);
 
-                  {hasErrors && (
-                    <div style={{
-                      position: 'absolute', top: '8px', right: '8px',
-                      width: '8px', height: '8px', borderRadius: '50%',
-                      backgroundColor: '#ef4444', boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
-                    }} />
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-        </div>
-
-        <motion.div
-          key={activeSection}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.2 }}
-          style={{
-            backgroundColor: 'white',
-            padding: isMobile ? '20px' : '40px',
-            border: '1.5px solid #e2e8f0',
-            borderRadius: isMobile ? '22px' : '28px',
-            boxSizing: 'border-box',
-            width: '100%',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.03)'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px', marginBottom: isMobile ? '24px' : '32px' }}>
-            <div style={{ padding: isMobile ? '10px' : '12px', borderRadius: '14px', backgroundColor: `${currentSection.color}15`, flexShrink: 0 }}>
-              <div style={{ color: currentSection.color }}>{cloneElement(currentSection.icon, { size: isMobile ? 18 : 20 })}</div>
-            </div>
-            <div>
-              <h2 style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: '900', color: '#0B1E3F', margin: 0 }}>{currentSection.label}</h2>
-              <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#94a3b8', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata records' : 'Official employee metadata records'}</p>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
-            {currentSection.fields.map((field, fIdx) => {
-              if (field.type === 'header') {
                 return (
-                  <div key={`header-${fIdx}`} style={{ gridColumn: '1 / -1', marginTop: fIdx === 0 ? '0' : '24px', marginBottom: '8px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#1e293b', letterSpacing: '0.5px', paddingBottom: '12px', borderBottom: '1.5px solid #f1f5f9' }}>
-                      {field.label}
-                    </h3>
-                  </div>
-                );
-              }
-              const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
-              const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
+                  <motion.button
+                    key={sec.id}
+                    whileHover={{ x: 4 }}
+                    onClick={() => setActiveSection(sec.id)}
+                    style={{
+                      padding: '16px 32px',
+                      borderRadius: '18px',
+                      backgroundColor: isActive ? '#0B1E3F' : 'white',
+                      color: isActive ? 'white' : '#0B1E3F',
+                      border: `1.5px solid ${isActive ? '#0B1E3F' : (hasErrors ? '#ef4444' : '#e2e8f0')}`,
+                      fontSize: '15px',
+                      fontWeight: '900',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      boxShadow: isActive ? '0 15px 35px rgba(11,30,63,0.15)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ color: isActive ? 'white' : sec.color }}>{cloneElement(sec.icon, { size: 20 })}</div>
+                    <div>{sec.label}</div>
 
-              return (
-                <div key={field.key} style={{
-                  display: 'flex', flexDirection: 'column', gap: '8px',
-                  opacity: isLockedForRole ? 0.7 : 1,
-                  gridColumn: !isMobile && field.fullWidth ? '1 / -1' : 'auto'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ fontSize: isMobile ? '12px' : '13px', fontWeight: '900', color: '#64748b', letterSpacing: '0.3px' }}>
-                      {field.label}
-                    </label>
-                    {isLockedForRole && <Shield size={10} color="#94a3b8" />}
-                  </div>
-                  {field.type === 'select' ? (
-                    <div style={{ position: 'relative', width: '100%' }}>
-                      <select
-                        value={form[field.key]}
-                        disabled={isDisabled}
-                        onChange={e => handleChange(field.key, e.target.value)}
-                        style={{
-                          width: '100%', padding: isMobile ? '14px 40px 14px 16px' : '16px 45px 16px 20px', borderRadius: isMobile ? '12px' : '16px', fontSize: isMobile ? '14px' : '16px',
-                          fontWeight: '700', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
-                          border: !isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0', outline: 'none', cursor: isDisabled ? 'default' : 'pointer', appearance: 'none', boxSizing: 'border-box',
-                          transition: 'all 0.2s', opacity: isDisabled ? 0.8 : 1
-                        }}
-                      >
-                        {field.options.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                      <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabled ? '#cbd5e1' : '#315A9E' }}>
-                        <ChevronDown size={isMobile ? 16 : 18} strokeWidth={3} />
-                      </div>
-                    </div>
-                  ) : field.type === 'textarea' ? (
-                    <textarea
-                      value={form[field.key]}
-                      readOnly={isDisabled}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
-                      style={{
-                        width: '100%', padding: '16px 20px', borderRadius: '16px', fontSize: isMobile ? '14px' : '16px',
-                        fontWeight: '700', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
-                        border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
-                        outline: 'none', boxSizing: 'border-box', minHeight: '120px',
-                        transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text', resize: 'vertical', fontFamily: 'inherit',
-                        opacity: isDisabled ? 0.8 : 1
-                      }}
-                    />
-                  ) : field.type === 'file' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {hasErrors && (
                       <div style={{
-                        width: '100%', height: '140px', borderRadius: '20px', border: '2.5px dashed #e2e8f0',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                        backgroundColor: '#f8fafc', cursor: 'pointer', position: 'relative',
-                        transition: 'all 0.2s', borderColor: form[field.key] ? '#315A9E' : '#e2e8f0'
-                      }} onClick={() => {
-                        if (isEditing) {
-                          document.getElementById(`upload-${field.key}`).click();
-                        } else if (form[field.key]) {
-                          setViewImage(form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`);
-                        }
-                      }}>
-                        {form[field.key] ? (
-                          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                            <img src={form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`} alt={field.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, hover: { opacity: 1 }, transition: '0.2s' }}>
-                              <Eye size={24} color="white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              padding: '12px 24px', backgroundColor: '#315A9E', borderRadius: '14px',
-                              color: 'white', fontWeight: '900', fontSize: '13px', display: 'flex',
-                              alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px rgba(49,90,158,0.2)'
-                            }}>
-                              <Camera size={18} /> UPLOAD
-                            </div>
-                            <p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', margin: 0 }}>Select from Gallery or Camera</p>
-                          </div>
-                        )}
-                        <input
-                          type="file" id={`upload-${field.key}`} style={{ display: 'none' }} accept="image/*"
-                          onChange={(e) => handleFileUpload(field.key, e.target.files[0])}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', gap: '15px', alignItems: 'center', minHeight: '20px' }}>
-                        {form[field.key] && !isDisabled && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              document.getElementById(`upload-${field.key}`).click();
-                            }}
-                            style={{ fontSize: '11px', color: '#ef4444', fontWeight: '800', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            <RefreshCw size={12} /> Update Photo
-                          </button>
-                        )}
-                        {form[field.key] && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewImage(form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`)
-                            }
-                            }
-                            style={{ fontSize: '11px', color: '#315A9E', fontWeight: '800', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            <Eye size={12} /> View Full
-                          </button>
-                        )}
-                      </div>
+                        position: 'absolute', top: '8px', right: '8px',
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        backgroundColor: '#ef4444', boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
+                      }} />
+                    )}
+                    <ChevronRight size={18} style={{ marginLeft: 'auto', opacity: isActive ? 1 : 0.3 }} />
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ height: '100%', overflowY: 'auto', paddingRight: '10px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <motion.div
+            key={activeSection}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              backgroundColor: 'white',
+              padding: isMobile ? '20px' : '40px 40px 80px 40px',
+              border: 'none',
+              borderRadius: isMobile ? '22px' : '28px',
+              boxSizing: 'border-box',
+              width: '100%',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.03)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px', marginBottom: isMobile ? '24px' : '32px' }}>
+              <div style={{ padding: isMobile ? '10px' : '12px', borderRadius: '14px', backgroundColor: `${currentSection.color}15`, flexShrink: 0 }}>
+                <div style={{ color: currentSection.color }}>{cloneElement(currentSection.icon, { size: isMobile ? 18 : 20 })}</div>
+              </div>
+              <div style={{ marginTop: '10px' }}>
+                <h2 style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: '900', color: '#000000', margin: 0 }}>{currentSection.label}</h2>
+                <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#000000', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata records' : 'Official employee metadata records'}</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '24px' : '40px' }}>
+              {currentSection.fields.map((field, fIdx) => {
+                if (field.type === 'header') {
+                  return (
+                    <div key={`header-${fIdx}`} style={{ gridColumn: '1 / -1', marginTop: fIdx === 0 ? '0' : '24px', marginBottom: '8px' }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '1px', paddingBottom: '12px', borderBottom: '1.5px solid #f1f5f9' }}>
+                        {field.label}
+                      </h3>
                     </div>
-                  ) : (
-                    <div style={{ position: 'relative', width: '100%' }}>
-                      <input
-                        type="text"
+                  );
+                }
+                const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
+                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
+
+                return (
+                  <div key={field.key} style={{
+                    display: 'flex',
+                    flexDirection: field.type === 'boolean' ? 'row' : 'column',
+                    justifyContent: field.type === 'boolean' ? 'space-between' : 'flex-start',
+                    alignItems: field.type === 'boolean' ? 'center' : 'stretch',
+                    gap: '12px',
+                    opacity: isLockedForRole ? 0.7 : 1,
+                    gridColumn: !isMobile && field.fullWidth ? '1 / -1' : 'auto',
+                    padding: '12px 0',
+                    alignSelf: 'start'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                      <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                        {field.label} {['emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id'].includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
+                      </label>
+                      {isLockedForRole && <Shield size={10} color="#000000" />}
+                    </div>
+
+                    {field.type === 'select' ? (
+                      <div style={{ position: 'relative', width: '100%' }}>
+                        <select
+                          value={form[field.key]}
+                          disabled={isDisabled}
+                          onChange={e => handleChange(field.key, e.target.value)}
+                          style={{
+                            width: '100%', padding: isMobile ? '14px 40px 14px 16px' : '16px 45px 16px 20px', borderRadius: isMobile ? '12px' : '16px', fontSize: isMobile ? '14px' : '16px',
+                            fontWeight: '700', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
+                            border: !isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0', outline: 'none', cursor: isDisabled ? 'default' : 'pointer', appearance: 'none', boxSizing: 'border-box',
+                            transition: 'all 0.2s', opacity: isDisabled ? 0.8 : 1
+                          }}
+                        >
+                          {field.options.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                        <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabled ? '#cbd5e1' : '#315A9E' }}>
+                          <ChevronDown size={isMobile ? 16 : 18} strokeWidth={3} />
+                        </div>
+                      </div>
+                    ) : field.type === 'boolean' ? (
+                      <div style={{ display: 'flex', gap: '8px', width: 'auto', flexShrink: 0 }}>
+                        {['Yes', 'No'].map(option => {
+                          const isSelected = (form[field.key] || 'No') === option;
+                          return (
+                            <motion.button
+                              key={option}
+                              type="button"
+                              whileTap={!isDisabled ? { scale: 0.95 } : {}}
+                              disabled={isDisabled}
+                              onClick={() => handleChange(field.key, option)}
+                              style={{
+                                width: isMobile ? '40px' : '50px',
+                                height: isMobile ? '32px' : '36px',
+                                borderRadius: '10px',
+                                cursor: isDisabled ? 'default' : 'pointer',
+                                border: '2px solid',
+                                borderColor: isSelected ? (option === 'Yes' ? '#10B981' : '#EF4444') : '#f1f5f9',
+                                backgroundColor: isSelected ? (option === 'Yes' ? '#10B981' : '#EF4444') : (isDisabled ? '#f8fafc' : 'white'),
+                                color: isSelected ? 'white' : (isDisabled ? '#cbd5e1' : '#cbd5e1'),
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: isDisabled && !isSelected ? 0.6 : 1,
+                                boxShadow: isSelected ? `0 4px 10px ${option === 'Yes' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}` : 'none'
+                              }}
+                            >
+                              {option === 'Yes' ? <Check size={isMobile ? 16 : 18} strokeWidth={4} /> : <X size={isMobile ? 16 : 18} strokeWidth={4} />}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    ) : field.type === 'textarea' ? (
+                      <textarea
                         value={form[field.key]}
                         readOnly={isDisabled}
                         onChange={e => handleChange(field.key, e.target.value)}
                         placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
                         style={{
-                          width: '100%', padding: isMobile ? '12px' : '16px 20px',
-                          borderRadius: isMobile ? '10px' : '16px', fontSize: isMobile ? '13px' : '16px',
-                          fontWeight: '700', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
+                          width: '100%', padding: '16px 20px', borderRadius: '16px', fontSize: isMobile ? '14px' : '16px',
+                          fontWeight: '800', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
                           border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
-                          outline: 'none', boxSizing: 'border-box',
-                          transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text',
-                          opacity: isDisabled ? 0.8 : 1
+                          outline: 'none', boxSizing: 'border-box', minHeight: '120px',
+                          transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text', resize: 'vertical', fontFamily: 'inherit',
+                          opacity: isDisabled ? 1 : 1
                         }}
                       />
-                    </div>
-                  )}
-                  {errors[field.key] && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#ef4444', fontWeight: '800', marginTop: '2px' }}>
-                      <AlertCircle size={12} />
-                      {errors[field.key]}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
+                    ) : field.type === 'multiselect' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {field.options.map(opt => {
+                            const currentVals = (form[field.key] || '').split(',').map(v => v.trim()).filter(v => v);
+                            const isSelected = currentVals.includes(opt);
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                disabled={isDisabled}
+                                onClick={() => {
+                                  let next;
+                                  if (isSelected) {
+                                    next = currentVals.filter(v => v !== opt).join(', ');
+                                  } else {
+                                    next = [...currentVals, opt].join(', ');
+                                  }
+                                  handleChange(field.key, next);
+                                }}
+                                style={{
+                                  padding: '8px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: '800',
+                                  backgroundColor: isSelected ? '#315A9E' : '#f1f5f9',
+                                  color: isSelected ? 'white' : '#64748b',
+                                  border: isSelected ? '2px solid #315A9E' : '2px solid transparent',
+                                  cursor: isDisabled ? 'default' : 'pointer', transition: '0.2s',
+                                  boxShadow: isSelected ? '0 4px 12px rgba(49,90,158,0.2)' : 'none'
+                                }}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : field.type === 'file' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{
+                          width: '100%', height: '140px', borderRadius: '20px', border: '2.5px dashed #e2e8f0',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                          backgroundColor: '#f8fafc', cursor: 'pointer', position: 'relative',
+                          transition: 'all 0.2s', borderColor: form[field.key] ? '#315A9E' : '#e2e8f0'
+                        }} onClick={() => {
+                          if (isEditing) {
+                            document.getElementById(`upload-${field.key}`).click();
+                          } else if (form[field.key]) {
+                            setViewImage(form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`);
+                          }
+                        }}>
+                          {form[field.key] && (form[field.key].length > 100 || !form[field.key].startsWith('data:')) ? (
+                            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                              {String(form[field.key]).toLowerCase().endsWith('.pdf') || String(form[field.key]).startsWith('data:application/pdf') ? (
+                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+                                  <FileText size={48} color="#ef4444" />
+                                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', marginTop: '8px' }}>PDF DOCUMENT</span>
+                                </div>
+                              ) : (
+                                <img src={form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`} alt={field.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              )}
+                              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, hover: { opacity: 1 }, transition: '0.2s' }}>
+                                <Eye size={24} color="white" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ textAlign: 'center', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <div style={{
+                                padding: '12px 24px', backgroundColor: '#315A9E', borderRadius: '14px',
+                                color: 'white', fontWeight: '900', fontSize: '13px', display: 'flex',
+                                alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px rgba(49,90,158,0.2)'
+                              }}>
+                                <Camera size={18} /> UPLOAD
+                              </div>
+                              <p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', margin: 0 }}>Image or PDF supported</p>
+                            </div>
+                          )}
+                          <input
+                            type="file" id={`upload-${field.key}`} style={{ display: 'none' }} accept="image/*,application/pdf"
+                            onChange={(e) => handleFileUpload(field.key, e.target.files[0])}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', minHeight: '20px' }}>
+                          {form[field.key] && !isDisabled && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                document.getElementById(`upload-${field.key}`).click();
+                              }}
+                              style={{ fontSize: '11px', color: '#ef4444', fontWeight: '800', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <RefreshCw size={12} /> Update File
+                            </button>
+                          )}
+                          {form[field.key] && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const url = form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`;
+                                if (url.toLowerCase().endsWith('.pdf') || url.startsWith('data:application/pdf')) {
+                                  if (url.startsWith('data:application/pdf')) {
+                                    fetch(url).then(res => res.blob()).then(blob => {
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      window.open(blobUrl, '_blank');
+                                    });
+                                  } else {
+                                    window.open(url, '_blank');
+                                  }
+                                } else {
+                                  setViewImage(url);
+                                }
+                              }}
+                              style={{ fontSize: '11px', color: '#315A9E', fontWeight: '800', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Eye size={12} /> View Full
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : field.type === 'textarea' ? (
+                      <textarea
+                        value={form[field.key]}
+                        readOnly={isDisabled}
+                        onChange={e => handleChange(field.key, e.target.value)}
+                        placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
+                        style={{
+                          width: '100%', padding: '16px 20px', borderRadius: '16px', fontSize: isMobile ? '14px' : '16px',
+                          fontWeight: '800', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
+                          border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
+                          outline: 'none', boxSizing: 'border-box', minHeight: '120px',
+                          transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text', resize: 'vertical', fontFamily: 'inherit'
+                        }}
+                      />
+                    ) : (
+                      <div style={{ position: 'relative', width: '100%' }}>
+                        <input
+                          type="text"
+                          value={(form[field.key] && typeof form[field.key] === 'string' && form[field.key].includes('T') && form[field.key].length > 15) ? form[field.key].split('T')[0] : (form[field.key] || '')}
+                          readOnly={isDisabled}
+                          onChange={e => handleChange(field.key, e.target.value)}
+                          placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
+                          style={{
+                            width: '100%', padding: isMobile ? '12px' : '16px 20px',
+                            borderRadius: isMobile ? '10px' : '16px', fontSize: isMobile ? '13px' : '16px',
+                            fontWeight: '800', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
+                            border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
+                            outline: 'none', boxSizing: 'border-box',
+                            transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text'
+                          }}
+                        />
+                      </div>
+                    )}
+                    {errors[field.key] && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#ef4444', fontWeight: '800', marginTop: '2px' }}>
+                        <AlertCircle size={12} />
+                        {errors[field.key]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
       </div>
 
       <style>{`

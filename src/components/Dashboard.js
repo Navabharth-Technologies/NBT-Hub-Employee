@@ -320,6 +320,21 @@ const Dashboard = ({ setActiveTab }) => {
     const uid = sanitizeId(user?.id || user?.empId || user?.employee_id || user?.userId);
     if (!uid) return;
 
+    let sortedLogs = []; // Initialize early to avoid scope errors
+    let backendYestRec = null; 
+    let finalTodayTasks = []; // Declare early for merge logic
+    let finalYestTasks = [];  // Declare early for merge logic
+    const todayDate = new Date();
+    const yesterdayDate = new Date(Date.now() - 86400000);
+    const getLogDate = (r) => r.timestamp || r.created_at || r.date || r.Date || r.CreatedAt;
+    const isSameDay = (d1, d2String) => {
+      try {
+        const date1 = new Date(d1);
+        const date2 = new Date(d2String);
+        return date1.toDateString() === date2.toDateString();
+      } catch { return false; }
+    };
+
     try {
       const token = localStorage.getItem('token');
       const headers = { 'Accept': 'application/json' };
@@ -398,38 +413,55 @@ const Dashboard = ({ setActiveTab }) => {
       }
 
       // 3. Process Task Logs (Yesterday/Today)
+      const parseTasks = (raw) => {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        try { return JSON.parse(raw); } catch { return []; }
+      };
+
       // ── Helper: build a localStorage key for a given Date object ──
       const lsKey = (uid, d) => `task_log_${uid}_${d.toISOString().slice(0, 10)}`;
-      const today = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
-      const todayDate = new Date();
-      const yesterdayDate = new Date(Date.now() - 86400000);
-
-      let backendTodayRec = null;
-      let backendYestRec = null;
 
       if (logsResp && logsResp.ok) {
         const lData = await logsResp.json();
         const list = Array.isArray(lData) ? lData : (lData.value || lData.data || []);
         console.log('[Dashboard] task-updates from backend:', list.length, 'records', list);
 
-        const isSameDay = (d1, d2String) => {
-          try {
-            const date1 = new Date(d1);
-            const date2 = new Date(d2String);
-            return date1.toDateString() === date2.toDateString();
-          } catch { return false; }
+        sortedLogs = list.sort((a, b) => new Date(getLogDate(b)) - new Date(getLogDate(a)));
+        
+        const todayLogs = sortedLogs.filter(r => isSameDay(todayDate, getLogDate(r)));
+        const yestLogs  = sortedLogs.filter(r => isSameDay(yesterdayDate, getLogDate(r)));
+
+        // Merge all tasks from all records for the day to avoid missing data
+        const mergeTasks = (logs) => {
+          return logs.reduce((acc, r) => {
+            const tasks = parseTasks(r.tasks || r.task_list || r.content);
+            return [...acc, ...tasks];
+          }, []).sort((a, b) => {
+            const idA = typeof a === 'object' ? Number(a.id || 0) : 0;
+            const idB = typeof b === 'object' ? Number(b.id || 0) : 0;
+            return idB - idA; // Newest first
+          });
         };
 
-        const getLogDate = (r) => r.timestamp || r.created_at || r.date || r.Date || r.CreatedAt;
+        finalTodayTasks = mergeTasks(todayLogs);
+        finalYestTasks  = mergeTasks(yestLogs);
 
-        backendTodayRec = list.find(r => isSameDay(todayDate, getLogDate(r)));
-        backendYestRec  = list.find(r => isSameDay(yesterdayDate, getLogDate(r)));
+        setTodayTasks(finalTodayTasks);
+        setYesterdayTasks(finalYestTasks);
 
-        // If no exact yesterday match, fall back to most recent past record
+        if (todayLogs.length > 0) {
+          setTodayStatus(todayLogs[0].overallStatus || todayLogs[0].status || 'Pending');
+        }
+        if (yestLogs.length > 0) {
+          setYesterdayStatus(yestLogs[0].overallStatus || yestLogs[0].status || 'Pending');
+        }
+
+        // Keep backendYestRec for legacy logic if needed (e.g. completion %)
+        backendYestRec = yestLogs[0] || null;
+
         if (!backendYestRec) {
-          backendYestRec = list.filter(r => !isSameDay(todayDate, getLogDate(r)))
-                              .sort((a, b) => new Date(getLogDate(b)) - new Date(getLogDate(a)))[0] || null;
+          backendYestRec = sortedLogs.filter(r => !isSameDay(todayDate, getLogDate(r)))[0] || null;
         }
 
         // Cache Reviews
@@ -455,20 +487,30 @@ const Dashboard = ({ setActiveTab }) => {
       const lsTodayRec = lsTodayRaw ? JSON.parse(lsTodayRaw) : null;
       const lsYestRec  = lsYestRaw  ? JSON.parse(lsYestRaw)  : null;
 
-      // Prefer backend data; fall back to localStorage
-      const finalTodayRec = backendTodayRec || lsTodayRec;
-      const finalYestRec  = backendYestRec  || lsYestRec;
+      // Define finalYestRec for legacy performance calculations below
+      let backendYestMatch = null;
+      try {
+        if (sortedLogs) {
+          backendYestMatch = sortedLogs.filter(r => isSameDay(yesterdayDate, getLogDate(r)))[0];
+        }
+      } catch { }
+      const finalYestRec = backendYestMatch || lsYestRec;
 
-      const parseTasks = (raw) => {
-        if (!raw) return [];
-        if (Array.isArray(raw)) return raw;
-        try { return JSON.parse(raw); } catch { return []; }
-      };
-
-      if (finalTodayRec) {
-        setTodayTasks(parseTasks(finalTodayRec.tasks || finalTodayRec.task_list || finalTodayRec.content));
-        setTodayStatus(finalTodayRec.overallStatus || finalTodayRec.status || 'Pending');
+      // Prefer merged backend records; fall back to localStorage if empty
+      if (finalTodayTasks.length === 0 && lsTodayRec) {
+        setTodayTasks(parseTasks(lsTodayRec.tasks));
+        setTodayStatus(lsTodayRec.overallStatus);
       }
+      if (finalYestTasks.length === 0 && lsYestRec) {
+        setYesterdayTasks(parseTasks(lsYestRec.tasks));
+        setYesterdayStatus(lsYestRec.overallStatus);
+      }
+
+
+
+      // Note: Today/Yesterday tasks already set in backend merge logic above
+      // This section is kept for any additional side effects if needed.
+
 
       // Calculate Yesterday's Completion Dynamically (Based on Assigned Tasks + Log Status)
       if (finalYestRec) {
@@ -600,6 +642,10 @@ const Dashboard = ({ setActiveTab }) => {
     // This prevents crashes if legacy data is in string format.
     const normalized = todayTasks.map((t, idx) => {
       if (typeof t === 'string') return { text: t, id: Date.now() + idx };
+      // Ensure we don't reset existing IDs if they are already timestamps
+      if (!t.id || isNaN(Number(t.id)) || Number(t.id) < 1000000000000) {
+        return { ...t, id: Date.now() + idx };
+      }
       return t;
     });
     setEditBuffer(normalized.length > 0 ? normalized : [{ text: '', id: Date.now() }]);
@@ -738,15 +784,47 @@ const Dashboard = ({ setActiveTab }) => {
               <div style={s.taskGrid}>
                 <div 
                   onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                  style={{ ...s.yesterdayBox, cursor: 'pointer' }}
+                  style={{ ...s.yesterdayBox, cursor: 'pointer', position: 'relative' }}
                 >
-                  <div style={s.yesterdayLabel}>
-                    <CheckCircle2 size={20} color="#16a34a" /> Yesterday
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={s.yesterdayLabel}>
+                      <CheckCircle2 size={20} color="#16a34a" /> Yesterday
+                    </div>
+                    {yesterdayTasks.length > 0 && (
+                      <div style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Clock size={12} />
+                        {(() => {
+                           // Use the MOST RECENT task's ID for the card timing
+                           const validTs = yesterdayTasks
+                             .map(t => typeof t === 'object' ? Number(t.id) : null)
+                             .filter(id => !isNaN(id) && id > 1000000000000);
+                           const latestId = validTs.length > 0 ? Math.max(...validTs) : null;
+                           return latestId
+                             ? new Date(latestId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                             : '';
+                        })()}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {/* Task list removed from card summary per request */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0' }}>
+                    {yesterdayTasks.slice(0, 3).map((t, i) => {
+                      const taskId = typeof t === 'object' ? Number(t.id) : null;
+                      const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
+                        ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                        : '';
+                      return (
+                        <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
+                          <CheckCircle2 size={12} color="#16a34a" />
+                          <span style={{ fontSize: '12px', color: '#475569' }}>
+                            {typeof t === 'string' ? t : t.text} 
+                            {timeStr && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>({timeStr})</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
                   </div>
-                  <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a' }}>{yesterdayStatus}</div>
+                  <div style={{...s.statusBadge, background: '#ebf9f1', color: '#16a34a' }}>{yesterdayStatus}</div>
                 </div>
 
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
@@ -770,12 +848,19 @@ const Dashboard = ({ setActiveTab }) => {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                        {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
                        {todayTasks.length > 0 ? (
-                         todayTasks.map((t, i) => (
-                           <div key={i} style={s.taskItem}>
-                             <CheckCircle2 size={14} color="#3b82f6" />
-                             <span>{typeof t === 'string' ? t : t.text}</span>
-                           </div>
-                         ))
+                         todayTasks.map((t, i) => {
+                           const taskId = typeof t === 'object' ? Number(t.id) : null;
+                           const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
+                             ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                             : '';
+                           return (
+                             <div key={i} style={s.taskItem}>
+                               <CheckCircle2 size={14} color="#3b82f6" />
+                               <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
+                               {timeStr && <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>{timeStr}</span>}
+                             </div>
+                           );
+                         })
                        ) : (
                          <div style={{ ...s.taskItem, color: '#94a3b8' }}>Plan your day. Update your tasks here.</div>
                        )}

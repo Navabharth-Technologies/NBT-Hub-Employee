@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee TRR - Test Requirement Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 40px; }
+        h1 { color: #0B1E3F; border-bottom: 2px solid #0B1E3F; padding-bottom: 10px; }
+        h2 { color: #3863a8; margin-top: 30px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        h3 { color: #1e293b; margin-top: 25px; background: #f8fafc; padding: 10px; border-radius: 5px; }
+        h4 { color: #475569; margin-top: 20px; text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+        th { background-color: #0B1E3F; color: white; text-align: left; padding: 12px; }
+        td { border: 1px solid #e2e8f0; padding: 10px; vertical-align: top; }
+        tr:nth-child(even) { background-color: #f1f5f9; }
+        .footer { margin-top: 50px; font-size: 0.8em; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; }
+        .high { background-color: #fee2e2; color: #991b1b; }
+        .medium { background-color: #fef9c3; color: #854d0e; }
+        .low { background-color: #dcfce7; color: #166534; }
+    </style>
+</head>
+<body>
+
+    <h1>Employee</h1>
+    <h2>TEST REQUIREMENT REPORT (TRR)</h2>
+
+    <h3>Project Information</h3>
+    <table>
+        <tr><th>Field</th><th>Details</th></tr>
+        <tr><td>Project Name</td><td>NBT HUB – Employee Portal</td></tr>
+        <tr><td>Module Scope</td><td>Employee Self-Service & Operations</td></tr>
+        <tr><td>Document Type</td><td>Test Requirement Report (TRR)</td></tr>
+        <tr><td>Prepared By</td><td>Development Team</td></tr>
+        <tr><td>Date</td><td>May 7, 2026</td></tr>
+        <tr><td>Environment</td><td>Development / Staging</td></tr>
+    </table>
+
+    <hr>
+
+    <h3>Module Inventory</h3>
+    <table>
+        <tr><th>Module Name</th><th>Route / Path</th><th>Description</th></tr>
+        <tr><td>Authentication</td><td>/login</td><td>User authentication, role-based access control, token validation, and session management.</td></tr>
+        <tr><td>Dashboard</td><td>/</td><td>Employee task board displaying Today's tasks, Yesterday summary, project updates, and precision timestamping.</td></tr>
+        <tr><td>Profile & Documents</td><td>/profile</td><td>User profile management, reporting manager details, tenure calculation, and HR document access.</td></tr>
+        <tr><td>Documents Vault</td><td>/documents</td><td>Upload and management of academic, finance, identity-related documents (PAN, Aadhar, Voter ID).</td></tr>
+        <tr><td>Attendance Management</td><td>/attendance</td><td>Geofenced attendance tracking, biometric punch records, shift monitoring, and attendance logs.</td></tr>
+        <tr><td>Leave Management</td><td>/leave</td><td>Leave request workflows, leave balances (SL, CL, EL), approvals, and leave history management.</td></tr>
+        <tr><td>Knowledge Hub</td><td>/courses</td><td>Learning Management System supporting videos, PDFs, quizzes, and certifications.</td></tr>
+        <tr><td>Fun Quiz</td><td>/fun</td><td>Daily engagement quizzes integrated with REP point rewards.</td></tr>
+        <tr><td>Awards & REP System</td><td>/awards</td><td>Employee recognition system with leaderboard and REP point tracking.</td></tr>
+        <tr><td>Threads & Chat</td><td>/thread</td><td>Real-time communication platform with task alerts and notifications.</td></tr>
+        <tr><td>HR Operations</td><td>/resignation</td><td>HR-related workflows including resignation, pay slips, and service certificates.</td></tr>
+        <tr><td>Calendar</td><td>/calendar</td><td>Holiday calendar, birthday reminders, and event scheduling.</td></tr>
+        <tr><td>Focus Logs</td><td>/focus-logs</td><td>Granular task timeline with individual sub-task timestamp tracking.</td></tr>
+        <tr><td>Projects & Training</td><td>/projects</td><td>Project status tracking with automatic task logging on completion.</td></tr>
+    </table>
+
+    <h3>Functional Test Requirements</h3>
+    <table>
+        <tr><th>Module</th><th>Feature</th><th>Test Scenario</th><th>Test Steps</th><th>Expected Result</th></tr>
+        <tr><td>Dashboard</td><td>Task Board</td><td>Verify task creation with timestamp</td><td>1. Open Dashboard 2. Add task under "Today"</td><td>Task appears with exact current time.</td></tr>
+        <tr><td>Dashboard</td><td>Edit Locking</td><td>Verify timestamp preservation</td><td>1. Edit an existing task 2. Save changes</td><td>Original timestamp remains unchanged.</td></tr>
+        <tr><td>Attendance</td><td>Geofence</td><td>Verify office punch</td><td>1. GPS within radius 2. Click Punch In</td><td>Attendance marked as OFFICE.</td></tr>
+        <tr><td>Leave</td><td>Application</td><td>Submit leave request</td><td>1. Select dates 2. Submit</td><td>Appears in "Pending" section.</td></tr>
+        <tr><td>Profile</td><td>Image Upload</td><td>Upload profile picture</td><td>1. Open Profile 2. Upload photo</td><td>Persists after page refresh.</td></tr>
+        <tr><td>Documents</td><td>PAN Card</td><td>Upload PAN card copy</td><td>1. Upload PAN image 2. Save</td><td>Image preview visible and saved.</td></tr>
+        <tr><td>Security</td><td>Vault</td><td>Reset password via OTP</td><td>1. Request OTP 2. Verify code 3. Reset</td><td>OTP verified and password changed.</td></tr>
+    </table>
+
+    <h3>Negative Test Requirements</h3>
+    <table>
+        <tr><th>Req ID</th><th>Module</th><th>Negative Scenario</th><th>Invalid Input</th><th>Expected Validation</th></tr>
+        <tr><td>EMP-NEG-01</td><td>Profile</td><td>Empty phone number</td><td>Empty string</td><td>Update blocked with error.</td></tr>
+        <tr><td>EMP-NEG-04</td><td>Leave</td><td>Zero balance request</td><td>Select 0 balance type</td><td>Submission blocked.</td></tr>
+        <tr><td>EMP-NEG-07</td><td>Documents</td><td>Invalid PAN format</td><td>"12345"</td><td>"Use ABCDE1234F format" error.</td></tr>
+    </table>
+
+    <h3>Responsive UI Test Requirements</h3>
+    <table>
+        <tr><th>Req ID</th><th>Screen</th><th>Device</th><th>Expected Layout</th></tr>
+        <tr><td>EMP-RES-01</td><td>Dashboard</td><td>Mobile</td><td>Collapses into single-column layout.</td></tr>
+        <tr><td>EMP-RES-04</td><td>Navigation</td><td>Mobile</td><td>Fixed at bottom with icons.</td></tr>
+        <tr><td>EMP-RES-07</td><td>Profile</td><td>Mobile</td><td>Stacks vertically (Avatar > Name > Info).</td></tr>
+    </table>
+
+    <h3>QA Testing Workflow</h3>
+    <h4>1. Access & Security</h4>
+    <ul>
+        <li>Verify redirection after login for Employees and Trainees.</li>
+        <li>Check Trainee access block after 10 days.</li>
+    </ul>
+
+    <h4>2. Dashboard & Precision Timing</h4>
+    <ul>
+        <li>Verify current time appears on new tasks.</li>
+        <li>Ensure "Yesterday" tasks are merged correctly.</li>
+    </ul>
+
+    <h4>3. Profile & Document Persistence</h4>
+    <ul>
+        <li>Verify profile image survives page refresh.</li>
+        <li>Verify all identity documents (PAN, Aadhar) persist after save.</li>
+    </ul>
+
+    <div class="footer">
+        <p>&copy; 2026 NBT Technologies - Confidential Test Document</p>
+        <p>NBT HUB v4.0 - Prepared by Development Team</p>
+    </div>
+
+</body>
+</html>

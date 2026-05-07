@@ -35,7 +35,8 @@ const CalendarScreen = ({ onBack }) => {
         ];
       }
 
-      const sorted = data.sort((a,b) => new Date(a.date) - new Date(b.date));
+      const holidayList = Array.isArray(data) ? data : (data?.value || data?.data || []);
+      const sorted = holidayList.sort((a,b) => new Date(a.date) - new Date(b.date));
       setHolidays(sorted);
     } catch (err) {
       console.error("Holiday Fetch Error:", err);
@@ -188,10 +189,11 @@ const CalendarScreen = ({ onBack }) => {
             <div style={{ ...s.grid, width: '100%', marginTop: '40px' }}>
             {holidays.map((h, i) => {
                 const date = new Date(h.date);
+                if (isNaN(date.getTime())) return null; // Skip invalid dates
                 const passed = isPassed(h.date);
                 return (
                 <motion.div 
-                    key={i} 
+                    key={h.id || i} 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.03 }}

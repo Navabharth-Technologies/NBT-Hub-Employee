@@ -339,17 +339,26 @@ export default function FocusLogs({ onBack }) {
             ) : filteredLogs.length > 0 ? (
               filteredLogs.map((log, idx) => {
                 const ts = log.timestamp || log.created_at || log.date || log.Date || log.CreatedAt;
-                const d = new Date(ts);
+                // Accurate timing logic: Use the LATEST task ID if it looks like a valid timestamp, 
+                // otherwise fall back to the record's overall timestamp.
+                const taskTimestamps = (log.tasks || [])
+                  .map(t => Number(t.id))
+                  .filter(id => !isNaN(id) && id > 1000000000000); 
+                
+                const displayDate = taskTimestamps.length > 0 
+                  ? new Date(Math.max(...taskTimestamps)) 
+                  : new Date(ts);
+
                 return (
                   <div key={log.id || `log-${idx}`} style={s.entry}>
                     <div style={s.dateBox}>
-                      <div style={s.day}>{d.getDate()}</div>
-                      <div style={s.month}>{d.toLocaleString('default', { month: 'short' })}</div>
+                      <div style={s.day}>{displayDate.getDate()}</div>
+                      <div style={s.month}>{displayDate.toLocaleString('default', { month: 'short' })}</div>
                     </div>
                     <div style={s.content}>
                       <div style={s.timeRow}>
                         <Clock size={14} color="#94a3b8" />
-                        <span style={{fontSize: '11px', fontWeight: '800', color: '#94a3b8'}}>{d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                        <span style={{fontSize: '11px', fontWeight: '800', color: '#94a3b8'}}>{displayDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                         <div style={{
                           ...s.statusTag, 
                           backgroundColor: log.overallStatus === 'Completed' ? '#dcfce7' : '#fef9c3',
@@ -359,11 +368,19 @@ export default function FocusLogs({ onBack }) {
                         </div>
                       </div>
                       <div style={s.reportText}>
-                        {log.tasks?.map((t, i) => (
-                           <div key={i} style={{marginBottom: '4px', display:'flex', gap:'8px'}}>
-                             <CheckCircle2 size={16} color="#3B5998" /> {typeof t === 'string' ? t : (t.text || '')}
-                           </div>
-                        ))}
+                        {log.tasks?.map((t, i) => {
+                           const taskId = typeof t === 'object' ? Number(t.id) : null;
+                           const tTime = (!isNaN(taskId) && taskId > 1000000000000) 
+                             ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                             : '';
+                           return (
+                             <div key={i} style={{marginBottom: '4px', display:'flex', gap:'8px', alignItems: 'center'}}>
+                               <CheckCircle2 size={16} color="#3B5998" /> 
+                               <span style={{flex: 1}}>{typeof t === 'string' ? t : (t.text || '')}</span>
+                               {tTime && <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '800'}}>{tTime}</span>}
+                             </div>
+                           );
+                        })}
                       </div>
                     </div>
                   </div>

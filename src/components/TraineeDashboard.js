@@ -15,10 +15,10 @@ const resolveMediaUrl = (url) => {
 };
 
 const TraineeDashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isBlocked } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showBlocked, setShowBlocked] = useState(false);
+  // Redundant showBlocked removed — now using global isBlocked from AuthContext
   const fetchDataRef = useRef(null); // stable ref so BroadcastChannel closure always calls latest
 
   useEffect(() => {
@@ -139,34 +139,8 @@ const TraineeDashboard = () => {
       const diffDays = startDate ? Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) : 0;
       console.log('[TraineeDash] diffDays:', diffDays, '| joiningDate:', joiningDateStr);
 
-      const isAllCompleted = finalArr.length > 0 && finalArr.every(c => c.status === 'Completed');
-
-      // Block access only after 10 days if curriculum is not yet completed
-      if (diffDays > 10 && !isAllCompleted) {
-        setShowBlocked(true);
-
-        // Send a notification to the DB (only once — avoid repeated inserts on refresh)
-        const notifKey = `trainee_blocked_notif_${resolvedUid}`;
-        if (!localStorage.getItem(notifKey)) {
-          try {
-            await fetch(API_ENDPOINTS.NOTIFICATIONS, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                target_user_id: resolvedUid,
-                message: `Your 10-day onboarding training window has expired with ${finalArr.filter(c => c.status !== 'Completed').length} course(s) still pending. Access has been automatically restricted.`,
-                type: 'TRAINING_BLOCKED',
-                is_read: 0
-              })
-            });
-            localStorage.setItem(notifKey, '1');
-            console.log('[TraineeDash] Block notification sent to DB.');
-          } catch (ne) { console.error('[TraineeDash] Notification insert failed:', ne); }
-        }
-      } else {
-        setShowBlocked(false);
-      }
-
+      // Blocking logic is now handled globally by AuthContext
+      // This fetchData still updates local course data
     } catch (err) {
       console.error("[TraineeDash] Critical sync error:", err);
     } finally {
@@ -256,7 +230,7 @@ const TraineeDashboard = () => {
   );
 
   // --- BLOCKED ACCESS SCREEN ---
-  if (showBlocked) return (
+  if (isBlocked) return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ maxWidth: '500px', textAlign: 'center', background: 'white', padding: '50px', borderRadius: '40px', boxShadow: '0 20px 50px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
          <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 30px auto' }}>

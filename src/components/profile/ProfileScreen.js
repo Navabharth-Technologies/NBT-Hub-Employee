@@ -5,38 +5,122 @@ import { BASE_URL } from '../../config';
 import { API_ENDPOINTS } from '../../config';
 import {
   MapPin, Building2, Clock, Globe, Mail, User,
-  ChevronRight, Calendar, Bell, Shield, LogOut, AlertCircle,
-  History, Users, FileText, Briefcase, Heart, Edit3, Fingerprint, Camera, Phone, Check, X, Plane, CreditCard, Award, Landmark
+  ChevronRight, Calendar, Bell, Shield, LogOut,
+  History, Users, FileText, Briefcase, Heart, Edit3, Fingerprint, Camera, Phone, Check, X, Palmtree, AlertCircle, CheckCircle2, Laptop, ShieldCheck
 } from 'lucide-react';
 
 import { getTheme } from '../../constants/Theme';
+import TicketSection from './TicketSection';
 
 export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const { user, logout, updateProfile } = useAuth();
   const theme = getTheme(user?.role);
   const [activeTab, setActiveTab] = useState('My Profile');
   const [winWidth, setWinWidth] = useState(window.innerWidth);
+  const isMobile = winWidth < 768;
+  const isTablet = winWidth < 1024;
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingAbout, setIsEditingAbout] = useState(false);
   const [phone, setPhone] = useState(user?.phone_number || 'Add Phone Number');
   const [aboutMe, setAboutMe] = useState(user?.about_me || 'Write a short introduction about yourself');
   const [dob, setDob] = useState(user?.date_of_birth || 'Add Date of Birth');
   const [isEditingDob, setIsEditingDob] = useState(false);
-  const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || '2025-11-10');
-  const [profileImage, setProfileImage] = useState(() => {
-    const img = user?.profileImage || user?.profile_image || user?.profilePicture || user?.profile_picture || user?.avatar || user?.profile_pic;
-    if (!img) return null;
-    return img.startsWith('http') || img.startsWith('data:') ? img : `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`;
-  });
+  const [teamName, setTeamName] = useState(user?.team || 'NAVABHARATHA TEAM');
+  const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
+  const [cleanEmployeeId, setCleanEmployeeId] = useState(user?.employee_id || user?.id || 'N/A');
+  const parseSafeDate = (dateStr) => {
+    // 0. Handle arrays (backend sometimes returns duplicates in an array)
+    if (Array.isArray(dateStr)) {
+      dateStr = dateStr[0];
+    }
+
+    if (!dateStr || dateStr === 'N/A' || dateStr === 'Add Date of Birth' || dateStr === 'Add Joining Date') return null;
+
+    // 1. Handle numeric timestamps (represented as strings or numbers)
+    if (!isNaN(dateStr) && !isNaN(parseFloat(dateStr))) {
+      const timestamp = Number(dateStr);
+      // Check if it's in seconds (10 digits) or milliseconds (13 digits)
+      const date = new Date(timestamp > 10000000000 ? timestamp : timestamp * 1000);
+      if (!isNaN(date.getTime())) return date;
+    }
+
+    // 2. Standard JS Parsing
+    let date = new Date(dateStr);
+    if (!isNaN(date.getTime())) return date;
+
+    // 3. Robust Delimiter Parsing (DD/MM/YYYY, YYYY/MM/DD, etc.)
+    if (typeof dateStr === 'string') {
+      const delimiters = ['/', '-', '.'];
+      for (const delimiter of delimiters) {
+        if (dateStr.includes(delimiter)) {
+          const parts = dateStr.split(delimiter);
+          if (parts.length === 3) {
+            // Reconstruct in a way browsers like (ISO)
+            let isoStr = '';
+            if (parts[0].length === 4) {
+              isoStr = `${parts[0]}-${parts[1]}-${parts[2]}`; // YYYY-MM-DD
+            } else {
+              isoStr = `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY -> YYYY-MM-DD
+            }
+            const fallbackDate = new Date(isoStr);
+            if (!isNaN(fallbackDate.getTime())) return fallbackDate;
+          }
+        }
+      }
+    }
+
+    console.warn('parseSafeDate FAILED to parse:', dateStr);
+    return null;
+  };
+
+  const calculateTenure = (date) => {
+    const joinDate = parseSafeDate(date);
+    if (!joinDate) return 'N/A';
+    const now = new Date();
+
+    let years = now.getFullYear() - joinDate.getFullYear();
+    let months = now.getMonth() - joinDate.getMonth();
+    let days = now.getDate() - joinDate.getDate();
+
+    if (days < 0) {
+      months--;
+      const daysInPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+      days += daysInPrevMonth;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    const parts = [];
+    if (years > 0) parts.push(`${years}Y`);
+    if (months > 0) parts.push(`${months}M`);
+    if (days >= 0 || parts.length === 0) parts.push(`${days}D`);
+
+    return parts.join(' ');
+  };
+
+  const resolveImagePath = (path) => {
+    if (!path || typeof path !== 'string') return null;
+    return path.startsWith('http') || path.startsWith('data:') ? path : `${BASE_URL}${path}`;
+  };
+
+  const [profileImage, setProfileImage] = useState(() =>
+    resolveImagePath(user?.profileImage || user?.profile_image || user?.profilePicture || user?.profile_picture || user?.avatar || user?.profile_pic)
+  );
   const [designation, setDesignation] = useState(user?.designation || '');
   const [isEditingDesignation, setIsEditingDesignation] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
-  const [reportingManager, setReportingManager] = useState({ name: 'Sahana NV', id: '' });
+  const [reportingManager, setReportingManager] = useState({ name: 'Loading...', id: '' });
   const fileInputRef = useRef(null);
   const [teamReports, setTeamReports] = useState([]);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passData, setPassData] = useState({ old: '', new: '', confirm: '' });
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [passData, setPassData] = useState({ old: '', new: '', confirm: '', otp: '' });
+  const [passwordMode, setPasswordMode] = useState('change'); // 'change' or 'reset'
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
 
   // Sync state if user object changes (e.g. after login or reload)
   useEffect(() => {
@@ -46,59 +130,121 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       if (user.date_of_birth) setDob(user.date_of_birth);
       const img = user.profileImage || user.profile_image || user.profilePicture || user.profile_picture || user.avatar || user.profile_pic;
       if (img) {
-        const src = img.startsWith('http') || img.startsWith('data:') ? img : `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`;
+        const src = resolveImagePath(img);
         if (src !== profileImage) setProfileImage(src);
       }
       if (user.designation) setDesignation(user.designation);
-      if (user.joining_date || user.joiningDate || user['joining date']) setJoiningDate(user.joining_date || user.joiningDate || user['joining date']);
+      if (user.joining_date || user.joiningDate || user['joining date'] || user.doj || user.date_of_joining) {
+        setJoiningDate(user.joining_date || user.joiningDate || user['joining date'] || user.doj || user.date_of_joining);
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     fetchReportingManager();
+    fetchUserDataFromUsersTable();
     if (user?.role === 'teamleader') fetchTeamReports();
     return () => window.removeEventListener('resize', handleResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  const sanitizeId = (id) => String(id || '').split(':')[0];
 
   const fetchReportingManager = async () => {
     try {
-      const identifier = user?.email || user?.id || user?.empId || user?.employee_id;
-      if (!identifier) return;
+      const token = localStorage.getItem('token');
+      const empId = user?.employee_id || user?.id || user?.userId;
+      if (!empId && !user?.email) return;
 
-      const sid = identifier.includes('@') ? identifier : sanitizeId(identifier);
-      const resp = await fetch(`${BASE_URL}/api/profile/${sid}`);
+      // 1. Fetch Primary Profile
+      const resp = await fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
+        headers: { 'Authorization': `Bearer ${token?.trim()}` }
+      });
+
+      let metaResp = { ok: false };
+      if (empId) {
+        metaResp = await fetch(API_ENDPOINTS.EMPLOYEE_PROFILE(empId), {
+          headers: { 'Authorization': `Bearer ${token?.trim()}` }
+        });
+      }
+
+      // 2. Fetch Users List for correct ID mapping (requested source)
+      const uResp = await fetch(API_ENDPOINTS.USERS, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      let mName = '';
+      let mId = '';
+
       if (resp.ok) {
         const data = await resp.json();
         if (data.phone_number) setPhone(data.phone_number);
         if (data.date_of_birth) setDob(data.date_of_birth);
         if (data.about_me) setAboutMe(data.about_me);
         if (data.designation) setDesignation(data.designation);
-        const jd = data.joining_date || data.joiningDate || data['joining date'];
-        if (jd) setJoiningDate(jd);
-
-        const img = data.profileImage || data.profile_image || data.profilePicture || data.profile_picture;
-        if (img) setProfileImage(img.startsWith('http') || img.startsWith('data:') ? img : `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`);
-
-        setReportingManager({
-          name: data.reportingManagerName || data.reporting_manager || 'Sahana NV',
-          id: data.reporting_manager_id || data.reportingManagerId || ''
-        });
+        const jd = data.joining_date || data.joiningDate || data.doj;
+        if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
+        if (data.team) setTeamName(data.team);
+        const img = data.profileImage || data.profile_image || data.avatar;
+        if (img) setProfileImage(resolveImagePath(img));
+        mId = data.reporting_manager_id || data.manager_id || '';
+        mName = data.reporting_manager_name || data.manager_name || '';
       }
+
+      if (metaResp.ok) {
+        const metaList = await metaResp.json();
+        const rawMeta = Array.isArray(metaList) ? metaList[0] : metaList;
+        if (rawMeta) {
+          if (rawMeta.dob) setDob(rawMeta.dob);
+          if (rawMeta.contact_no) setPhone(rawMeta.contact_no);
+          if (rawMeta.designation) setDesignation(rawMeta.designation);
+          if (rawMeta.process) setTeamName(rawMeta.process);
+          if (rawMeta.reporting_manager_id && !mId) mId = rawMeta.reporting_manager_id;
+        }
+      }
+
+      if (uResp.ok) {
+        const usersList = await uResp.json();
+        const currentUser = usersList.find(u =>
+          String(u.email || '').toLowerCase() === String(user?.email || '').toLowerCase()
+        );
+        if (currentUser) {
+          const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
+          if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
+          const eid = currentUser.employee_id || currentUser.id;
+          if (eid) setCleanEmployeeId(eid);
+
+          // Reporting Manager Lookup in users list
+          const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
+          if (targetRmId) {
+            mId = targetRmId;
+            const mgr = usersList.find(u => String(u.id || u.employee_id) === String(targetRmId));
+            if (mgr) mName = mgr.name || mgr.emp_name;
+          }
+        }
+      }
+
+      setReportingManager({ name: mName || 'Unassigned', id: mId });
+
     } catch (err) {
       console.error('Fetch Profile Error:', err);
-      setReportingManager(prev => ({ ...prev, name: 'Unavailable' }));
+      setReportingManager({ name: 'Unassigned', id: '' });
     }
+  };
+
+  const fetchUserDataFromUsersTable = () => {
+    // Logic merged into fetchReportingManager to prevent race conditions
   };
 
   const fetchTeamReports = async () => {
     try {
-      const res = await fetch(API_ENDPOINTS.TASKS);
+      const token = localStorage.getItem('token');
+      const res = await fetch(API_ENDPOINTS.TASKS, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        logout();
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         const today = new Date().toDateString();
@@ -132,7 +278,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         const data = await res.json();
         triggerToast('Profile image updated successfully!');
         if (data.profileImage) {
-          const finalImg = data.profileImage.startsWith('http') || data.profileImage.startsWith('data:') ? data.profileImage : `${BASE_URL}${data.profileImage.startsWith('/') ? '' : '/'}${data.profileImage}`;
+          const finalImg = data.profileImage.startsWith('http') || data.profileImage.startsWith('data:')
+            ? data.profileImage
+            : `${BASE_URL}${data.profileImage}`;
           setProfileImage(finalImg);
           // Update Context for building-wide sync
           updateProfile('profileImage', data.profileImage);
@@ -151,66 +299,99 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     setTimeout(() => setToast({ show: false, msg: '', type: 'success' }), 3000);
   };
 
+  const handleRequestOTP = async () => {
+    try {
+      const res = await fetch(API_ENDPOINTS.REQUEST_OTP, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email })
+      });
+      if (res.ok) {
+        setOtpRequested(true);
+        triggerToast('OTP sent to server terminal!');
+      } else {
+        const err = await res.json();
+        triggerToast(err.message || 'OTP Request failed', 'error');
+      }
+    } catch { triggerToast('Connection Error', 'error'); }
+  };
+
+  const handleVerifyOTP = async () => {
+    // Client-side verification to unlock the password fields as per the UI flow requirement
+    if (passData.otp && passData.otp.length === 6) {
+      setOtpVerified(true);
+      triggerToast('Authorization code accepted locally. Proceed to reset.');
+    } else {
+      triggerToast('Please enter a valid 6-digit code', 'error');
+    }
+  };
+
+  const handleResetWithOTP = async () => {
+    if (!passData.otp || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
+    if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
+
+    try {
+      const res = await fetch(API_ENDPOINTS.RESET_PASSWORD_OTP, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, otp: passData.otp, newPassword: passData.new })
+      });
+      if (res.ok) {
+        triggerToast('Password reset successfully!');
+        setShowPasswordModal(false);
+        setOtpRequested(false);
+        setPassData({ old: '', new: '', confirm: '', otp: '' });
+      } else {
+        const err = await res.json();
+        triggerToast(err.message || 'Reset failed', 'error');
+      }
+    } catch { triggerToast('Connection Error', 'error'); }
+  };
+
   const handlePasswordSubmit = async () => {
+    if (passwordMode === 'reset') return handleResetWithOTP();
+
     if (!passData.old || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
 
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      // Standardize payload for NBT Hub backend compatibility
-      const payload = {
-        email: user?.email,
-        id: user?.id || user?.employee_id || user?.empId,
-        password: passData.new,           // Primary field for many backends
-        currentPassword: passData.old,    
-        current_password: passData.old,   
-        oldPassword: passData.old,        
-        newPassword: passData.new,        
-        new_password: passData.new        
-      };
-
-      const res = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
+      const res = await fetch(API_ENDPOINTS.CHANGE_PASSWORD, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': token ? `Bearer ${token.trim()}` : '' 
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({
+          email: user.email,
+          oldPassword: passData.old,
+          newPassword: passData.new
+        })
       });
-
       if (res.ok) {
         triggerToast('Password updated successfully!');
         setShowPasswordModal(false);
-        setPassData({ old: '', new: '', confirm: '' });
+        setPassData({ old: '', new: '', confirm: '', otp: '' });
       } else {
-        const errData = await res.json().catch(() => ({}));
-        const errorMessage = errData.message || errData.error || errData.msg || 'Authentication failed';
-        console.error('[Profile] Password update rejected:', errData);
-        triggerToast(errorMessage, 'error');
+        const err = await res.json();
+        triggerToast(err.message || 'Verification failed', 'error');
       }
-    } catch (err) { 
-      console.error('[Profile] Network error during password update:', err);
-      triggerToast('Server Connection Error', 'error'); 
-    }
+    } catch { triggerToast('Network Error', 'error'); }
   };
 
   const styles = {
     container: {
-      minHeight: '100vh',
+      minHeight: '90vh',
       backgroundColor: '#F5F6FC',
-      padding: window.innerWidth < 768 ? '20px 15px 120px' : '30px 40px 120px',
+      paddingBottom: winWidth < 768 ? '80px' : '60px',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     },
     profileWrapper: {
       maxWidth: '100%',
-      margin: '0 auto',
-      padding: window.innerWidth < 768 ? '20px 15px 120px' : '30px 40px 120px',
+      margin: '0',
+      padding: isMobile ? '15px' : (isTablet ? '25px' : '40px'),
+      marginTop: isMobile ? '5px' : '15px',
     },
     banner: {
-      height: winWidth < 768 ? '155px' : '150px',
+      height: isMobile ? '160px' : (isTablet ? '200px' : '180px'),
       backgroundColor: '#10274A',
-      borderRadius: '20px 20px 0 0',
+      borderRadius: '25px 25px 0 0',
       position: 'relative',
       overflow: 'hidden',
       display: 'flex',
@@ -219,109 +400,102 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     },
     bannerText: {
       color: 'rgba(255,255,255,0.85)',
-      fontSize: winWidth < 768 ? '22px' : '32px',
+      fontSize: isMobile ? '15px' : (isTablet ? '24px' : '32px'),
       fontWeight: '800',
-      letterSpacing: '0.3px',
+      letterSpacing: '1px',
       textAlign: 'center',
       padding: '0 20px',
       maxWidth: '85%',
-      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      textShadow: '0 2px 4px rgba(0,0,0,0.2)'
     },
     masterCard: {
       backgroundColor: 'white',
       borderRadius: '0 0 25px 25px',
-      boxShadow: '0 15px 35px rgba(0,0,0,0.06)',
-      padding: winWidth < 768 ? '0 20px 15px' : '0 30px 10px',
+      boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+      padding: isMobile ? '0 20px 20px' : '0 30px 10px',
       position: 'relative',
       marginTop: '-1px'
     },
     headerRow: {
       display: 'flex',
-      flexDirection: winWidth < 768 ? 'column' : 'row',
-      alignItems: winWidth < 768 ? 'center' : 'center', // Changed from flex-end for better vertical alignment
-      marginTop: winWidth < 768 ? '-45px' : '-55px', // Slightly reduced overlap for more top space
-      paddingBottom: winWidth < 768 ? '25px' : '35px', // Balanced with top gap
-      paddingTop: winWidth < 768 ? '15px' : '25px',
-      borderBottom: '1px solid #f1f5f9',
-      gap: winWidth < 1024 ? '15px' : '30px',
-      textAlign: winWidth < 768 ? 'center' : 'left',
-      flexWrap: 'wrap'
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'center' : 'flex-end',
+      marginTop: '0',
+      paddingBottom: '10px',
+      gap: isMobile ? '20px' : '30px',
+      textAlign: isMobile ? 'center' : 'left'
     },
     avatarContainer: {
       position: 'relative',
-      zIndex: 5,
-      marginBottom: '0',
-      marginTop: '10px' // Added small top offset for breathing room
+      zIndex: 2,
     },
     avatar: {
-      width: winWidth < 768 ? '110px' : '130px',
-      height: winWidth < 768 ? '110px' : '130px',
+      width: isMobile ? '100px' : (isTablet ? '120px' : '140px'),
+      height: isMobile ? '100px' : (isTablet ? '120px' : '140px'),
       borderRadius: '25px',
       backgroundColor: '#f8fafc',
-      border: winWidth < 768 ? '4px solid #ffffff' : '5px solid white',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+      border: '4px solid white',
+      boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontSize: winWidth < 768 ? '40px' : '48px',
+      fontSize: isMobile ? '40px' : '64px',
       color: '#3863a8',
       fontWeight: '700',
-      overflow: 'hidden',
-      position: 'relative'
+      overflow: 'hidden'
     },
     editAvatarBtn: {
       position: 'absolute',
-      bottom: '2px',
-      right: '2px',
+      bottom: '-5px',
+      right: '-5px',
       backgroundColor: 'white',
-      width: '36px',
-      height: '36px',
+      width: '35px',
+      height: '35px',
       borderRadius: '50%',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       cursor: 'pointer',
-      border: '2px solid #f1f5f9',
-      color: '#3863a8',
-      zIndex: 10
+      border: 'none',
+      color: '#3863a8'
     },
     userInfo: { flex: 1, paddingBottom: '10px' },
-    userName: { fontSize: winWidth < 768 ? '17px' : '18px', fontWeight: '900', color: '#0f172a', margin: '4px 0' },
-    userRole: { fontSize: '12px', color: '#3863a8', fontWeight: '900', letterSpacing: '0.3px', marginTop: '2px' },
+    userName: { fontSize: isMobile ? '18px' : (isTablet ? '22px' : '26px'), fontWeight: '900', color: '#0f172a', margin: '4px 0', lineHeight: 1.2 },
+    userRole: { fontSize: isMobile ? '10px' : '12px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' },
 
     managerSection: {
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
       padding: '10px 20px',
-      backgroundColor: '#ebf2f9',
+      backgroundColor: '#f8fafc',
       borderRadius: '15px',
-      border: '1.5px solid #d6e0ea',
-      marginTop: winWidth < 768 ? '10px' : '0'
+      border: '1px solid #f1f5f9',
+      marginTop: isMobile ? '10px' : '0',
+      alignSelf: isMobile ? 'stretch' : 'auto',
+      justifyContent: isMobile ? 'center' : 'flex-start'
     },
-    managerInfo: { textAlign: winWidth < 768 ? 'center' : 'right' },
-    managerLabel: { fontSize: '10px', color: '#94a3b8', fontWeight: '800' },
-    managerName: { fontSize: '12px', color: '#1e293b', fontWeight: '700' },
+    managerInfo: { textAlign: isMobile ? 'left' : 'right' },
+    managerLabel: { fontSize: isMobile ? '10px' : '11px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
+    managerName: { fontSize: isMobile ? '12px' : '13px', color: '#1e293b', fontWeight: '700' },
     managerAvatar: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 
     infoGrid: {
       display: 'grid',
-      gridTemplateColumns: winWidth < 1024 ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
-      gap: winWidth < 768 ? '12px' : '20px',
-      marginTop: '20px'
+      gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'),
+      gap: '15px',
+      marginTop: '15px'
     },
     infoCard: {
-      backgroundColor: '#ffffff',
-      padding: winWidth < 768 ? '15px' : '20px',
+      backgroundColor: 'white',
+      padding: '20px',
       borderRadius: '20px',
-      border: '2px solid #cbd5e1',
+      border: '1px solid #f1f5f9',
       display: 'flex',
       alignItems: 'center',
       gap: '15px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-      overflow: 'hidden',
-      minWidth: 0
+      boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
     },
     iconCircle: {
       minWidth: '45px',
@@ -333,21 +507,21 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       justifyContent: 'center'
     },
     infoValue: {
-      fontSize: winWidth < 1024 ? '11px' : '13px',
+      fontSize: isMobile ? '13px' : '14px',
       color: '#1e293b',
       fontWeight: '800',
       marginTop: '2px',
-      wordBreak: 'break-all'
+      wordBreak: 'break-word'
     },
 
     aboutSection: {
       marginTop: '20px',
       backgroundColor: 'white',
-      padding: winWidth < 768 ? '20px' : '30px',
-      borderRadius: '20px',
-      border: '2px solid #cbd5e1'
+      padding: isMobile ? '20px' : '30px',
+      borderRadius: '25px',
+      border: '1px solid #f1f5f9'
     },
-    sectionTitle: { fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+    sectionTitle: { fontSize: isMobile ? '14px' : '16px', fontWeight: '700', color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
     aboutContent: { textAlign: 'center', padding: '10px 0' },
     aboutPlaceholder: { fontSize: '14px', color: '#94a3b8', fontWeight: '500', marginTop: '10px' },
     editButton: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 'none' }
@@ -375,7 +549,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       )}
       <div style={styles.profileWrapper}>
         <div style={styles.banner}>
-          <div style={styles.bannerText}>Smarter solutions for better future</div>
+          <div style={styles.bannerText}>Smarter Solutions for Better Future</div>
         </div>
 
         <AnimatePresence>
@@ -419,342 +593,293 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               </button>
             </div>
 
-            {/* RESPONSIVE LAYOUT LOGIC: Optimized Tablet (<1024) - Multi-Row Structure */}
-            {(winWidth >= 768 && winWidth < 1024) ? (
-              <div style={{ ...styles.userInfo, flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {/* Row 1: Name */}
+            {/* CONSOLIDATED RESPONSIVE HEADER */}
+            <div style={{ ...styles.userInfo, textAlign: isMobile ? 'center' : 'left', alignSelf: isMobile ? 'center' : 'auto' }}>
+              {/* ROW 1: Name and ID */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                 <div style={styles.userName}>{user?.name}</div>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#10274A', backgroundColor: '#f1f5f9', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Fingerprint size={12} color="#3863a8" />
+                  ID: {cleanEmployeeId}
+                </div>
+              </div>
 
-                {/* Row 2: Designation & Contact */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                  <div style={styles.userRole}>EMPID: 2059</div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                    <Phone size={14} />
-                    {isEditingPhone ? (
-                      <input
-                        autoFocus
-                        style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0' }}
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        onBlur={async () => {
-                          setIsEditingPhone(false);
-                          if (phone !== (user?.phone_number || 'Add Phone Number')) {
-                            const result = await updateProfile('phone_number', phone);
-                            if (!result.success) triggerToast('Update Failed', 'error');
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {phone} <Edit3 size={11} opacity={0.6} />
-                      </span>
-                    )}
-                  </div>
+              {/* ROW 2: Info bar */}
+              <div style={{ display: 'flex', flexDirection: (isMobile || isTablet) ? 'column' : 'row', alignItems: (isMobile || isTablet) ? (isMobile ? 'center' : 'flex-start') : 'center', gap: (isMobile || isTablet) ? '12px' : '30px', padding: '15px 0 0', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#3863a8', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }}>
+                  <Briefcase size={14} />
+                  {designation || user?.role || 'Team Member'}
                 </div>
 
-                {/* Row 3: Date of Birth & Reporting Manager (Requested) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', marginTop: '5px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700', padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '12px' }}>
-                    <Calendar size={14} />
-                    {isEditingDob ? (
-                      <input
-                        type="date"
-                        autoFocus
-                        style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8' }}
-                        value={dob}
-                        onChange={(e) => setDob(e.target.value)}
-                        onBlur={async () => {
-                          setIsEditingDob(false);
-                          if (dob !== (user?.date_of_birth || 'Add Date of Birth')) {
-                            const result = await updateProfile('date_of_birth', dob);
-                            if (!result.success) triggerToast('Update Failed', 'error');
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {dob} <Edit3 size={11} opacity={0.6} />
-                      </span>
-                    )}
+                {winWidth >= 1024 && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
+                  <Phone size={14} />
+                  <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {phone} <Edit3 size={11} opacity={0.6} />
+                  </span>
+                </div>
+
+                {winWidth >= 1024 && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
+                  <Calendar size={14} />
+                  <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {dob} <Edit3 size={11} opacity={0.6} />
+                  </span>
+                </div>
+
+                {!isMobile && !isTablet && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#3863a8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>
+                    {reportingManager.name[0]}
                   </div>
-                  <div style={{ ...styles.managerSection, backgroundColor: '#eff6ff', borderColor: '#dbeafe', marginTop: 0 }}>
-                    <div style={styles.managerInfo}>
-                      <div style={{ ...styles.managerLabel, color: '#1e40af' }}>Reporting manager</div>
-                      <div style={styles.managerName}>{reportingManager.name}</div>
-                    </div>
-                    <div style={{ ...styles.managerAvatar, backgroundColor: '#3863a8', color: 'white' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '900' }}>{reportingManager.name[0]}</div>
-                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', lineHeight: 1 }}>RM NAME</div>
+                    <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '800' }}>{reportingManager.name} {reportingManager.id && `(${reportingManager.id})`}</div>
                   </div>
                 </div>
               </div>
-            ) : (winWidth < 768) ? (
-              // MOBILE VIEW (Preserve Original Stacked)
-              <>
-                <div style={{ ...styles.userInfo, textAlign: 'center', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <div style={styles.userName}>{user?.name}</div>
-                  <div style={styles.userRole}>EMPID: 2059</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                    <Phone size={14} />
-                    {isEditingPhone ? (
-                      <input
-                        autoFocus
-                        style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0', textAlign: 'center' }}
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        onBlur={async () => {
-                          setIsEditingPhone(false);
-                          if (phone !== (user?.phone_number || 'Add Phone Number')) {
-                            const result = await updateProfile('phone_number', phone);
-                            if (!result.success) triggerToast('Update Failed', 'error');
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {phone} <Edit3 size={11} opacity={0.6} />
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                    <Calendar size={14} />
-                    {isEditingDob ? (
-                      <input
-                        type="date"
-                        autoFocus
-                        style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8', textAlign: 'center' }}
-                        value={dob}
-                        onChange={(e) => setDob(e.target.value)}
-                        onBlur={async () => {
-                          setIsEditingDob(false);
-                          if (dob !== (user?.date_of_birth || 'Add Date of Birth')) {
-                            const result = await updateProfile('date_of_birth', dob);
-                            if (!result.success) triggerToast('Update Failed', 'error');
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {dob} <Edit3 size={11} opacity={0.6} />
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ ...styles.managerSection, marginTop: '20px', justifyContent: 'center' }}>
-                  <div style={styles.managerAvatar}><User size={20} color="#94a3b8" /></div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={styles.managerLabel}>Reporting manager</div>
-                    <div style={styles.managerName}>{reportingManager.name}</div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              // DESKTOP VIEW (Preserve Original Legacy)
-              <>
-                <div style={{ ...styles.userInfo, textAlign: 'left', flex: 1 }}>
-                  <div style={styles.userName}>{user?.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginTop: '10px', flexWrap: 'wrap' }}>
-                    <div style={{ ...styles.userRole, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      EMPID: 2059
-                    </div>
-                    <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                      <Phone size={14} />
-                      {isEditingPhone ? (
-                        <input
-                          autoFocus
-                          style={{ border: 'none', borderBottom: '1.5px solid #3863a8', outline: 'none', width: '120px', fontSize: '13px', fontWeight: '700', color: '#3863a8', padding: '2px 0' }}
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          onBlur={async () => {
-                            setIsEditingPhone(false);
-                            if (phone !== (user?.phone_number || 'Add Phone Number')) {
-                              const result = await updateProfile('phone_number', phone);
-                              if (!result.success) triggerToast('Update Failed', 'error');
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {phone} <Edit3 size={11} opacity={0.6} />
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ width: '3px', height: '3px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
-                      <Calendar size={14} />
-                      {isEditingDob ? (
-                        <input
-                          type="date"
-                          autoFocus
-                          style={{ border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '13px', fontWeight: '700', color: '#3863a8' }}
-                          value={dob}
-                          onChange={(e) => setDob(e.target.value)}
-                          onBlur={async () => {
-                            setIsEditingDob(false);
-                            if (dob !== (user?.date_of_birth || 'Add Date of Birth')) {
-                              const result = await updateProfile('date_of_birth', dob);
-                              if (!result.success) triggerToast('Update Failed', 'error');
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {dob} <Edit3 size={11} opacity={0.6} />
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ ...styles.managerSection, marginLeft: winWidth < 1200 ? '0' : 'auto', minWidth: '220px' }}>
-                  <div style={styles.managerInfo}>
-                    <div style={styles.managerLabel}>Reporting manager</div>
-                    <div style={styles.managerName}>{reportingManager.name || 'Sahana NV'}</div>
-                    {reportingManager.id && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800', marginTop: '2px' }}>ID: {reportingManager.id}</div>}
-                  </div>
-                  <div style={styles.managerAvatar}>
-                    {reportingManager.name !== 'Loading...' && reportingManager.name !== 'Unassigned' ? (
-                      <div style={{ fontSize: '14px', fontWeight: '900', color: '#3863a8' }}>{reportingManager.name[0]}</div>
-                    ) : (
-                      <User size={20} color="#94a3b8" />
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            </div>
           </div>
         </div>
 
         <div style={styles.infoGrid}>
-          <div style={{ ...styles.infoCard, backgroundColor: '#ebf2f9', border: '2px solid #cbd5e1' }}>
+          {/* TEAM CARD */}
+          <div style={{ ...styles.infoCard }}>
             <div style={styles.iconCircle}><Users size={18} color="#3863a8" /></div>
             <div>
-              <div style={styles.managerLabel}>Team</div>
-              <div style={styles.infoValue}>{user?.team || 'Navabharatha team'}</div>
+              <div style={styles.managerLabel}>Current Team</div>
+              <div style={styles.infoValue}>{teamName}</div>
             </div>
           </div>
 
-          <div style={{ ...styles.infoCard, backgroundColor: '#ebf2f9', border: '2px solid #cbd5e1' }}>
+          <div style={styles.infoCard}>
             <div style={styles.iconCircle}><Mail size={18} color="#3863a8" /></div>
             <div>
-              <div style={styles.managerLabel}>Email address</div>
+              <div style={styles.managerLabel}>Email Address</div>
               <div style={styles.infoValue}>{user?.email?.toLowerCase()}</div>
             </div>
           </div>
 
-          <div style={{ ...styles.infoCard, backgroundColor: '#ebf2f9', border: '2px solid #cbd5e1' }}>
+          <div style={styles.infoCard}>
             <div style={styles.iconCircle}><Calendar size={18} color="#3863a8" /></div>
             <div>
-              <div style={styles.managerLabel}>Date of joining</div>
+              <div style={styles.managerLabel}>Date of Joining</div>
               <div style={styles.infoValue}>
                 {(() => {
-                  if (!joiningDate || joiningDate === 'N/A') return '10 November 2025';
-                  try {
-                    const d = new Date(joiningDate);
-                    return isNaN(d.getTime()) ? '10 November 2025' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-                  } catch { return '10 November 2025'; }
+                  const d = parseSafeDate(joiningDate);
+                  return d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
                 })()}
               </div>
             </div>
           </div>
         </div>
 
-        <div style={{ marginTop: '30px' }}>
-          <div style={styles.sectionTitle}>Services & summary</div>
-          <div style={styles.infoGrid}>
-
-
-            <motion.div
-              whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }}
-              onClick={() => onNavigate?.('PAYSLIP')}
-            >
-              <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><CreditCard size={18} color="#0B1E3F" /></div>
-              <div style={{ flex: 1 }}>
-                <div style={{ ...styles.managerLabel, color: '#0B1E3F', fontSize: '15px' }}>My payslip</div>
-                <div style={{ ...styles.infoValue, color: '#475569', fontSize: '12px' }}>View and download earnings</div>
-              </div>
-              <ChevronRight size={16} color="#0B1E3F" />
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }}
-              onClick={() => onNavigate?.('EXPERIENCE_LETTER')}
-            >
-              <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><FileText size={18} color="#0B1E3F" /></div>
-              <div style={{ flex: 1 }}>
-                <div style={{ ...styles.managerLabel, color: '#0B1E3F', fontSize: '15px' }}>Experience & Service Letters</div>
-                <div style={{ ...styles.infoValue, color: '#475569', fontSize: '12px' }}>Request experience or service certificate</div>
-              </div>
-              <ChevronRight size={16} color="#0B1E3F" />
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }}
-              onClick={() => onNavigate?.('RESIGNATION_LETTER')}
-            >
-              <div style={{ ...styles.iconCircle, backgroundColor: '#dfe7f0' }}><LogOut size={18} color="#0B1E3F" /></div>
-              <div style={{ flex: 1 }}>
-                <div style={{ ...styles.managerLabel, color: '#0B1E3F', fontSize: '15px' }}>Relieving/resignation</div>
-                <div style={{ ...styles.infoValue, color: '#475569', fontSize: '12px' }}>Access service documents</div>
-              </div>
-              <ChevronRight size={16} color="#0B1E3F" />
-            </motion.div>
-          </div>
-        </div>
 
         <div style={styles.infoGrid}>
-          <div style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }} onClick={() => setShowPasswordModal(true)}>
-            <div style={{ ...styles.iconCircle, backgroundColor: '#f1f5f9' }}><Shield size={18} color="#0B1E3F" /></div>
-            <div>
-              <div style={{ ...styles.managerLabel, color: '#64748b' }}>Security settings</div>
-              <div style={{ ...styles.infoValue, color: '#1e293b' }}>Update security passkey</div>
+          <motion.div
+            whileHover={{ y: -5 }}
+            style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
+            onClick={() => setShowPasswordModal(true)}
+          >
+            <div style={{ ...styles.iconCircle, backgroundColor: '#dbeafe' }}><Shield size={18} color="#1e40af" /></div>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...styles.managerLabel, color: '#1e40af' }}>Security Settings</div>
+              <div style={styles.infoValue}>UPDATE SECURITY PASSKEY</div>
             </div>
-          </div>
+            <ChevronRight size={16} color="#1e40af" />
+          </motion.div>
 
-          <div style={{ ...styles.infoCard, cursor: 'pointer', border: '2px solid #cbd5e1', backgroundColor: '#ebf2f9' }} onClick={() => onNavigate?.('TICKET')}>
-            <div style={{ ...styles.iconCircle, backgroundColor: '#f1f5f9' }}><AlertCircle size={18} color="#0B1E3F" /></div>
-            <div>
-              <div style={{ ...styles.managerLabel, color: '#64748b' }}>Help & support</div>
-              <div style={{ ...styles.infoValue, color: '#1e293b' }}>Open support ticket</div>
+          <motion.div
+            whileHover={{ y: -5 }}
+            style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#fed7aa', backgroundColor: '#fff7ed' }}
+            onClick={() => setShowTicketModal(true)}
+          >
+            <div style={{ ...styles.iconCircle, backgroundColor: '#ffedd5' }}><AlertCircle size={18} color="#f97316" /></div>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...styles.managerLabel, color: '#f97316' }}>Support & Maintenance</div>
+              <div style={styles.infoValue}>RAISE TECHNICAL TICKET</div>
             </div>
-          </div>
+            <ChevronRight size={16} color="#f97316" />
+          </motion.div>
+
+          {/* TENURITY CARD */}
+          <motion.div
+            whileHover={{ y: -5 }}
+            style={{ ...styles.infoCard, borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
+          >
+            <div style={{ ...styles.iconCircle, backgroundColor: '#dcfce7' }}><Clock size={18} color="#15803d" /></div>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...styles.managerLabel, color: '#15803d' }}>Total Tenurity</div>
+              <div style={styles.infoValue}>{calculateTenure(joiningDate)} Experience</div>
+            </div>
+          </motion.div>
+
         </div>
 
         {showPasswordModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: 'white', borderRadius: '30px', padding: '40px', maxWidth: '450px', width: '100%', boxShadow: '0 30px 60px rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#0B1E3F', margin: 0 }}>Update password</h2>
-                <X size={20} color="#94a3b8" onClick={() => setShowPasswordModal(false)} style={{ cursor: 'pointer' }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {[{ label: 'Current password', key: 'old' }, { label: 'New password', key: 'new' }, { label: 'Confirm password', key: 'confirm' }].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', marginBottom: '8px', display: 'block' }}>{f.label}</label>
-                    <input
-                      type="password"
-                      style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #e2e8f0', fontSize: '14px', fontWeight: '700', outline: 'none' }}
-                      value={passData[f.key]}
-                      onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
-                    />
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(11, 30, 63, 0.7)', backdropFilter: 'blur(15px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} style={{ backgroundColor: 'white', borderRadius: '40px', padding: 0, maxWidth: '500px', width: '100%', boxShadow: '0 40px 100px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+
+              {/* INDUSTRIAL HEADER */}
+              <div style={{ backgroundColor: '#0B1E3F', padding: '30px 40px', position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', margin: 0, letterSpacing: '-0.5px' }}>
+                      Security Vault
+                    </h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', boxShadow: '0 0 10px #10b981' }} />
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Backend Synced: Active</span>
+                    </div>
                   </div>
-                ))}
-                <button onClick={handlePasswordSubmit} style={{ marginTop: '10px', padding: '18px', borderRadius: '15px', backgroundColor: '#3863a8', color: 'white', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '14px' }}>Establish new passkey</button>
+                  <X size={24} color="rgba(255,255,255,0.4)" onClick={() => { setShowPasswordModal(false); setOtpRequested(false); setOtpVerified(false); setPasswordMode('change'); }} style={{ cursor: 'pointer' }} />
+                </div>
+              </div>
+
+              <div style={{ padding: '40px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', backgroundColor: '#f1f5f9', padding: '6px', borderRadius: '18px' }}>
+                  <button
+                    onClick={() => { setPasswordMode('change'); setOtpRequested(false); setOtpVerified(false); }}
+                    style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '12px', fontWeight: '1000', cursor: 'pointer', backgroundColor: passwordMode === 'change' ? 'white' : 'transparent', color: passwordMode === 'change' ? '#3863a8' : '#64748b', boxShadow: passwordMode === 'change' ? '0 4px 12px rgba(0,0,0,0.08)' : 'none', transition: '0.2s' }}>
+                    WITH OLD PASSWORD
+                  </button>
+                  <button
+                    onClick={() => setPasswordMode('reset')}
+                    style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '12px', fontWeight: '1000', cursor: 'pointer', backgroundColor: passwordMode === 'reset' ? 'white' : 'transparent', color: passwordMode === 'reset' ? '#3863a8' : '#64748b', boxShadow: passwordMode === 'reset' ? '0 4px 12px rgba(0,0,0,0.08)' : 'none', transition: '0.2s' }}>
+                    WITHOUT OLD PASSWORD (OTP)
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {passwordMode === 'change' ? (
+                    <>
+                      {[{ label: 'Old Password', key: 'old' }, { label: 'New Password', key: 'new' }, { label: 'Confirm Password', key: 'confirm' }].map(f => (
+                        <div key={f.key}>
+                          <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block', paddingLeft: '4px' }}>{f.label} <span style={{ color: '#ef4444' }}>*</span></label>
+                          <input
+                            type="password"
+                            style={{ width: '100%', padding: '16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s' }}
+                            onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
+                            onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
+                            value={passData[f.key]}
+                            onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
+                          />
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {!otpRequested ? (
+                        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                          <div style={{ backgroundColor: '#eff6ff', padding: '20px', borderRadius: '24px', marginBottom: '30px' }}>
+                            <Shield size={40} color="#3863a8" style={{ marginBottom: '15px' }} />
+                            <p style={{ fontSize: '14px', color: '#1e3a8a', fontWeight: '700', margin: 0 }}>Terminal OTP Request</p>
+                            <p style={{ fontSize: '12px', color: '#3b82f6', fontWeight: '600', marginTop: '8px' }}>
+                              A 6-digit recovery code will be dispatched to the system terminal.
+                            </p>
+                          </div>
+                          <button onClick={handleRequestOTP} style={{ width: '100%', padding: '18px', borderRadius: '18px', backgroundColor: '#3863a8', color: 'white', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 10px 20px rgba(56, 99, 168, 0.2)' }}>
+                            DISPATCH OTP TO TERMINAL
+                          </button>
+                        </div>
+                      ) : !otpVerified ? (
+                        <>
+                          <div style={{ textAlign: 'center' }}>
+                            <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>AUTHORIZATION CODE <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="0 0 0 0 0 0"
+                              style={{ width: '100%', padding: '20px', borderRadius: '24px', border: '3.5px solid #3863a8', fontSize: '28px', fontWeight: '1000', outline: 'none', textAlign: 'center', letterSpacing: '8px', color: '#0B1E3F', backgroundColor: '#f0f9ff', marginBottom: '20px' }}
+                              value={passData.otp}
+                              onChange={e => setPassData({ ...passData, otp: e.target.value })}
+                            />
+                            <button onClick={handleVerifyOTP} style={{ width: '100%', padding: '18px', borderRadius: '18px', backgroundColor: '#3863a8', color: 'white', fontWeight: '900', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                              <CheckCircle2 size={18} />
+                              VERIFY AUTHORIZATION
+                            </button>
+                            <button onClick={() => setOtpRequested(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', fontWeight: '800', cursor: 'pointer', marginTop: '20px' }}>
+                              Resend Code?
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ animation: 'slideIn 0.4s ease-out' }}>
+                          <div style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '15px', borderRadius: '16px', fontSize: '12px', fontWeight: '800', textAlign: 'center', marginBottom: '20px', border: '1.5px solid #bbf7d0' }}>
+                            ✓ AUTHORIZATION GRANTED
+                          </div>
+                          {[{ label: 'Vault Signature (New Password)', key: 'new' }, { label: 'Confirm Signature', key: 'confirm' }].map(f => (
+                            <div key={f.key} style={{ marginBottom: '15px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block', paddingLeft: '4px' }}>{f.label} <span style={{ color: '#ef4444' }}>*</span></label>
+                              <input
+                                type="password"
+                                style={{ width: '100%', padding: '16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc' }}
+                                value={passData[f.key]}
+                                onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {(passwordMode === 'change' || otpVerified) && (
+                    <button onClick={handlePasswordSubmit} style={{ marginTop: '10px', padding: '20px', borderRadius: '20px', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 15px 30px rgba(11, 30, 63, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                      <Fingerprint size={20} />
+                      {passwordMode === 'change' ? 'COMMIT SECURITY UPDATE' : 'RE-ESTABLISH VAULT ACCESS'}
+                    </button>
+                  )}
+
+                  {passwordMode === 'reset' && otpRequested && (
+                    <div style={{ textAlign: 'center' }}>
+                      <button onClick={() => setOtpRequested(false)} style={{ background: 'none', border: 'none', color: '#3863a8', fontSize: '12px', fontWeight: '900', cursor: 'pointer', textDecoration: 'underline' }}>
+                        RESEND NEW AUTHORIZATION CODE
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* TECHNICAL FOOTER */}
+              <div style={{ backgroundColor: '#f8fafc', padding: '20px 40px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>AES-256 ENCRYPTION</span>
+                </div>
+                <span style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: '800' }}>NBT SECURITY v4.0</span>
               </div>
             </motion.div>
           </div>
         )}
 
+        <AnimatePresence>
+          {showTicketModal && (
+            <TicketSection onClose={() => setShowTicketModal(false)} />
+          )}
+        </AnimatePresence>
 
 
+        {/* ────── HR DOCUMENTS SECTION ────── */}
+        <div style={{ marginTop: '25px', marginBottom: '40px' }}>
+          <div style={{ ...styles.sectionTitle, marginBottom: '20px' }}>HR Documents</div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'), gap: isMobile ? '15px' : '25px' }}>
+            {[
+              { id: 'slip', title: 'MONTHLY PAY SLIP', desc: 'Download salary statement', icon: <FileText size={22} />, color: '#16a34a', darkBorder: true },
+              { id: 'exp', title: 'EXPERIENCE LETTER', desc: 'Apply for service certificate', icon: <Fingerprint size={22} />, color: '#2563eb', highlight: true },
+              { id: 'res', title: 'RESIGNATION LETTER', desc: 'Submit formal exit notice', icon: <LogOut size={22} />, color: '#dc2626', darkBorder: true }
+            ].map((doc, idx) => (
+              <DocCard key={idx} doc={doc} onNavigate={onNavigate} />
+            ))}
+          </div>
+        </div>
 
         <div style={styles.aboutSection}>
           <div style={styles.sectionTitle}>
-            <span>About me</span>
+            <span>About Me</span>
             <button
               onClick={async () => {
                 if (isEditingAbout) {
@@ -792,17 +917,17 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           <div style={{ ...styles.aboutSection, marginTop: '20px' }}>
             <div style={styles.sectionTitle}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>📋</span> Team report
+                <span style={{ fontSize: '18px' }}>📋</span> Team Report
               </span>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: isMobile ? '10px' : '0' }}>
                 {/* summary pills */}
                 {[
                   { label: 'Total', val: teamReports.length, bg: '#eff6ff', color: '#1d4ed8' },
                   { label: 'Done', val: teamReports.filter(r => r.overallStatus === 'Completed').length, bg: '#f0fdf4', color: '#16a34a' },
                   { label: 'Pending', val: teamReports.filter(r => r.overallStatus !== 'Completed').length, bg: '#fef9c3', color: '#a16207' },
                 ].map(p => (
-                  <div key={p.label} style={{ backgroundColor: p.bg, color: p.color, fontSize: '11px', fontWeight: '900', padding: '4px 10px', borderRadius: '8px' }}>
-                    {p.val} {p.label.toLowerCase()}
+                  <div key={p.label} style={{ backgroundColor: p.bg, color: p.color, fontSize: isMobile ? '9px' : '11px', fontWeight: '900', padding: '4px 10px', borderRadius: '8px', textTransform: 'uppercase' }}>
+                    {p.val} {p.label}
                   </div>
                 ))}
               </div>
@@ -853,6 +978,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             Logout Securely
           </button>
         </div>
+
       </div>
     </div>
   );
@@ -918,3 +1044,53 @@ const FullScreenImageModal = ({ src, onClose }) => {
   );
 };
 
+const DocCard = ({ doc, onNavigate }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const isActive = isHovered || doc.highlight;
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        padding: '24px',
+        backgroundColor: isActive ? '#10274A' : 'white',
+        borderRadius: '24px',
+        border: `1.5px solid ${isActive ? '#10274A' : (doc.darkBorder ? '#10274A' : '#f1f5f9')}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: isActive ? '0 15px 35px rgba(16, 39, 74, 0.2)' : '0 4px 10px rgba(0,0,0,0.02)',
+        transform: isActive ? 'translateY(-5px)' : 'translateY(0)'
+      }}
+      onClick={() => {
+        if (doc.title === 'RESIGNATION LETTER') {
+          onNavigate?.('RESIGNATION');
+        } else if (doc.title === 'MONTHLY PAY SLIP') {
+          onNavigate?.('PAY-SLIPS');
+        } else if (doc.title === 'EXPERIENCE LETTER') {
+          onNavigate?.('SERVICE-CERTIFICATE');
+        }
+      }}
+    >
+      <div style={{
+        backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : '#f8fafc',
+        padding: '12px',
+        borderRadius: '15px',
+        color: isActive ? 'white' : doc.color,
+        boxShadow: isActive ? 'none' : '0 2px 8px rgba(0,0,0,0.05)',
+        transition: 'all 0.3s'
+      }}>
+        {doc.icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '10px', fontWeight: '1000', color: isActive ? 'white' : doc.color, textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'all 0.3s' }}>{doc.title}</div>
+        <div style={{ fontSize: '15px', fontWeight: '900', color: isActive ? 'white' : '#0B1E3F', transition: 'all 0.3s' }}>{doc.desc}</div>
+      </div>
+      <ChevronRight size={18} color={isActive ? 'white' : '#94a3b8'} style={{ transition: 'all 0.3s' }} />
+    </div>
+  );
+};

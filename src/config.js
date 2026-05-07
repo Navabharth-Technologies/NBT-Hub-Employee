@@ -1,6 +1,15 @@
 export const BASE_URL = 'http://192.168.1.21:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
+// ✅ Helper to resolve any image path (URL or Base64) without corrupting data
+export const resolveImagePath = (path) => {
+  if (!path || typeof path !== 'string') return null;
+  if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL}/api/login`,
@@ -110,5 +119,8 @@ export const API_ENDPOINTS = {
   MY_ASSETS: (id) => `${BASE_URL}/api/my-assets?employee_id=${String(id || '').split(':')[0]}`,
   USER_SEARCH: (query) => `${BASE_URL}/api/users/search?query=${query}`,
   SUGGESTIONS: `${BASE_URL}/api/suggestions`,
-  MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my`
+  MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my`,
+  REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`,
+  RESET_PASSWORD_OTP: `${BASE_URL}/api/auth/reset-password`,
+  CHANGE_PASSWORD: `${BASE_URL}/api/profile/update-password`
 };

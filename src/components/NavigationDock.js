@@ -6,7 +6,7 @@ import { getTheme } from '../constants/Theme';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
-  const { user } = useAuth();
+  const { user, isBlocked } = useAuth();
   const { unreadCount, clearNotifications } = useThread();
   const theme = getTheme(user?.role);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
@@ -47,7 +47,8 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
             bottom: winWidth < 768 ? '0' : '20px', 
             left: winWidth < 768 ? '0' : '50%', 
             x: winWidth < 768 ? '0' : '-50%', 
-            pointerEvents: 'auto', 
+            pointerEvents: isBlocked ? 'none' : 'auto', 
+            opacity: isBlocked ? 0.5 : 1,
             width: winWidth < 768 ? '100%' : 'auto', 
             minWidth: winWidth < 768 ? '100%' : '460px', 
             maxWidth: winWidth < 768 ? '100%' : '600px', 
