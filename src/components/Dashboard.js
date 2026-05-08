@@ -9,6 +9,7 @@ import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 const Dashboard = ({ setActiveTab }) => {
   const { user } = useAuth();
   const [winWidth, setWinWidth] = useState(window.innerWidth);
+  const [loading, setLoading] = useState(true);
 
   // Real Data State
   const [yesterdayTasks, setYesterdayTasks] = useState([]);
@@ -23,6 +24,7 @@ const Dashboard = ({ setActiveTab }) => {
   const [editStatus, setEditStatus] = useState('');
 
   // Project/Course Data
+  const [projectInfo, setProjectInfo] = useState({ name: '', description: '', fileUrl: null });
   const [courseInfo, setCourseInfo] = useState({ name: 'Acquiring curriculum...', progress: 0 });
   const [activeCourses, setActiveCourses] = useState([]);
   const [allCourses, setAllCourses] = useState([]);
