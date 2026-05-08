@@ -229,13 +229,13 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       console.error('Fetch Profile Error:', err);
       setReportingManager({ name: 'Unassigned', id: '' });
     }
-  };
+  }, [user]);
 
   const fetchUserDataFromUsersTable = () => {
     // Logic merged into fetchReportingManager to prevent race conditions
   };
 
-  const fetchTeamReports = async () => {
+  const fetchTeamReports = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(API_ENDPOINTS.TASKS, {
@@ -251,7 +251,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         setTeamReports(data.filter(r => new Date(r.timestamp).toDateString() === today));
       }
     } catch { }
-  };
+  }, [user, logout]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
