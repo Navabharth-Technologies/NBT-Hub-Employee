@@ -140,15 +140,6 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     }
   }, [user]);
 
-  useEffect(() => {
-    const handleResize = () => setWinWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    fetchReportingManager();
-    fetchUserDataFromUsersTable();
-    if (user?.role === 'teamleader') fetchTeamReports();
-    return () => window.removeEventListener('resize', handleResize);
-  }, [user, fetchReportingManager, fetchTeamReports]);
-
   const fetchReportingManager = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -252,6 +243,15 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       }
     } catch { }
   }, [user, logout]);
+
+  useEffect(() => {
+    const handleResize = () => setWinWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    fetchReportingManager();
+    fetchUserDataFromUsersTable();
+    if (user?.role === 'teamleader') fetchTeamReports();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [user, fetchReportingManager, fetchTeamReports]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
