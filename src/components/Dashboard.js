@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle2, Edit3, TrendingUp, Clock, Target, Gift, Calendar, PlayCircle, Trash2, Download, BookOpen, User, Users, ChevronRight, ChevronLeft, FileText } from 'lucide-react';
+import { CheckCircle2, Edit3, TrendingUp, Clock, Gift, Calendar, Trash2, User, Users, ChevronRight, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { API_ENDPOINTS, BASE_URL } from '../config';
@@ -9,8 +9,6 @@ import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 const Dashboard = ({ setActiveTab }) => {
   const { user } = useAuth();
   const [winWidth, setWinWidth] = useState(window.innerWidth);
-  const isMobile = winWidth < 768;
-  const [loading, setLoading] = useState(true);
 
   // Real Data State
   const [yesterdayTasks, setYesterdayTasks] = useState([]);
@@ -25,7 +23,6 @@ const Dashboard = ({ setActiveTab }) => {
   const [editStatus, setEditStatus] = useState('');
 
   // Project/Course Data
-  const [projectInfo, setProjectInfo] = useState({ name: '', description: '', fileUrl: null });
   const [courseInfo, setCourseInfo] = useState({ name: 'Acquiring curriculum...', progress: 0 });
   const [activeCourses, setActiveCourses] = useState([]);
   const [allCourses, setAllCourses] = useState([]);

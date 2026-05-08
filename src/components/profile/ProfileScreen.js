@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL } from '../../config';
@@ -147,9 +147,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     fetchUserDataFromUsersTable();
     if (user?.role === 'teamleader') fetchTeamReports();
     return () => window.removeEventListener('resize', handleResize);
-  }, [user]);
+  }, [user, fetchReportingManager, fetchTeamReports]);
 
-  const fetchReportingManager = async () => {
+  const fetchReportingManager = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const empId = user?.employee_id || user?.id || user?.userId;
