@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config';
 
-const AuthContext = createContext();
+export const AuthContext = (typeof window !== 'undefined' && window.__NBT_AUTH_CONTEXT__)
+  ? window.__NBT_AUTH_CONTEXT__
+  : createContext();
+
+if (typeof window !== 'undefined' && !window.__NBT_AUTH_CONTEXT__) {
+  window.__NBT_AUTH_CONTEXT__ = AuthContext;
+}
 
 // Helper to safely set localStorage with failover to sessionStorage
 export const safeSetItem = (key, value) => {

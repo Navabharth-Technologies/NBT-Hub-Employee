@@ -2,7 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config';
 import { useAuth } from './AuthContext';
 
-const ThreadContext = createContext();
+export const ThreadContext = (typeof window !== 'undefined' && window.__NBT_THREAD_CONTEXT__)
+  ? window.__NBT_THREAD_CONTEXT__
+  : createContext();
+
+if (typeof window !== 'undefined' && !window.__NBT_THREAD_CONTEXT__) {
+  window.__NBT_THREAD_CONTEXT__ = ThreadContext;
+}
 
 export const ThreadProvider = ({ children }) => {
   const { user } = useAuth();
