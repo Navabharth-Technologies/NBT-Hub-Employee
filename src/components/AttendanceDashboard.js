@@ -183,10 +183,49 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       const data = await attendanceRes.json();
       const logsArray = Array.isArray(data) ? data : (data.value || data.data || data.logs || []);
 
-      // Removed gaps fetch logic as it is not supported by the backend
+      // Fill missing days from Jan 1st to Today
+      const getLocalDateStr = (dateObj) => {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
+      const logMap = new Map();
+      logsArray.forEach(log => {
+        const d = log.punch_date || log.date || log.created_at;
+        if (d) {
+          const dateStr = getLocalDateStr(new Date(d));
+          logMap.set(dateStr, log);
+        }
+      });
+
+      const fullLogs = [];
+      const today = new Date();
+      const startOfYear = new Date(today.getFullYear(), 0, 1);
+
+      for (let d = new Date(startOfYear); d <= today; d.setDate(d.getDate() + 1)) {
+        const dateStr = getLocalDateStr(d);
+        if (logMap.has(dateStr)) {
+          fullLogs.push(logMap.get(dateStr));
+        } else {
+          const dayOfWeek = d.getDay();
+          const isWeekend = dayOfWeek === 0; // Sun = 0
+          fullLogs.push({
+            punch_date: dateStr,
+            in_time: '--:--',
+            out_time: '--:--',
+            work_time: '00:00',
+            status: isWeekend ? 'WO' : 'ABSENT',
+            remark: isWeekend ? 'Weekend Off' : 'No Punch Record',
+            user_id: uid,
+            id: `gap-${dateStr}`
+          });
+        }
+      }
 
       // Sort logs newest first
-      const sortedLogs = [...logsArray].sort((a, b) => {
+      const sortedLogs = [...fullLogs].sort((a, b) => {
         const dateA = new Date(a.punch_date || a.date || a.created_at || 0);
         const dateB = new Date(b.punch_date || b.date || b.created_at || 0);
         return dateB - dateA;
@@ -478,22 +517,20 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               Biometric {isCheckedIn ? 'Check-out' : 'Check-in'}
             </h2>
             <div style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '4px' : '8px' }}>
-              <div>Current Status: <span style={{ fontWeight: '800', color: isAtOffice ? '#22c55e' : '#ef4444' }}>{isAtOffice ? 'AT OFFICE' : 'HOME'}</span></div>
+              <div>Current Status: <span style={{ fontWeight: '800', color: '#22c55e' }}>AT OFFICE</span></div>
               {!isMobile && <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />}
               <span
                 onClick={() => {
-                  if (!isAtOffice && coords.lat && coords.lon) {
-                    window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lon}`, '_blank');
-                  }
+                  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(OFFICE_ADDRESS)}`, '_blank');
                 }}
                 style={{
                   fontWeight: '700',
-                  color: isAtOffice ? '#64748b' : '#3B5998',
+                  color: '#3B5998',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '4px',
-                  cursor: (!isAtOffice && coords.lat && coords.lon) ? 'pointer' : 'default',
-                  textDecoration: isAtOffice ? 'none' : 'underline',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
                   wordBreak: 'break-word',
                   lineHeight: '1.4'
                 }}
