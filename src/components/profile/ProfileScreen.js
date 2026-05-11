@@ -27,7 +27,13 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const [isEditingDob, setIsEditingDob] = useState(false);
   const [teamName, setTeamName] = useState(user?.team || 'NAVABHARATHA TEAM');
   const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
-  const [cleanEmployeeId, setCleanEmployeeId] = useState(user?.employee_id || user?.id || 'N/A');
+  const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
+    const raw = String(user?.employee_id || user?.id || 'N/A');
+    const len = raw.length;
+    if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0,p) === raw.slice(p,p*2) && raw.slice(0,p) === raw.slice(p*2)) return raw.slice(0,p); }
+    if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0,p) === raw.slice(p)) return raw.slice(0,p); }
+    return raw;
+  });
   const parseSafeDate = (dateStr) => {
     // 0. Handle arrays (backend sometimes returns duplicates in an array)
     if (Array.isArray(dateStr)) {
@@ -102,8 +108,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
   const resolveImagePath = (path) => {
     if (!path || typeof path !== 'string') return null;
-    return path.startsWith('http') || path.startsWith('data:') ? path : `${BASE_URL}${path}`;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
   };
+
 
   const [profileImage, setProfileImage] = useState(() =>
     resolveImagePath(user?.profileImage || user?.profile_image || user?.profilePicture || user?.profile_picture || user?.avatar || user?.profile_pic)
@@ -202,7 +210,14 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
           if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
           const eid = currentUser.employee_id || currentUser.id;
-          if (eid) setCleanEmployeeId(eid);
+          if (eid) {
+            const raw = String(eid);
+            const len = raw.length;
+            let clean = raw;
+            if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0,p) === raw.slice(p,p*2) && raw.slice(0,p) === raw.slice(p*2)) clean = raw.slice(0,p); }
+            else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0,p) === raw.slice(p)) clean = raw.slice(0,p); }
+            setCleanEmployeeId(clean);
+          }
 
           // Reporting Manager Lookup in users list
           const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
@@ -565,13 +580,22 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           <div style={styles.headerRow}>
             <div style={styles.avatarContainer}>
               <div
-                style={{ ...styles.avatar, cursor: 'pointer' }}
+                style={{ ...styles.avatar, cursor: profileImage ? 'pointer' : 'default' }}
                 onClick={() => profileImage && setShowFullScreen(true)}
               >
                 {profileImage ? (
-                  <img src={profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={profileImage}
+                    alt="Profile"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      setProfileImage(null);
+                      setShowFullScreen(false);
+                    }}
+                  />
                 ) : (
-                  user?.name ? user.name[0] : 'U'
+                  user?.name ? user.name[0].toUpperCase() : 'U'
                 )}
               </div>
               <input
