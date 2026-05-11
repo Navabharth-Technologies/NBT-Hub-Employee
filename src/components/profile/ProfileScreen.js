@@ -108,8 +108,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
   const resolveImagePath = (path) => {
     if (!path || typeof path !== 'string') return null;
-    return path.startsWith('http') || path.startsWith('data:') ? path : `${BASE_URL}${path}`;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
   };
+
 
   const [profileImage, setProfileImage] = useState(() =>
     resolveImagePath(user?.profileImage || user?.profile_image || user?.profilePicture || user?.profile_picture || user?.avatar || user?.profile_pic)
