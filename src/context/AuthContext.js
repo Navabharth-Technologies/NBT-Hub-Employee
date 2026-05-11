@@ -24,10 +24,13 @@ export const safeSetItem = (key, value) => {
                 name: u.name || u.employee_name, 
                 email: u.email, 
                 role: u.role,
-                profileImage: u.profileImage || u.profile_image,
+                profileImage: u.profileImage || u.profile_image || u.profile_pic || u.profile_picture || u.avatar,
+                profile_pic: u.profile_pic || u.profileImage || u.profile_image || u.profile_picture || u.avatar,
+                profile_picture: u.profile_picture || u.profile_pic || u.profileImage,
                 pan_card_copy: u.pan_card_copy,
                 aadhar_card_copy: u.aadhar_card_copy
             };
+
             finalValue = JSON.stringify(pruned);
         } catch (e) {}
     }
