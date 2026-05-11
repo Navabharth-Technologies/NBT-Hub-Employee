@@ -26,7 +26,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   const { user } = useAuth();
   const { coords, address: currentLocation, loading: geoLoading, error: geoError } = useGeolocation();
   const [logs, setLogs] = useState([]);
-  const [gaps, setGaps] = useState([]);
+  const [stats, setStats] = useState({ present: 0, leaves: 0, halfDays: 0, totalLogs: 0 });
   const [loading, setLoading] = useState(true);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
@@ -176,56 +176,25 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       }
 
       if (!attendanceRes.ok) {
-        const errData = await attendanceRes.json().catch(() => ({}));
+        const errData = attendanceRes.json().catch(() => ({}));
         throw new Error(errData.message || `Server Error: ${attendanceRes.status}`);
       }
 
       const data = await attendanceRes.json();
       const logsArray = Array.isArray(data) ? data : (data.value || data.data || data.logs || []);
-
-      // Fill missing days from Jan 1st to Today
-      const getLocalDateStr = (dateObj) => {
-        const y = dateObj.getFullYear();
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      };
-
-      const logMap = new Map();
-      logsArray.forEach(log => {
-        const d = log.punch_date || log.date || log.created_at;
-        if (d) {
-          const dateStr = getLocalDateStr(new Date(d));
-          logMap.set(dateStr, log);
-        }
+      
+      // Update stats from backend response if available, otherwise calculate from logsArray
+      setStats({
+        present: data.presentCount || data.present || logsArray.filter(l => (l.status || '').toUpperCase().includes('P')).length,
+        leaves: data.leaveCount || data.leaves || data.absentCount || logsArray.filter(l => (l.status || '').toUpperCase().includes('A')).length,
+        halfDays: data.halfDayCount || data.halfDays || logsArray.filter(l => (l.status || '').toUpperCase().includes('HD')).length,
+        totalLogs: data.totalCount || data.total || logsArray.length
       });
 
-      const fullLogs = [];
-      const today = new Date();
-      const startOfYear = new Date(today.getFullYear(), 0, 1);
-
-      for (let d = new Date(startOfYear); d <= today; d.setDate(d.getDate() + 1)) {
-        const dateStr = getLocalDateStr(d);
-        if (logMap.has(dateStr)) {
-          fullLogs.push(logMap.get(dateStr));
-        } else {
-          const dayOfWeek = d.getDay();
-          const isWeekend = dayOfWeek === 0; // Sun = 0
-          fullLogs.push({
-            punch_date: dateStr,
-            in_time: '--:--',
-            out_time: '--:--',
-            work_time: '00:00',
-            status: isWeekend ? 'WO' : 'ABSENT',
-            remark: isWeekend ? 'Weekend Off' : 'No Punch Record',
-            user_id: uid,
-            id: `gap-${dateStr}`
-          });
-        }
-      }
+      // Removed gaps fetch logic as it is not supported by the backend
 
       // Sort logs newest first
-      const sortedLogs = [...fullLogs].sort((a, b) => {
+      const sortedLogs = [...logsArray].sort((a, b) => {
         const dateA = new Date(a.punch_date || a.date || a.created_at || 0);
         const dateB = new Date(b.punch_date || b.date || b.created_at || 0);
         return dateB - dateA;
@@ -517,7 +486,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               Biometric {isCheckedIn ? 'Check-out' : 'Check-in'}
             </h2>
             <div style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '4px' : '8px' }}>
-              <div>Current Status: <span style={{ fontWeight: '800', color: '#22c55e' }}>AT OFFICE</span></div>
+              <div>Current Status: <span style={{ fontWeight: '800', color: geoLoading ? '#94a3b8' : (isAtOffice ? '#22c55e' : '#ef4444') }}>{geoLoading ? 'LOCATING...' : (isAtOffice ? 'AT OFFICE' : 'HOME')}</span></div>
               {!isMobile && <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />}
               <span
                 onClick={() => {
@@ -574,7 +543,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PRESENT</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>
-              {filteredLogs.filter(l => getStatusConfig(l).label === 'PRESENT').length}
+              {stats.present}
             </div>
           </div>
         </motion.div>
@@ -584,7 +553,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LEAVES</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>
-              {filteredLogs.filter(l => getStatusConfig(l).label === 'ABSENT').length}
+              {stats.leaves}
             </div>
           </div>
         </motion.div>
@@ -594,7 +563,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>HALF DAYS</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>
-              {filteredLogs.filter(l => getStatusConfig(l).label === 'HALF DAY').length}
+              {stats.halfDays}
             </div>
           </div>
         </motion.div>
@@ -606,7 +575,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '10px' }}><Users size={18} color="#22c55e" /></div>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>TOTAL LOGS</div>
-                <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>{filteredLogs.length}</div>
+                <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>{stats.totalLogs}</div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

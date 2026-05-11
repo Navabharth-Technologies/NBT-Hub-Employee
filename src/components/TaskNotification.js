@@ -156,8 +156,9 @@ const TaskNotification = ({ onOpenTask }) => {
         }
       });
 
-      // Map Threads - Important leadership updates
+      // Map Threads - Important leadership updates (Only within last 48 hours)
       const mappedThreads = [];
+      const now = new Date();
       threads.forEach(t => {
           const tid = `thread_${t.id}`;
           newIds.add(tid);
@@ -166,45 +167,53 @@ const TaskNotification = ({ onOpenTask }) => {
           const isFromLeader = ['lead', 'manager', 'hr', 'ceo', 'teamleader', 'tl'].includes(role);
           
           if (isFromLeader && Number(t.user_id) !== Number(uid)) {
-              const isNewlyPosted = lastIds.size > 0 && !lastIds.has(tid);
-              if (isNewlyPosted) addedNew = true;
-              
               const rawTs = t.created_at || t.createdAt || new Date();
               const parseDate = new Date(rawTs);
+              const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
               
-              mappedThreads.push({
-                  id: tid,
-                  type: 'THREAD',
-                  title: `${t.userName || 'Leader'} posted a Thread`,
-                  description: t.content || 'New organization update.',
-                  formattedTime: formatDate(parseDate),
-                  isNew: isNewlyPosted,
-                  rawDate: parseDate
-              });
+              // Only notify if posted in the last 2 days
+              if (daysDiff <= 2) {
+                const isNewlyPosted = lastIds.size > 0 && !lastIds.has(tid);
+                if (isNewlyPosted) addedNew = true;
+                
+                mappedThreads.push({
+                    id: tid,
+                    type: 'THREAD',
+                    title: `${t.userName || 'Leader'} posted a Thread`,
+                    description: t.content || 'New organization update.',
+                    formattedTime: formatDate(parseDate),
+                    isNew: isNewlyPosted,
+                    rawDate: parseDate
+                });
+              }
           }
       });
 
-      // Map Quizzes - Engagement Alerts
+      // Map Quizzes - Engagement Alerts (Only within last 48 hours)
       const mappedQuizzes = [];
       quizzes.forEach(q => {
           const qid = `quiz_${q.id}`;
           newIds.add(qid);
           
-          const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
-          if (isNewlyAdded) addedNew = true;
-          
           const rawTs = q.created_at || q.createdAt || new Date();
           const parseDate = new Date(rawTs);
+          const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
           
-          mappedQuizzes.push({
-              id: qid,
-              type: 'QUIZ',
-              title: `New Fun Quiz: ${q.title || 'Leadership Challenge'}`,
-              description: q.description || 'A new engagement activity has been posted. Join now!',
-              formattedTime: formatDate(parseDate),
-              isNew: isNewlyAdded,
-              rawDate: parseDate
-          });
+          // Only notify if posted in the last 2 days
+          if (daysDiff <= 2) {
+            const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
+            if (isNewlyAdded) addedNew = true;
+            
+            mappedQuizzes.push({
+                id: qid,
+                type: 'QUIZ',
+                title: `New Fun Quiz: ${q.title || 'Leadership Challenge'}`,
+                description: q.description || 'A new engagement activity has been posted. Join now!',
+                formattedTime: formatDate(parseDate),
+                isNew: isNewlyAdded,
+                rawDate: parseDate
+            });
+          }
       });
 
       localStorage.setItem(`seen_approvals_${uid}`, JSON.stringify(updatedApprovals));

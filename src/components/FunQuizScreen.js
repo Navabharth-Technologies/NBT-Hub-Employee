@@ -52,21 +52,8 @@ const FunQuizScreen = ({ onBack }) => {
         const data = await res.json();
         list = Array.isArray(data) ? data : (data.data || []);
       } else if (res.status === 401 || res.status === 403) {
-        // Auth rejected — silently fall through to demo questions
-        list = [
-          {
-            id: 'm1', question: "What is the primary benefit of regular puzzle-solving for the brain?",
-            option_a: "Improved cognitive flexibility", option_b: "Better physical strength",
-            option_c: "Enhanced sense of smell", option_d: "Faster hair growth",
-            points_reward: 10, correct_answer: "Improved cognitive flexibility"
-          },
-          {
-            id: 'm2', question: "Which part of the brain is most associated with logic and reasoning?",
-            option_a: "Prefrontal Cortex", option_b: "Occipital Lobe",
-            option_c: "Cerebellum", option_d: "Brainstem",
-            points_reward: 15, correct_answer: "Prefrontal Cortex"
-          }
-        ];
+        // Auth rejected — fallback to empty list
+        list = [];
       }
 
       const mapped = list.filter(i => i !== null).map(item => ({

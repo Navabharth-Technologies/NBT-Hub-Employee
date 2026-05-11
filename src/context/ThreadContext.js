@@ -55,21 +55,8 @@ export const ThreadProvider = ({ children }) => {
         const data = await res.json();
         rawThreads = Array.isArray(data) ? data : (Array.isArray(data.value) ? data.value : (Array.isArray(data.data) ? data.data : []));
       } else {
-        // DEMO SAFETY FALLBACK: Load high-quality mock threads if backend is unreachable (Timeout/403/500)
-        rawThreads = [
-          {
-            id: 'm1', user_id: 1, userName: 'Team Lead', role: 'Management',
-            content: "Excellent work everyone! We've reached our quarterly milestones ahead of schedule. Let's keep this momentum going! 🚀",
-            createdAt: new Date().toISOString(), like_count: 12, comment_count: 3, badge_count: 5,
-            tagline: 'Leading Innovation'
-          },
-          {
-            id: 'm2', user_id: 2, userName: 'HR Support', role: 'Support',
-            content: "Don't forget to submit your monthly feedback forms by Friday. We value your input! 📝",
-            createdAt: new Date(Date.now() - 3600000).toISOString(), like_count: 8, comment_count: 1, badge_count: 0,
-            tagline: 'People First'
-          }
-        ];
+        // DEMO SAFETY FALLBACK: Use empty array if backend is unreachable
+        rawThreads = [];
       }
       
       // Standardized Normalization Layer: Absolute isolation of endorsements from emotional reactions

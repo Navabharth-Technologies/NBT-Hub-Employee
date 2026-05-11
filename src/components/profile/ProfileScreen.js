@@ -214,11 +214,11 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         }
       }
 
-      setReportingManager({ name: mName || 'Unassigned', id: mId });
+      setReportingManager({ name: mName || 'Sahana NV', id: mId });
 
     } catch (err) {
       console.error('Fetch Profile Error:', err);
-      setReportingManager({ name: 'Unassigned', id: '' });
+      setReportingManager({ name: 'Sahana NV', id: '' });
     }
   }, [user]);
 
@@ -1068,11 +1068,11 @@ const DocCard = ({ doc, onNavigate }) => {
       }}
       onClick={() => {
         if (doc.title === 'RESIGNATION LETTER') {
-          onNavigate?.('RESIGNATION');
+          onNavigate?.('RESIGNATION_LETTER');
         } else if (doc.title === 'MONTHLY PAY SLIP') {
-          onNavigate?.('PAY-SLIPS');
+          onNavigate?.('PAYSLIP');
         } else if (doc.title === 'EXPERIENCE LETTER') {
-          onNavigate?.('SERVICE-CERTIFICATE');
+          onNavigate?.('SERVICE_CERTIFICATE');
         }
       }}
     >
