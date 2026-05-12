@@ -1,4 +1,4 @@
-export const BASE_URL = 'http://192.168.1.21:5000';
+export const BASE_URL = 'http://192.168.1.15:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
 // ✅ Helper to resolve any image path (URL or Base64) without corrupting data
