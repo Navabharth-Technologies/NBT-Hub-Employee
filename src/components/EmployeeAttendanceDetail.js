@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, TEAM_OFFICE_AUTH_TOKEN } from '../config';
-import Header from './Header';
 
 export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
   const { id: paramId } = useParams();
@@ -136,7 +135,6 @@ export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
 
   return (
     <div style={styles.container}>
-      <Header setActiveTab={onBack ? () => onBack() : undefined} />
       <main style={styles.main}>
         <div style={styles.header}>
           <div style={styles.profileSection}>

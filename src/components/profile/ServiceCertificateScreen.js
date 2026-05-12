@@ -24,13 +24,27 @@ const ServiceCertificateScreen = ({ onBack }) => {
   const [assetStatus, setAssetStatus] = useState('Declaring');
   const [requestStatus, setRequestStatus] = useState('idle'); // idle, success, error
   const formatId = (id) => {
-    let strId = String(id || '');
-    if (strId.length > 0 && strId.length % 2 === 0) {
-      const halfLen = strId.length / 2;
-      if (strId.substring(0, halfLen) === strId.substring(halfLen)) {
-        strId = strId.substring(0, halfLen);
+    let strId = String(id || '').trim();
+    if (!strId || strId === 'N/A') return 'N/A';
+
+    // 1. Split by comma/spaces and take the first unique part
+    if (strId.includes(',') || strId.includes(' ')) {
+      strId = strId.split(/[,\s]+/)[0];
+    }
+
+    // 2. Detect and fix redundant repetitions (e.g., 2025920259 or 202592025920259)
+    for (let size = 1; size <= strId.length / 2; size++) {
+      if (strId.length % size === 0) {
+        const chunk = strId.substring(0, size);
+        const repetitions = strId.length / size;
+        if (chunk.repeat(repetitions) === strId) {
+          strId = chunk;
+          break;
+        }
       }
     }
+
+    // 3. Final cleanup: remove trailing non-alphanumeric characters
     return strId.replace(/[^a-zA-Z0-9]+$/, '');
   };
 

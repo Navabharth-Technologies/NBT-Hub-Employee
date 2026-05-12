@@ -28,11 +28,28 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const [teamName, setTeamName] = useState(user?.team || 'NAVABHARATHA TEAM');
   const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
   const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
-    const raw = String(user?.employee_id || user?.id || 'N/A');
-    const len = raw.length;
-    if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0,p) === raw.slice(p,p*2) && raw.slice(0,p) === raw.slice(p*2)) return raw.slice(0,p); }
-    if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0,p) === raw.slice(p)) return raw.slice(0,p); }
-    return raw;
+    let strId = String(user?.employee_id || user?.id || 'N/A').trim();
+    if (!strId || strId === 'N/A') return 'N/A';
+
+    // 1. Split by comma/spaces and take the first unique part
+    if (strId.includes(',') || strId.includes(' ')) {
+      strId = strId.split(/[,\s]+/)[0];
+    }
+
+    // 2. Detect and fix redundant repetitions (e.g., 2025920259 or 202592025920259)
+    for (let size = 1; size <= strId.length / 2; size++) {
+      if (strId.length % size === 0) {
+        const chunk = strId.substring(0, size);
+        const repetitions = strId.length / size;
+        if (chunk.repeat(repetitions) === strId) {
+          strId = chunk;
+          break;
+        }
+      }
+    }
+
+    // 3. Final cleanup: remove trailing non-alphanumeric characters
+    return strId.replace(/[^a-zA-Z0-9]+$/, '');
   });
   const parseSafeDate = (dateStr) => {
     // 0. Handle arrays (backend sometimes returns duplicates in an array)

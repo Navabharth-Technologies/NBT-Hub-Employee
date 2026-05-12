@@ -182,11 +182,38 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
 
       const data = await attendanceRes.json();
       const logsArray = Array.isArray(data) ? data : (data.value || data.data || data.logs || []);
-      
-      // Update stats from backend response if available, otherwise calculate from logsArray
+
+      // --- Pending Leaves Calculation ---
+      // Total absent days from backend
+      const totalAbsent = data.leaveCount || data.leaves || data.absentCount ||
+        logsArray.filter(l => (l.status || '').toUpperCase().includes('A')).length;
+
+      // Find earliest and latest log dates to count months in range
+      const logDates = logsArray
+        .map(l => new Date(l.punch_date || l.date || l.created_at))
+        .filter(d => !isNaN(d.getTime()));
+
+      let monthsInRange = 1; // default to 1 month minimum
+      if (logDates.length > 0) {
+        const earliestDate = new Date(Math.min(...logDates));
+        const today = new Date();
+        // Count distinct months from earliest log month to current month (inclusive)
+        const startYear = earliestDate.getFullYear();
+        const startMonth = earliestDate.getMonth(); // 0-indexed
+        const endYear = today.getFullYear();
+        const endMonth = today.getMonth(); // 0-indexed
+        monthsInRange = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+        if (monthsInRange < 1) monthsInRange = 1;
+      }
+
+      // 1 leave allowed per month — subtract entitlement from total absences
+      const allowedLeaves = monthsInRange; // 1 per month
+      const pendingLeaves = Math.max(0, totalAbsent - allowedLeaves);
+
+      // Update stats
       setStats({
         present: data.presentCount || data.present || logsArray.filter(l => (l.status || '').toUpperCase().includes('P')).length,
-        leaves: data.leaveCount || data.leaves || data.absentCount || logsArray.filter(l => (l.status || '').toUpperCase().includes('A')).length,
+        leaves: pendingLeaves,
         halfDays: data.halfDayCount || data.halfDays || logsArray.filter(l => (l.status || '').toUpperCase().includes('HD')).length,
         totalLogs: data.totalCount || data.total || logsArray.length
       });
@@ -551,7 +578,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><AlertCircle size={18} color="#ef4444" /></div>
           <div>
-            <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LEAVES</div>
+            <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PENDING LEAVES</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>
               {stats.leaves}
             </div>
@@ -620,15 +647,9 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      style={{ ...s.tableRow, borderBottom: idx === filteredLogs.length - 1 ? 'none' : '1px solid #f8fafc', cursor: 'pointer' }}
+                      style={{ ...s.tableRow, borderBottom: idx === filteredLogs.length - 1 ? 'none' : '1px solid #f8fafc' }}
                       className="attendance-table-row"
                       whileHover={{ backgroundColor: '#fcfdfe' }}
-                      onClick={() => {
-                          const empId = log.user_id || log.employee_id;
-                          if (onNavigate && empId) {
-                              onNavigate('ATTENDANCE_DETAIL', { employeeId: empId });
-                          }
-                      }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#eef2f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '900', color: '#0B1E3F' }}>
