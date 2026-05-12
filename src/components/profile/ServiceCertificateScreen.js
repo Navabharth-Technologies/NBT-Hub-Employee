@@ -23,9 +23,20 @@ const ServiceCertificateScreen = ({ onBack }) => {
   const [hasSubmittedAssets, setHasSubmittedAssets] = useState(false);
   const [assetStatus, setAssetStatus] = useState('Declaring');
   const [requestStatus, setRequestStatus] = useState('idle'); // idle, success, error
+  const formatId = (id) => {
+    let strId = String(id || '');
+    if (strId.length > 0 && strId.length % 2 === 0) {
+      const halfLen = strId.length / 2;
+      if (strId.substring(0, halfLen) === strId.substring(halfLen)) {
+        strId = strId.substring(0, halfLen);
+      }
+    }
+    return strId.replace(/[^a-zA-Z0-9]+$/, '');
+  };
+
   const [profileData, setProfileData] = useState({
     name: user?.name || 'User',
-    empId: user?.employee_id || user?.id || 'N/A',
+    empId: formatId(user?.employee_id || user?.id || 'N/A'),
     designation: user?.designation || user?.role || 'Member',
     role: user?.role || ''
   });
@@ -45,7 +56,7 @@ const ServiceCertificateScreen = ({ onBack }) => {
           const data = await resp.json();
           setProfileData({
             name: data.employee_name || data.name || user?.name,
-            empId: data.employee_id || data.id || user?.employee_id || user?.id,
+            empId: formatId(data.employee_id || data.id || user?.employee_id || user?.id),
             designation: data.designation || data.role || user?.designation || user?.role,
             role: data.role || user?.role || ''
           });

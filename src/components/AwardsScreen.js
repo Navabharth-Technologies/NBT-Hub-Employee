@@ -326,9 +326,9 @@ const AwardsScreen = ({ onBack }) => {
 
         // 2. Strict Database Category Match (If granter role is unknown)
         const rCat = String(r.category || r.reward_category || '').toUpperCase();
-        if (['TL', 'PERFORMANCE', 'LEADERSHIP'].includes(rCat)) return 'TL';
-        if (['PM', 'PROJECT', 'SPRINT'].includes(rCat)) return 'PM';
-        if (['HR', 'CULTURAL', 'PEER', 'ADMIN', 'CEO', 'MANAGEMENT', 'QUIZ', 'SUPER_ADMIN', 'SUPER ADMIN'].includes(rCat)) return 'HR';
+        if (rCat === 'TL' || rCat.includes('TL') || rCat.includes('PERFORMANCE') || rCat.includes('LEADERSHIP') || rCat.includes('TEAM')) return 'TL';
+        if (rCat === 'PM' || rCat.includes('PM') || rCat.includes('PROJECT') || rCat.includes('SPRINT')) return 'PM';
+        if (rCat === 'HR' || rCat.includes('HR') || rCat.includes('CULTURAL') || rCat.includes('PEER') || rCat.includes('ADMIN') || rCat.includes('CEO') || rCat.includes('MANAGEMENT') || rCat.includes('SUPER') || rCat.includes('QUIZ')) return 'HR';
 
         // 3. Semantic Title Match (If category is generic like "Other")
         const name = String(r.reward_name || r.rewardName || r.title || r.reward || '').toUpperCase();
@@ -422,7 +422,7 @@ const AwardsScreen = ({ onBack }) => {
 
             <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(3, 1fr)', 
+                gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(4, 1fr)', 
                 gap: winWidth < 768 ? '10px' : '15px', 
                 marginBottom: '30px', 
                 backgroundColor: '#0B1E3F', 

@@ -115,7 +115,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                 </div>
                 <span className="nav-label" style={{ 
                   fontWeight: '1000', 
-                  fontSize: winWidth < 768 ? '6px' : '7.5px', 
+                  fontSize: winWidth < 768 ? '6px' : '6.5px', 
                   color: activeTab === item.id ? theme.color : '#475569', 
                   fontFamily: "'Outfit', sans-serif",
                   letterSpacing: '0.2px'

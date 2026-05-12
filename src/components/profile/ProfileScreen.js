@@ -394,7 +394,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     container: {
       minHeight: '90vh',
       backgroundColor: '#F5F6FC',
-      paddingBottom: winWidth < 768 ? '80px' : '60px',
+      paddingBottom: winWidth < 768 ? '140px' : '120px',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     },
     profileWrapper: {

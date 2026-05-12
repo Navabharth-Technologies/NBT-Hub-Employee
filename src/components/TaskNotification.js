@@ -10,6 +10,7 @@ const TaskNotification = ({ onOpenTask }) => {
   const [hasUnread, setHasUnread] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [lastIds, setLastIds] = useState(new Set());
+  const sanitizeId = (id) => String(id || '').split(':')[0];
 
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
@@ -33,15 +34,30 @@ const TaskNotification = ({ onOpenTask }) => {
   };
 
   const fetchNotifications = async () => {
-    const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
-    if (!uid) return;
+    const rawUid = user?.id || user?.empId || user?.userId || user?.employee_id;
+    const uid = sanitizeId(rawUid);
+    if (!uid || uid === 'undefined') return;
 
     try {
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token?.trim()}` };
 
+      // 0. Fetch Users Map for Role/Name resolution
+      let usersMap = {};
+      try {
+        const userRes = await fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null);
+        if (userRes && userRes.ok) {
+          const uData = await userRes.json();
+          const uList = Array.isArray(uData) ? uData : (uData.value || uData.data || []);
+          uList.forEach(u => {
+            const userId = String(u.id || u.empId || u.employee_id || u.userId);
+            if (userId) usersMap[userId] = u;
+          });
+        }
+      } catch (e) { }
+
       // 1. Fetch Assigned Tasks
-      const taskRes = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }).catch(() => null);
+      const taskRes = await fetch(`${API_ENDPOINTS.TASKS_ASSIGNED(uid)}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
       let tasks = [];
       if (taskRes && taskRes.ok) {
         const data = await taskRes.json();
@@ -50,7 +66,7 @@ const TaskNotification = ({ onOpenTask }) => {
 
       // 2. Fetch Leaves (Personal + Team if leader)
       let leaves = [];
-      const isLeader = (user?.role || '').toLowerCase().includes('lead') || (user?.role || '').toLowerCase() === 'tl' || (user?.role || '').toLowerCase() === 'manager';
+      const isLeader = (user?.role || '').toLowerCase().includes('lead') || (user?.role || '').toLowerCase() === 'tl' || (user?.role || '').toLowerCase() === 'manager' || (user?.role || '').toLowerCase().includes('admin') || (user?.role || '').toLowerCase() === 'hr';
 
       const myLeavesRes = await fetch(API_ENDPOINTS.MY_LEAVES_GET(uid), { headers }).catch(() => null);
       if (myLeavesRes && myLeavesRes.ok) {
@@ -71,18 +87,26 @@ const TaskNotification = ({ onOpenTask }) => {
 
       // 3. Fetch Threads for TL Alerts
       let threads = [];
-      const threadRes = await fetch(API_ENDPOINTS.THREADS, { headers }).catch(() => null);
+      const threadRes = await fetch(`${API_ENDPOINTS.THREADS}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
       if (threadRes && threadRes.ok) {
-          const data = await threadRes.json();
-          threads = Array.isArray(data) ? data : (data.value || data.data || []);
+        const data = await threadRes.json();
+        threads = Array.isArray(data) ? data : (data.value || data.data || []);
       }
 
       // 4. Fetch Funny Quizzes for Engagement
       let quizzes = [];
-      const quizRes = await fetch(API_ENDPOINTS.QUIZZES_ALL, { headers }).catch(() => null);
+      const quizRes = await fetch(`${API_ENDPOINTS.QUIZZES_ALL}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
       if (quizRes && quizRes.ok) {
-          const data = await quizRes.json();
-          quizzes = Array.isArray(data) ? data : (data.value || data.data || []);
+        const data = await quizRes.json();
+        quizzes = Array.isArray(data) ? data : (data.value || data.data || []);
+      }
+
+      // 5. Fetch Global Notifications from Backend Table
+      let globalNotifs = [];
+      const globalRes = await fetch(`${API_ENDPOINTS.NOTIFICATIONS}?userId=${uid}`, { headers }).catch(() => null);
+      if (globalRes && globalRes.ok) {
+        const data = await globalRes.json();
+        globalNotifs = Array.isArray(data) ? data : (data.value || data.data || []);
       }
 
       const newIds = new Set();
@@ -119,7 +143,7 @@ const TaskNotification = ({ onOpenTask }) => {
         const rmApp = (l.rm_status || l.rmStatus || 'Pending').toUpperCase();
         const hrApp = (l.hr_status || l.hrStatus || 'Pending').toUpperCase();
         const pmApp = (l.pm_status || l.pmStatus || (String(l.status || '').includes('Approved') ? 'Approved' : 'Pending')).toUpperCase();
-        
+
         // Comprehensive Status Tracking via Signature
         const currentSignature = `RM:${rmApp}|HR:${hrApp}|PM:${pmApp}`;
         const prevSignature = seenApprovals[lid] || 'RM:PENDING|HR:PENDING|PM:PENDING';
@@ -134,10 +158,10 @@ const TaskNotification = ({ onOpenTask }) => {
 
         if (isProcessed) {
           if (isNewlyUpdated) addedNew = true;
-          
+
           const rawTs = l.updated_at || l.created_at || new Date();
           const parseDate = new Date(rawTs);
-          
+
           let statusText = 'Updated';
           if (currentSignature.includes('REJECTED')) statusText = 'Rejected';
           else if (currentSignature.includes('APPROVED')) statusText = 'Approved';
@@ -160,65 +184,86 @@ const TaskNotification = ({ onOpenTask }) => {
       const mappedThreads = [];
       const now = new Date();
       threads.forEach(t => {
-          const tid = `thread_${t.id}`;
-          newIds.add(tid);
-          
-          const role = (t.role || '').toLowerCase();
-          const isFromLeader = ['lead', 'manager', 'hr', 'ceo', 'teamleader', 'tl'].includes(role);
-          
-          if (isFromLeader && Number(t.user_id) !== Number(uid)) {
-              const rawTs = t.created_at || t.createdAt || new Date();
-              const parseDate = new Date(rawTs);
-              const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
-              
-              // Only notify if posted in the last 2 days
-              if (daysDiff <= 2) {
-                const isNewlyPosted = lastIds.size > 0 && !lastIds.has(tid);
-                if (isNewlyPosted) addedNew = true;
-                
-                mappedThreads.push({
-                    id: tid,
-                    type: 'THREAD',
-                    title: `${t.userName || 'Leader'} posted a Thread`,
-                    description: t.content || 'New organization update.',
-                    formattedTime: formatDate(parseDate),
-                    isNew: isNewlyPosted,
-                    rawDate: parseDate
-                });
-              }
+        const tid = `thread_${t.id}`;
+        newIds.add(tid);
+
+        const threadUserId = sanitizeId(t.user_id || t.userId || t.user_Id);
+        const uProfile = usersMap[threadUserId] || {};
+        const role = (t.role || t.userRole || uProfile.role || uProfile.Role || '').toLowerCase();
+        const isFromLeader = role.includes('lead') || role.includes('manager') || role.includes('hr') || role.includes('ceo') || role.includes('admin') || (uProfile.email && uProfile.email.includes('dinesh'));
+
+        if (isFromLeader && String(threadUserId) !== String(uid)) {
+          const rawTs = t.created_at || t.createdAt || new Date();
+          const parseDate = new Date(rawTs);
+          const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
+
+          // Notify for posts within last 30 days to ensure they show up
+          if (daysDiff <= 30) {
+            const isNewlyPosted = lastIds.size > 0 && !lastIds.has(tid);
+            if (isNewlyPosted) addedNew = true;
+
+            mappedThreads.push({
+              id: tid,
+              type: 'THREAD',
+              title: `${t.userName || 'Leader'} posted a Thread`,
+              description: t.content || 'New organization update.',
+              formattedTime: formatDate(parseDate),
+              isNew: isNewlyPosted,
+              rawDate: parseDate
+            });
           }
+        }
       });
 
       // Map Quizzes - Engagement Alerts (Only within last 48 hours)
       const mappedQuizzes = [];
       quizzes.forEach(q => {
-          const qid = `quiz_${q.id}`;
-          newIds.add(qid);
-          
-          const rawTs = q.created_at || q.createdAt || new Date();
-          const parseDate = new Date(rawTs);
-          const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
-          
-          // Only notify if posted in the last 2 days
-          if (daysDiff <= 2) {
-            const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
-            if (isNewlyAdded) addedNew = true;
-            
-            mappedQuizzes.push({
-                id: qid,
-                type: 'QUIZ',
-                title: `New Fun Quiz: ${q.title || 'Leadership Challenge'}`,
-                description: q.description || 'A new engagement activity has been posted. Join now!',
-                formattedTime: formatDate(parseDate),
-                isNew: isNewlyAdded,
-                rawDate: parseDate
-            });
-          }
+        const qid = `quiz_${q.id}`;
+        newIds.add(qid);
+
+        const rawTs = q.created_at || q.createdAt || new Date();
+        const parseDate = new Date(rawTs);
+        const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
+
+        // Notify for quizzes within last 30 days
+        if (daysDiff <= 30) {
+          const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
+          if (isNewlyAdded) addedNew = true;
+
+          mappedQuizzes.push({
+            id: qid,
+            type: 'QUIZ',
+            title: `New Fun Quiz: ${q.title || 'Leadership Challenge'}`,
+            description: q.description || 'A new engagement activity has been posted. Join now!',
+            formattedTime: formatDate(parseDate),
+            isNew: isNewlyAdded,
+            rawDate: parseDate
+          });
+        }
+      });
+
+      // Map Global Notifications
+      const mappedGlobal = globalNotifs.map(gn => {
+        const gId = `global_${gn.id}`;
+        newIds.add(gId);
+        const parseDate = new Date(gn.created_at || gn.createdAt || new Date());
+        const isNewlyAdded = lastIds.size > 0 && !lastIds.has(gId);
+        if (isNewlyAdded) addedNew = true;
+
+        return {
+          id: gId,
+          type: gn.type || 'ALERT',
+          title: gn.title || 'System Alert',
+          description: gn.message || gn.content || gn.description || '',
+          formattedTime: formatDate(parseDate),
+          isNew: isNewlyAdded,
+          rawDate: parseDate
+        };
       });
 
       localStorage.setItem(`seen_approvals_${uid}`, JSON.stringify(updatedApprovals));
 
-      const merged = [...mappedTasks, ...mappedLeaves, ...mappedThreads, ...mappedQuizzes].sort((a, b) => b.rawDate - a.rawDate);
+      const merged = [...mappedTasks, ...mappedLeaves, ...mappedThreads, ...mappedQuizzes, ...mappedGlobal].sort((a, b) => b.rawDate - a.rawDate);
       setNotifications(merged);
 
       if (merged.length > 0) {
@@ -321,7 +366,7 @@ const TaskNotification = ({ onOpenTask }) => {
                           if (notif.type === 'LEAVE') tab = 'LEAVE';
                           if (notif.type === 'THREAD') tab = 'THREAD';
                           if (notif.type === 'QUIZ') tab = 'FUN';
-                          
+
                           onOpenTask(tab);
                           setIsOpen(false);
                           setHasUnread(false);
