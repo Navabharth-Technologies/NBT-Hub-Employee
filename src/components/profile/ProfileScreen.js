@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 
 import { getTheme } from '../../constants/Theme';
-import TicketSection from './TicketSection';
 
 export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const { user, logout, updateProfile } = useAuth();
@@ -141,7 +140,6 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const fileInputRef = useRef(null);
   const [teamReports, setTeamReports] = useState([]);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showTicketModal, setShowTicketModal] = useState(false);
   const [passData, setPassData] = useState({ old: '', new: '', confirm: '', otp: '' });
   const [passwordMode, setPasswordMode] = useState('change'); // 'change' or 'reset'
   const [otpRequested, setOtpRequested] = useState(false);
@@ -736,7 +734,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           <motion.div
             whileHover={{ y: -5 }}
             style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#fed7aa', backgroundColor: '#fff7ed' }}
-            onClick={() => setShowTicketModal(true)}
+            onClick={() => onNavigate?.('TICKET')}
           >
             <div style={{ ...styles.iconCircle, backgroundColor: '#ffedd5' }}><AlertCircle size={18} color="#f97316" /></div>
             <div style={{ flex: 1 }}>
@@ -898,9 +896,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         )}
 
         <AnimatePresence>
-          {showTicketModal && (
-            <TicketSection onClose={() => setShowTicketModal(false)} />
-          )}
+
         </AnimatePresence>
 
 

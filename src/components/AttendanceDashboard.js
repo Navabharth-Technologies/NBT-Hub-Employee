@@ -162,14 +162,14 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
 
       const rawUid = targetUserId || user?.id || user?.empId || user?.userId || user?.employee_id;
       const uid = String(rawUid || '').split(':')[0].trim();
-      
+
       const url = `${BASE_URL}/api/attendance_logs?userId=${uid}&limit=1000`;
 
-      const attendanceRes = await fetch(url, { 
-        headers: { 
-          'Authorization': `Bearer ${token.trim()}`, 
-          'Accept': 'application/json' 
-        } 
+      const attendanceRes = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token.trim()}`,
+          'Accept': 'application/json'
+        }
       });
 
       if (attendanceRes.status === 401) {
@@ -189,28 +189,21 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       const policyStartMonth = 1; // 0-indexed Feb is 1
       const today = new Date();
       
-      // 1. Only count absences from Feb 1, 2026 onwards
       const absencesSincePolicy = logsArray.filter(l => {
         const dStr = l.punch_date || l.date || l.created_at;
         if (!dStr) return false;
         const logDate = new Date(dStr);
         if (isNaN(logDate.getTime())) return false;
-        
         const isAbsent = (l.status || '').toUpperCase().includes('A');
         const isAfterPolicy = logDate.getFullYear() > policyYear || 
                              (logDate.getFullYear() === policyYear && logDate.getMonth() >= policyStartMonth);
-        
         return isAbsent && isAfterPolicy && logDate <= today;
       }).length;
 
-      // 2. Calculate months elapsed since Feb 2026
       const currentYear = today.getFullYear();
       const currentMonth = today.getMonth();
       const monthsSincePolicy = Math.max(1, (currentYear - policyYear) * 12 + (currentMonth - policyStartMonth) + 1);
-
-      // 3. Allowance is 1 leave per month
-      const allowedLeaves = monthsSincePolicy; 
-      const pendingLeaves = Math.max(0, absencesSincePolicy - allowedLeaves);
+      const pendingLeaves = Math.max(0, absencesSincePolicy - monthsSincePolicy);
 
       // Update stats
       setStats({
@@ -598,77 +591,77 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         </motion.div>
       </div>
 
-        <div style={s.card} className="attendance-table-container">
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '30px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '10px' }}><Users size={18} color="#22c55e" /></div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>TOTAL LOGS</div>
-                <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>{stats.totalLogs}</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '10px' }}><ShieldCheck size={18} color="#2260ff" /></div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>VERIFIED BY</div>
-                <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>Biometric API</div>
-              </div>
+      <div style={s.card} className="attendance-table-container">
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '30px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '10px' }}><Users size={18} color="#22c55e" /></div>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>TOTAL LOGS</div>
+              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>{stats.totalLogs}</div>
             </div>
           </div>
-
-          <div style={s.tableHeader} className="attendance-table-header">
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>EMPLOYEE</span>
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>DATE</span>
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>PUNCH IN</span>
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>PUNCH OUT</span>
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>WORK HRS</span>
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>STATUS</span>
-            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>AUDIT LOCATION</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '10px' }}><ShieldCheck size={18} color="#2260ff" /></div>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>VERIFIED BY</div>
+              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>Biometric API</div>
+            </div>
           </div>
+        </div>
 
-          <div style={{ minHeight: '400px', backgroundColor: 'white' }}>
-            {loading ? (
-              <div style={{ padding: '60px', textAlign: 'center' }}>
-                <RefreshCw size={40} color="#94a3b8" className="animate-spin" style={{ marginBottom: '15px', opacity: 0.3 }} />
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#94a3b8' }}>Syncing with Biometric Server...</div>
-              </div>
-            ) : error ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '60px', textAlign: 'center' }}>
-                <AlertCircle size={48} color="#ef4444" style={{ marginBottom: '15px', opacity: 0.5 }} />
-                <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>Oops! Connectivity Error</div>
-                <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>{error}</div>
-                <button onClick={() => fetchAttendance()} style={{ marginTop: '20px', padding: '8px 20px', borderRadius: '10px', border: '1.5px solid #e2e8f0', backgroundColor: 'white', fontWeight: '800', cursor: 'pointer' }}>Retry Sync</button>
-              </motion.div>
-            ) : filteredLogs.length > 0 ? (
-              <AnimatePresence>
-                {filteredLogs.map((log, idx) => {
-                  const config = getStatusConfig(log);
-                  return (
-                    <motion.div
-                      key={log.id || idx}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      style={{ ...s.tableRow, borderBottom: idx === filteredLogs.length - 1 ? 'none' : '1px solid #f8fafc' }}
-                      className="attendance-table-row"
-                      whileHover={{ backgroundColor: '#fcfdfe' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#eef2f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '900', color: '#0B1E3F' }}>
-                          {String(log.user_name || log.userName || log.employee_name || log.user_id || 'U').charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {log.user_name || log.userName || log.employee_name || 'System User'}
-                          </div>
-                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8' }}>ID: {log.user_id || log.employee_id || 'N/A'}</div>
-                        </div>
-                      </div>
+        <div style={s.tableHeader} className="attendance-table-header">
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>EMPLOYEE</span>
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>DATE</span>
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>PUNCH IN</span>
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>PUNCH OUT</span>
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>WORK HRS</span>
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>STATUS</span>
+          <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b' }}>AUDIT LOCATION</span>
+        </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Calendar size={14} color="#94a3b8" />
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>{formatDate(log.punch_date)}</span>
+        <div style={{ minHeight: '400px', backgroundColor: 'white' }}>
+          {loading ? (
+            <div style={{ padding: '60px', textAlign: 'center' }}>
+              <RefreshCw size={40} color="#94a3b8" className="animate-spin" style={{ marginBottom: '15px', opacity: 0.3 }} />
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#94a3b8' }}>Syncing with Biometric Server...</div>
+            </div>
+          ) : error ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '60px', textAlign: 'center' }}>
+              <AlertCircle size={48} color="#ef4444" style={{ marginBottom: '15px', opacity: 0.5 }} />
+              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>Oops! Connectivity Error</div>
+              <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>{error}</div>
+              <button onClick={() => fetchAttendance()} style={{ marginTop: '20px', padding: '8px 20px', borderRadius: '10px', border: '1.5px solid #e2e8f0', backgroundColor: 'white', fontWeight: '800', cursor: 'pointer' }}>Retry Sync</button>
+            </motion.div>
+          ) : filteredLogs.length > 0 ? (
+            <AnimatePresence>
+              {filteredLogs.map((log, idx) => {
+                const config = getStatusConfig(log);
+                return (
+                  <motion.div
+                    key={log.id || idx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    style={{ ...s.tableRow, borderBottom: idx === filteredLogs.length - 1 ? 'none' : '1px solid #f8fafc' }}
+                    className="attendance-table-row"
+                    whileHover={{ backgroundColor: '#fcfdfe' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#eef2f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '900', color: '#0B1E3F' }}>
+                        {String(log.user_name || log.userName || log.employee_name || log.user_id || 'U').charAt(0).toUpperCase()}
                       </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {log.user_name || log.userName || log.employee_name || 'System User'}
+                        </div>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8' }}>ID: {log.user_id || log.employee_id || 'N/A'}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Calendar size={14} color="#94a3b8" />
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>{formatDate(log.punch_date)}</span>
+                    </div>
 
                     <div style={{ fontSize: '13px', fontWeight: '800', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Clock size={14} /> {log.in_time || '--:--'}

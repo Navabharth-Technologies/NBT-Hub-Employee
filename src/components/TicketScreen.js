@@ -38,10 +38,20 @@ export default function TicketScreen({ onBack }) {
   const fetchTickets = async () => {
     if (!user?.id) return;
     try {
+      const token = localStorage.getItem('token');
       const sid = sanitizeId(user.id);
-      const resp = await fetch(`${API_ENDPOINTS.SUPPORT_TICKETS}?userId=${sid}`);
-      const data = await resp.json();
-      setTickets(Array.isArray(data) ? data : []);
+      const resp = await fetch(`${API_ENDPOINTS.SUPPORT_TICKETS}?userId=${sid}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setTickets(Array.isArray(data) ? data : (data.data || []));
+      } else {
+        setTickets([]);
+      }
     } catch (err) {
       console.error("Fetch tickets error:", err);
       setTickets([]);
@@ -50,9 +60,13 @@ export default function TicketScreen({ onBack }) {
 
   const updateTicketStatus = async (id, status) => {
     try {
+      const token = localStorage.getItem('token');
       const resp = await fetch(API_ENDPOINTS.UPDATE_TICKET(id), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ status })
       });
       if (resp.ok) {
@@ -65,13 +79,17 @@ export default function TicketScreen({ onBack }) {
     if (!subject.trim() || !description.trim()) return alert("Please fill all fields");
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
       const sid = sanitizeId(user.id);
       const resp = await fetch(API_ENDPOINTS.SUPPORT_TICKETS, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           userId: sid,
-          assignee: user?.name || user?.employee_name || user?.username || 'Unknown',
+          employee_name: user?.name || user?.employee_name || user?.username || 'Unknown',
           subject,
           description,
           priority,
@@ -83,9 +101,13 @@ export default function TicketScreen({ onBack }) {
         setDescription('');
         fetchTickets();
         alert("Ticket submitted successfully!");
+      } else {
+        const errData = await resp.json().catch(() => ({}));
+        alert(errData.message || "Failed to submit ticket");
       }
     } catch (err) {
       console.error("Submit ticket error:", err);
+      alert("Network error occurred while submitting ticket");
     } finally {
       setLoading(false);
     }
