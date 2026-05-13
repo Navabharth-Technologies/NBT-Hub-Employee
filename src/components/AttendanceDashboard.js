@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Clock3,
   MapPin,
+  Activity,
   ArrowLeft,
   ChevronRight,
   Download
@@ -183,32 +184,33 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       const data = await attendanceRes.json();
       const logsArray = Array.isArray(data) ? data : (data.value || data.data || data.logs || []);
 
-      // --- Pending Leaves Calculation ---
-      // Total absent days from backend
-      const totalAbsent = data.leaveCount || data.leaves || data.absentCount ||
-        logsArray.filter(l => (l.status || '').toUpperCase().includes('A')).length;
+      // --- Pending Leaves Calculation (Policy starts Feb 1, 2026) ---
+      const policyYear = 2026;
+      const policyStartMonth = 1; // 0-indexed Feb is 1
+      const today = new Date();
+      
+      // 1. Only count absences from Feb 1, 2026 onwards
+      const absencesSincePolicy = logsArray.filter(l => {
+        const dStr = l.punch_date || l.date || l.created_at;
+        if (!dStr) return false;
+        const logDate = new Date(dStr);
+        if (isNaN(logDate.getTime())) return false;
+        
+        const isAbsent = (l.status || '').toUpperCase().includes('A');
+        const isAfterPolicy = logDate.getFullYear() > policyYear || 
+                             (logDate.getFullYear() === policyYear && logDate.getMonth() >= policyStartMonth);
+        
+        return isAbsent && isAfterPolicy && logDate <= today;
+      }).length;
 
-      // Find earliest and latest log dates to count months in range
-      const logDates = logsArray
-        .map(l => new Date(l.punch_date || l.date || l.created_at))
-        .filter(d => !isNaN(d.getTime()));
+      // 2. Calculate months elapsed since Feb 2026
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const monthsSincePolicy = Math.max(1, (currentYear - policyYear) * 12 + (currentMonth - policyStartMonth) + 1);
 
-      let monthsInRange = 1; // default to 1 month minimum
-      if (logDates.length > 0) {
-        const earliestDate = new Date(Math.min(...logDates));
-        const today = new Date();
-        // Count distinct months from earliest log month to current month (inclusive)
-        const startYear = earliestDate.getFullYear();
-        const startMonth = earliestDate.getMonth(); // 0-indexed
-        const endYear = today.getFullYear();
-        const endMonth = today.getMonth(); // 0-indexed
-        monthsInRange = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-        if (monthsInRange < 1) monthsInRange = 1;
-      }
-
-      // 1 leave allowed per month — subtract entitlement from total absences
-      const allowedLeaves = monthsInRange; // 1 per month
-      const pendingLeaves = Math.max(0, totalAbsent - allowedLeaves);
+      // 3. Allowance is 1 leave per month
+      const allowedLeaves = monthsSincePolicy; 
+      const pendingLeaves = Math.max(0, absencesSincePolicy - allowedLeaves);
 
       // Update stats
       setStats({
@@ -576,7 +578,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><AlertCircle size={18} color="#ef4444" /></div>
+          <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><Activity size={18} color="#ef4444" /></div>
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PENDING LEAVES</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>

@@ -119,16 +119,11 @@ export const AuthProvider = ({ children }) => {
     const sanitizedEmail = email.trim().toLowerCase();
     const sanitizedPassword = String(password || '').trim().toLowerCase();
 
-    // 1. Parallel Execution: Run Production Login and Sandbox Check concurrently to minimize wait time
     const productionLoginPromise = fetch(API_ENDPOINTS.LOGIN, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: sanitizedEmail, password })
     }).catch(e => ({ ok: false, error: e }));
-
-    const sandboxCheckPromise = fetch(API_ENDPOINTS.NEW_JOINEES_GET)
-      .then(res => res.ok ? res.json() : [])
-      .catch(() => []);
 
     try {
       // Prioritize Production Login Result
@@ -157,7 +152,7 @@ export const AuthProvider = ({ children }) => {
             safeSetItem('user', JSON.stringify(fullUser));
           }
         } catch (err) {
-          // Profile sync failed or timed out (Demo Safety), but we still have basic user data from login
+          // Profile sync failed or timed out
         }
 
         safeSetItem('user', JSON.stringify(userData));
@@ -165,42 +160,8 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       }
 
-      // 2. Fallback: Check Sandbox/New Joinees if production login fails
-      const joineesListRaw = await sandboxCheckPromise;
-      const joineesList = Array.isArray(joineesListRaw) ? joineesListRaw : (joineesListRaw?.value || joineesListRaw?.data || []);
-      
-      const matchedJoinee = joineesList.find(j => {
-        const joineeEmail = String(j?.email || j?.email_id || j?.email_address || '').toLowerCase();
-        const joineeName = String(j?.name || j?.full_name || '').toLowerCase();
-        const inputPrefix = sanitizedEmail.split('@')[0];
-        
-        return (joineeEmail && (joineeEmail.includes(inputPrefix) || joineeEmail === sanitizedEmail)) || 
-               (joineeName && (joineeName.includes(inputPrefix) || inputPrefix.includes(joineeName))) ||
-               (sanitizedEmail === 'chandu@gmail.com');
-      });
-
-      const isSandboxPassword = (sanitizedPassword === 'nbt123' || sanitizedPassword === 'nbt@123' || sanitizedPassword === 'nbthub@123' || sanitizedPassword === '12345678' || sanitizedEmail === 'chandu@gmail.com');
-      
-      if (matchedJoinee && isSandboxPassword) {
-        console.log('[Sandbox Check] BYPASS GRANTED for Joinee:', matchedJoinee);
-        const namePrefix = sanitizedEmail.split('@')[0];
-        const demoUser = {
-          id: matchedJoinee.id || 9999,
-          empId: matchedJoinee.id,
-          employee_id: matchedJoinee.id,
-          name: matchedJoinee.name || (namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1)),
-          email: sanitizedEmail,
-          role: matchedJoinee.role || 'Trainee',
-          joining_date: matchedJoinee.joining_date,
-          isNewJoinee: true
-        };
-        setUser(demoUser);
-        safeSetItem('user', JSON.stringify(demoUser));
-        safeSetItem('token', 'joinee-sandbox-secure-nbt');
-        return { success: true };
-      }
-
-      // If both fail
+      // If production login fails (e.g. 401 Unauthorized), return error immediately.
+      // Removed insecure sandbox/hardcoded password fallbacks.
       if (prodRes.status === 401 || prodRes.status === 404) {
         return { success: false, error: 'Invalid email or password' };
       }

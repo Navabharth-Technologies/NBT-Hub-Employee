@@ -59,14 +59,14 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
           exit={{ opacity: 0, y: 50, x: winWidth < 768 ? '0' : '-50%' }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <div className="nav-dock" style={{ 
+            <div className="nav-dock" style={{ 
             backgroundColor: theme.headerBg, 
             borderRadius: winWidth < 768 ? '0' : '40px', 
             display: 'flex', 
             justifyContent: 'space-around', 
             alignItems: 'center', 
-            padding: winWidth < 768 ? '6px 6px' : '6px 14px', 
-            gap: winWidth < 768 ? '1px' : '10px', 
+            padding: winWidth < 768 ? '4px 6px' : '5px 12px', 
+            gap: winWidth < 768 ? '1px' : '8px', 
             boxShadow: winWidth < 768 ? '0 -4px 15px rgba(0,0,0,0.05)' : '0 10px 40px rgba(0,0,0,0.12)', 
             border: winWidth < 768 ? 'none' : '1.5px solid rgba(255,255,255,0.5)', 
             borderTop: winWidth < 768 ? '2px solid rgba(255,255,255,0.3)' : (winWidth < 768 ? 'none' : '1.5px solid rgba(255,255,255,0.5)'),
@@ -80,13 +80,13 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                 onClick={() => onTabChange(item.id)}
                 style={{ color: activeTab === item.id ? theme.color : '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flex: 1, transition: 'all 0.2s ease' }}
               >
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2px' }}>
                   {React.cloneElement(item.icon, { 
                     style: { 
                       ...item.icon.props.style, 
                       stroke: activeTab === item.id ? theme.color : '#475569',
-                      width: winWidth < 768 ? '16px' : '18px',
-                      height: winWidth < 768 ? '16px' : '18px'
+                      width: winWidth < 768 ? '15px' : '17px',
+                      height: winWidth < 768 ? '15px' : '17px'
                     } 
                   })}
                   {item.id === 'THREAD' && unreadCount > 0 && (
@@ -102,9 +102,9 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '8.5px',
+                      fontSize: '8px',
                       color: 'white',
-                      fontWeight: '900',
+                      fontWeight: '800',
                       padding: '0 3px',
                       boxShadow: '0 2px 8px rgba(255,59,48,0.3)',
                       zIndex: 10000
@@ -114,11 +114,11 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                   )}
                 </div>
                 <span className="nav-label" style={{ 
-                  fontWeight: '1000', 
-                  fontSize: winWidth < 768 ? '6px' : '6.5px', 
+                  fontWeight: '700', 
+                  fontSize: winWidth < 768 ? '7px' : '8px', 
                   color: activeTab === item.id ? theme.color : '#475569', 
                   fontFamily: "'Outfit', sans-serif",
-                  letterSpacing: '0.2px'
+                  letterSpacing: '0.1px'
                 }}>
                   {item.label}
                 </span>
