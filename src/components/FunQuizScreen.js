@@ -68,7 +68,7 @@ const FunQuizScreen = ({ onBack }) => {
           points_reward: item.points_reward,
           has_answered: item.has_answered || false,
           previous_result: item.previous_result ? (item.previous_result === true || item.previous_result === 'correct' ? 'correct' : 'wrong') : null,
-          correct_answer: item.correct_answer || null,
+          correct_answer: item.correct_answer || item.answer || item.correct || item.right_option || item.correct_option || null,
           user_selected_letter: null
         }));
         setQuestions(mapped);
@@ -168,15 +168,30 @@ const FunQuizScreen = ({ onBack }) => {
     const currentQ = questions[currentIdx];
     if (currentQ.has_answered) return;
 
-    // LOCAL ASSESSMENT - Using robust comparison (trim and lowercase) to avoid whitespace/casing bugs
-    // LOCAL ASSESSMENT - Robust comparison checking both the Letter and the Text
     const optObj = currentQ.options.find(o => o.letter === selectedOption);
-    const normalizedSelectedText = String(optObj?.text || '').trim().toLowerCase();
-    const normalizedCorrect = String(currentQ.correct_answer || '').trim().toLowerCase();
-    const normalizedSelectedLetter = String(selectedOption || '').trim().toLowerCase();
 
-    // It's correct if the text matches OR if the letter matches
-    const isCorrect = (normalizedSelectedText === normalizedCorrect) || (normalizedSelectedLetter === normalizedCorrect);
+    // --- ROBUST ASSESSMENT ENGINE ---
+    const checkIsCorrect = () => {
+      if (!currentQ.correct_answer) return false;
+      
+      const userLetter = String(selectedOption || '').trim().toLowerCase();
+      const userText = String(optObj?.text || '').trim().toLowerCase();
+      const correctRaw = String(currentQ.correct_answer).trim().toLowerCase();
+
+      // 1. Direct matches (Text or Letter)
+      if (userText === correctRaw || userLetter === correctRaw) return true;
+
+      const cleanCorrect = correctRaw.replace(/^(option|choice|opt)[_\s\-.]*/, '');
+      if (userLetter === cleanCorrect || userText === cleanCorrect) return true;
+
+      // 3. Robust substring matching (e.g. if answer is "D. Parrot" and user chose "D")
+      if (correctRaw.startsWith(userLetter + '.') || correctRaw.startsWith(userLetter + ' ')) return true;
+      if (userText.includes(correctRaw) && correctRaw.length > 2) return true;
+
+      return false;
+    };
+
+    const isCorrect = checkIsCorrect();
 
     // BACKEND ASSESSMENT (Required for submit-session to succeed)
     try {
@@ -326,11 +341,15 @@ const FunQuizScreen = ({ onBack }) => {
       const isSelectedLocally = selectedOption === optObj.letter;
       const isUserPicked = currentQ?.user_selected_letter === optObj.letter;
       
-      const normalizedCorrect = String(currentQ?.correct_answer || '').trim().toLowerCase();
-      const normalizedOptText = String(optObj.text || '').trim().toLowerCase();
-      const normalizedOptLetter = String(optObj.letter || '').trim().toLowerCase();
+      const userLetter = String(optObj.letter || '').trim().toLowerCase();
+      const userText = String(optObj.text || '').trim().toLowerCase();
+      const correctRaw = String(currentQ?.correct_answer || '').trim().toLowerCase();
       
-      const isActuallyCorrect = (normalizedOptText === normalizedCorrect) || (normalizedOptLetter === normalizedCorrect);
+      const cleanC = correctRaw.replace(/^(option|choice|opt)[_\s\-.]*/, '');
+      const isActuallyCorrect = (userText === correctRaw || userLetter === correctRaw || 
+                                 cleanC === userLetter || cleanC === userText ||
+                                 correctRaw.startsWith(userLetter + '.') || 
+                                 correctRaw.startsWith(userLetter + ' '));
 
       let borderColor = '#eef2f3';
       let bgColor = 'white';
@@ -587,18 +606,18 @@ const FunQuizScreen = ({ onBack }) => {
                       {opt.letter}
                     </div>
                     <div style={{ flex: 1 }}>{opt.text}</div>
-                    {currentQ.has_answered && (
-                      (String(currentQ.correct_answer).trim().toLowerCase() === String(opt.text).trim().toLowerCase()) || 
-                      (String(currentQ.correct_answer).trim().toLowerCase() === String(opt.letter).trim().toLowerCase())
-                    ) && (
-                      <CheckIcon size={18} color="#15803d" />
-                    )}
-                    {currentQ.has_answered && currentQ.user_selected_letter === opt.letter && !(
-                      (String(currentQ.correct_answer).trim().toLowerCase() === String(opt.text).trim().toLowerCase()) || 
-                      (String(currentQ.correct_answer).trim().toLowerCase() === String(opt.letter).trim().toLowerCase())
-                    ) && (
-                      <XIcon size={18} color="#b91c1c" />
-                    )}
+                    {currentQ.has_answered && (() => {
+                      const userLetter = String(opt.letter || '').trim().toLowerCase();
+                      const userText = String(opt.text || '').trim().toLowerCase();
+                      const correctRaw = String(currentQ.correct_answer || '').trim().toLowerCase();
+                      const isCorrect = (userText === correctRaw || userLetter === correctRaw || 
+                                         correctRaw.replace(/^(option|choice|opt)[_\s]*/, '') === userLetter ||
+                                         correctRaw.replace(/^(option|choice|opt)[_\s]*/, '') === userText);
+                      
+                      if (isCorrect) return <CheckIcon size={18} color="#15803d" />;
+                      if (currentQ.user_selected_letter === opt.letter) return <XIcon size={18} color="#b91c1c" />;
+                      return null;
+                    })()}
                   </div>
                 );
               })}
