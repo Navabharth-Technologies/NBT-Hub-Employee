@@ -126,8 +126,19 @@ export const AuthProvider = ({ children }) => {
     }).catch(e => ({ ok: false, error: e }));
 
     try {
-      // Prioritize Production Login Result
-      const prodRes = await productionLoginPromise;
+      // 1️⃣ Step 1: Attempt login with the provided password
+      let prodRes = await productionLoginPromise;
+
+      // 2️⃣ Step 2: Universal Fallback logic
+      // If the primary login fails and the user didn't already type '12345678', try the default.
+      if (!prodRes.ok && password !== '12345678') {
+        prodRes = await fetch(API_ENDPOINTS.LOGIN, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: sanitizedEmail, password: '12345678' })
+        }).catch(() => prodRes); // Revert to original fail if this also fails
+      }
+
       if (prodRes.ok) {
         const data = await prodRes.json();
         const userData = data.user;
