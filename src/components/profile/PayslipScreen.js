@@ -333,7 +333,7 @@ export default function PayslipScreen({ onBack }) {
               </tr>
               <tr>
                 <td style={labelCell()}>Emp. Name</td>
-                <td style={valueCell()}>{ps.emp_name || ps.employee_name || ps.name || user?.name || 'Imsha Gaima'}</td>
+                <td style={valueCell()}>{ps.emp_name || ps.employee_name || ps.name || user?.name || '--'}</td>
                 <td style={labelCell()}>Designation</td>
                 <td style={valueCell()}>{ps.designation || user?.designation || 'Junior Software Engineer'}</td>
               </tr>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cake, ChevronLeft, RefreshCcw, Gift, Calendar } from 'lucide-react';
+import { Cake, ChevronLeft, Search, Gift, Calendar, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
@@ -9,8 +9,23 @@ const BirthdayScreen = ({ onBack }) => {
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [birthdays, setBirthdays] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const getInitials = (name) => {
+    if (!name) return '??';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+  };
 
   useEffect(() => {
+    // Clear legacy cache once to ensure fresh backend birth years are loaded
+    const cacheKey = 'nbt_birthdays_cache_v2';
+    if (!localStorage.getItem(cacheKey)) {
+      localStorage.removeItem('nbt_birthdays_cache');
+      localStorage.setItem(cacheKey, 'true');
+    }
+    
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
 
@@ -60,65 +75,36 @@ const BirthdayScreen = ({ onBack }) => {
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
 
-      // 1. Primary: Birthdays API
-      try {
-        const bResp = await fetch(`${BASE_URL}/api/birthdays`, { headers, signal: controller.signal });
-        if (bResp.ok) {
-          const raw = await bResp.json();
-          combinedData = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
-        }
-      } catch (e) { /* Silent fallback */ }
+      // Strictly use user-provided Birthday API endpoints
+      const endpoints = [
+        `${BASE_URL}/api/birthdays`,
+        `${BASE_URL}/api/birthday-list`,
+        `${BASE_URL}/api/employees/birthdays`
+      ];
 
-      // 2. Secondary: Users list
-      try {
-        const uResp = await fetch(`${BASE_URL}/api/users`, { headers, signal: controller.signal });
-        if (uResp.ok) {
-          const raw = await uResp.json();
-          const users = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
-          users.forEach(u => {
-            const dob = u.dob || u.dateOfBirth || u.birthday || u.date;
-            if (dob && !combinedData.some(p => (p.name || '').toLowerCase() === (u.name || '').toLowerCase())) {
-              combinedData.push({
-                id: u.id || u.userId || u.employee_id,
-                name: u.name || u.userName || 'Employee',
-                date: dob,
-                profileImage: u.profileImage || u.profile_image
-              });
-            }
-          });
-        }
-      } catch (e) { /* Silent fallback */ }
+      for (const endpoint of endpoints) {
+        try {
+          const bResp = await fetch(endpoint, { headers, signal: controller.signal });
+          if (bResp.ok) {
+            const raw = await bResp.json();
+            const list = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
+            list.forEach(item => {
+              // Ensure we pick up the best available date (prefer dob over date if both exist)
+              const bestDate = item.dob || item.dateOfBirth || item.date || item.birthday;
+              if (bestDate && !combinedData.some(p => (p.name || '').toLowerCase() === (item.name || '').toLowerCase())) {
+                combinedData.push({
+                  ...item,
+                  date: bestDate
+                });
+              }
+            });
+          }
+        } catch (e) { }
+      }
 
       clearTimeout(timeoutId);
 
-      // 3. Ensure Full Office Roster (18+ employees)
-      if (combinedData.length < 12) {
-        const officeRoster = [
-          { id: 'off-1', name: 'Dinesh', date: '2026-01-15' },
-          { id: 'off-2', name: 'Anish V N', date: '2026-02-10' },
-          { id: 'off-3', name: 'Mohammed Faraz', date: '2027-01-06' },
-          { id: 'off-4', name: 'Vishalakshi Gurupadappa Kittur', date: '2027-01-27' },
 
-          { id: 'off-6', name: 'Shobha V R', date: '2026-03-12' },
-          { id: 'off-7', name: 'Imsha Gaima', date: '2026-04-17' },
-          { id: 'off-8', name: 'Deekshitha M', date: '2026-04-22' },
-          { id: 'off-9', name: 'Aishwarya K', date: '2026-05-19' },
-          { id: 'off-10', name: 'Santhosha A Doddamallappanavara', date: '2026-06-17' },
-          { id: 'off-11', name: 'Namith Gowda', date: '2026-07-05' },
-          { id: 'off-12', name: 'Varun R', date: '2026-08-20' },
-          { id: 'off-13', name: 'Sinchana H S', date: '2026-09-12' },
-          { id: 'off-14', name: 'Sahana N V', date: '2026-10-05' },
-          { id: 'off-15', name: 'Tejashwini S', date: '2026-11-18' },
-          { id: 'off-16', name: 'Rakshitha K M', date: '2026-12-04' },
-          { id: 'off-17', name: 'Supriya S', date: '2026-05-30' },
-          { id: 'off-18', name: 'Ashwini B G', date: '2026-08-12' }
-        ];
-        officeRoster.forEach(f => {
-          if (!combinedData.some(p => (p.name || '').toLowerCase() === (f.name || '').toLowerCase())) {
-            combinedData.push(f);
-          }
-        });
-      }
 
       // SORTING LOGIC: Passed Birthdays First (Jan-Dec chronological order)
       const sorted = combinedData.sort((a, b) => {
@@ -149,6 +135,8 @@ const BirthdayScreen = ({ onBack }) => {
     }
   };
 
+
+
   const getStatus = (dateStr) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -157,7 +145,7 @@ const BirthdayScreen = ({ onBack }) => {
     occurrence.setHours(0, 0, 0, 0);
 
     if (occurrence.getTime() === today.getTime()) return 'Today';
-    if (occurrence.getTime() < today.getTime()) return 'Passed';
+    if (occurrence < today) return 'Passed';
     return 'Upcoming';
   };
 
@@ -319,12 +307,35 @@ const BirthdayScreen = ({ onBack }) => {
         <h1 style={s.title}>NBT Birthdays 🎂</h1>
         <div style={s.subtitle}>Passed & Upcoming Celebrations</div>
 
-        <div style={{ ...s.list, width: '100%', marginTop: '40px' }}>
+        <div style={{ width: '100%', marginTop: '30px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+            <Search size={18} />
+          </div>
+          <input 
+            type="text"
+            placeholder="Search employee birthday..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '18px 20px 18px 55px', 
+              borderRadius: '20px', 
+              border: '1.5px solid #f1f5f9', 
+              fontSize: '14px', 
+              fontWeight: '800', 
+              outline: 'none', 
+              boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+              backgroundColor: '#fcfcfd'
+            }}
+          />
+        </div>
+
+        <div style={{ ...s.list, width: '100%', marginTop: '30px' }}>
           {(loading && birthdays.length === 0) ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>Syncing Celebration Data...</div>
-          ) : birthdays.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>No celebrations found for this year.</div>
-          ) : birthdays.map((person, idx) => {
+          ) : birthdays.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>No matching celebrations found.</div>
+          ) : birthdays.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((person, idx) => {
             const status = getStatus(person.date);
             return (
               <motion.div
@@ -335,7 +346,7 @@ const BirthdayScreen = ({ onBack }) => {
                 style={s.itemCard(status)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: 0, width: '100%' }}>
-                  <div style={s.avatar}>{person.name.charAt(0)}</div>
+                  <div style={s.avatar}>{getInitials(person.name)}</div>
                   <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
                     <div style={s.name}>{person.name}</div>
                     <div style={s.dateLine}>

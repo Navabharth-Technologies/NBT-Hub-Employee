@@ -205,23 +205,33 @@ const Dashboard = ({ setActiveTab }) => {
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
 
-      // Individual catch blocks within Promise.allSettled and manual handling
-      const [bRes, hRes, njRes] = await Promise.allSettled([
-        fetch(`${BASE_URL}/api/birthdays`, { headers }).catch(() => null),
+      // Integrated Birthdays API Suite (Strictly following user endpoints)
+      const bEndpoints = [`${BASE_URL}/api/birthdays`, `${BASE_URL}/api/birthday-list`, `${BASE_URL}/api/employees/birthdays`];
+      let bData = [];
+      for (const ep of bEndpoints) {
+        try {
+          const res = await fetch(ep, { headers });
+          if (res.ok) {
+            const raw = await res.json();
+            const list = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
+            list.forEach(item => {
+              const bestDate = item.dob || item.dateOfBirth || item.date || item.birthday;
+              if (bestDate && !bData.some(p => (p.name || '').toLowerCase() === (item.name || '').toLowerCase())) {
+                bData.push({ ...item, date: bestDate });
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      const [hRes, njRes] = await Promise.allSettled([
         fetch(API_ENDPOINTS.HOLIDAYS, { headers }).catch(() => null),
         fetch(API_ENDPOINTS.NEW_JOINEES_GET || API_ENDPOINTS.NEW_JOINEE, { headers }).catch(() => null)
       ]);
 
-      if (bRes.status === 'fulfilled' && bRes.value && bRes.value.ok) {
-        let bData = await bRes.value.json();
-        if (!Array.isArray(bData)) {
-          bData = Array.isArray(bData.data) ? bData.data : (Array.isArray(bData.value) ? bData.value : []);
-        }
+      if (bData.length > 0) {
 
-        // Identity Safeguard
-        if (!bData.some(p => (p.name || '').toLowerCase().includes('imsha'))) {
-          bData.push({ id: 'f-1', name: 'Imsha Gaima', date: '2027-04-17' });
-        }
+
 
         const parseSafe = (d) => {
           if (!d) return new Date();
@@ -946,7 +956,7 @@ const Dashboard = ({ setActiveTab }) => {
                       </div>
                       <div>
                         <div style={{ fontSize: '14px', fontWeight: '900', color: '#881337' }}>{b.name}</div>
-                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#fb7185' }}>{b.date}</div>
+                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#fb7185' }}>{new Date(new Date().getFullYear(), new Date(b.date).getMonth(), new Date(b.date).getDate()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                       </div>
                     </div>
                     {isToday && <button onClick={() => sendBirthdayWish(b)} style={{ padding: '8px 16px', borderRadius: '12px', border: 'none', backgroundColor: '#e11d48', color: 'white', fontSize: '11px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.2)' }}>Wish him/her</button>}
