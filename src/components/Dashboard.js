@@ -38,6 +38,8 @@ const Dashboard = ({ setActiveTab }) => {
   const [activeProjectView, setActiveProjectView] = useState('INDIVIDUAL'); // INDIVIDUAL or TEAM
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [suggestions, setSuggestions] = useState([]);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [pendingStatusData, setPendingStatusData] = useState(null);
 
   // Helper to strip legacy ":1" suffixes from IDs
   const sanitizeId = (id) => String(id || '').split(':')[0];
@@ -140,29 +142,39 @@ const Dashboard = ({ setActiveTab }) => {
 
   const handleSprintStatusClick = (projName, st, taskId = null) => {
     const curStatus = sprintStatusMap[projName] || 'Pending';
-    const curProg = sprintProgressMap[projName] || 0;
-
     if (curStatus === 'Completed') return;
 
+    setPendingStatusData({ projName, st, taskId });
+    setShowFinalizeModal(true);
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingStatusData) return;
+    const { projName, st, taskId } = pendingStatusData;
+    
+    let newProgress = sprintProgressMap[projName] || 0;
     if (st === 'Pending') {
-      setSprintStatusMap(prev => ({ ...prev, [projName]: 'Pending' }));
-      syncSprintToBackend(projName, 'Pending', curProg, taskId);
+      // Keep existing progress or reset? Usually reset to a lower value if pending
+      newProgress = Math.max(0, newProgress - 5);
     } else if (st === 'In Progress') {
-      const newProgress = Math.min(95, (curProg || 0) + 5);
-      setSprintStatusMap(prev => ({ ...prev, [projName]: 'In Progress' }));
-      setSprintProgressMap(prev => ({ ...prev, [projName]: newProgress }));
-      syncSprintToBackend(projName, 'In Progress', newProgress, taskId);
+      newProgress = Math.min(95, newProgress + 5);
     } else if (st === 'Completed') {
-      if (!window.confirm(`Are you sure you want to mark "${projName}" as completed? This will finalize the project and notify your manager.`)) return;
-      
-      setSprintStatusMap(prev => ({ ...prev, [projName]: 'Completed' }));
-      setSprintProgressMap(prev => ({ ...prev, [projName]: 100 }));
-      syncSprintToBackend(projName, 'Completed', 100, taskId).then(() => {
-        setTimeout(() => fetchTaskHistory(), 2000);
-      });
+      newProgress = 100;
+    }
+
+    setSprintStatusMap(prev => ({ ...prev, [projName]: st }));
+    setSprintProgressMap(prev => ({ ...prev, [projName]: newProgress }));
+    syncSprintToBackend(projName, st, newProgress, taskId).then(() => {
+      if (st === 'Completed') setTimeout(() => fetchTaskHistory(), 2000);
+    });
+
+    if (st === 'Completed') {
       setNotificationFeedback(`Success: ${projName} marked as Completed!`);
       setTimeout(() => setNotificationFeedback(null), 3000);
     }
+    
+    setShowFinalizeModal(false);
+    setPendingStatusData(null);
   };
 
   const [notificationFeedback, setNotificationFeedback] = useState(null);
@@ -1021,6 +1033,42 @@ const Dashboard = ({ setActiveTab }) => {
         )}
       </div>
       <SaturdayRequirementsPopover />
+      {/* Finalize Task Modal */}
+      <AnimatePresence>
+        {showFinalizeModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, backdropFilter: 'blur(4px)' }}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              style={{ backgroundColor: 'white', padding: '40px', borderRadius: '32px', width: '90%', maxWidth: '440px', textAlign: 'center', boxShadow: '0 30px 70px rgba(0,0,0,0.3)' }}
+            >
+              <div style={{ width: '64px', height: '64px', backgroundColor: '#eff6ff', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                <CheckCircle2 size={32} color="#1e3a8a" />
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0B1E3F', marginBottom: '12px' }}>Finalize Task?</h2>
+              <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '32px' }}>
+                Are you sure you want to mark <span style={{ fontWeight: '800', color: '#1e3a8a' }}>{pendingStatusData?.projName}</span> as <span style={{ fontWeight: '800' }}>{pendingStatusData?.st}</span>? 
+                {pendingStatusData?.st === 'Completed' && " This will set progress to 100%."}
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={() => setShowFinalizeModal(false)}
+                  style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmStatusChange}
+                  style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(11, 30, 63, 0.2)' }}
+                >
+                  Yes, {pendingStatusData?.st === 'Completed' ? 'Complete' : 'Update'} it
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

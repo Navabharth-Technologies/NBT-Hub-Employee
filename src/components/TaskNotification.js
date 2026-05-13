@@ -190,9 +190,10 @@ const TaskNotification = ({ onOpenTask }) => {
         const threadUserId = sanitizeId(t.user_id || t.userId || t.user_Id);
         const uProfile = usersMap[threadUserId] || {};
         const role = (t.role || t.userRole || uProfile.role || uProfile.Role || '').toLowerCase();
-        const isFromLeader = role.includes('lead') || role.includes('manager') || role.includes('hr') || role.includes('ceo') || role.includes('admin') || (uProfile.email && uProfile.email.includes('dinesh'));
+        // Silence notifications from HR, Admin, and TL per user request
+        const isExcluded = role.includes('hr') || role.includes('admin') || role.includes('tl') || role.includes('superadmin') || (uProfile.email && uProfile.email.includes('dinesh'));
 
-        if (isFromLeader && String(threadUserId) !== String(uid)) {
+        if (!isExcluded && String(threadUserId) !== String(uid)) {
           const rawTs = t.created_at || t.createdAt || new Date();
           const parseDate = new Date(rawTs);
           const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
