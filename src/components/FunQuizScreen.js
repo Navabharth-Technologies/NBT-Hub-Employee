@@ -10,7 +10,8 @@ const FunQuizScreen = ({ onBack }) => {
   const { user } = useAuth();
 
   const [questions, setQuestions] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]); // Total/General
+  const [dailyLeaderboard, setDailyLeaderboard] = useState([]); // Today only
   const [isLoading, setIsLoading] = useState(true);
   const [isQuestionsLoading, setIsQuestionsLoading] = useState(true);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -88,7 +89,6 @@ const FunQuizScreen = ({ onBack }) => {
       }
 
       const uid = user?.employee_id || user?.userId || user?.id;
-
       // Fetch from both Daily and General leaderboard for maximum resilience
       const [dailyRes, generalRes, reRes] = await Promise.all([
         fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
@@ -96,17 +96,24 @@ const FunQuizScreen = ({ onBack }) => {
         fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null)
       ]);
 
-      const dailyData = dailyRes && dailyRes.ok ? await dailyRes.json() : [];
-      const generalData = generalRes && generalRes.ok ? await generalRes.json() : [];
-      const reData = reRes && reRes.ok ? await reRes.json() : [];
+      const dailyData = dailyRes.ok ? await dailyRes.json() : [];
+      const generalData = generalRes.ok ? await generalRes.json() : [];
+      const reData = reRes.ok ? await reRes.json() : [];
 
-      const rawScores = [
-        ...(Array.isArray(dailyData) ? dailyData : (dailyData.data || [])),
-        ...(Array.isArray(generalData) ? generalData : (generalData.data || []))
-      ];
+      const processList = (list) => {
+        const arr = Array.isArray(list) ? list : (list.data || []);
+        return arr.map(s => ({
+          name: s.employee_name || s.name || s.username || 'Anonymous',
+          score: Number(s.total_score || s.points || s.quiz_score || s.score || 0),
+          rank: s.rank || null
+        })).sort((a, b) => b.score - a.score);
+      };
+
+      setDailyLeaderboard(processList(dailyData));
+      setLeaderboard(processList(generalData));
+
       const reList = Array.isArray(reData) ? reData : (reData.data || []);
-      const userList = reList.map(u => ({ id: u.employee_id || u.id, name: u.employee_name || u.name }));
-
+      
       // ── CLEAN-SLATE: Always clear the old local cache so stale data never pollutes the view ──
       try { localStorage.removeItem('nbt_quiz_leaderboard_history'); } catch(e) {}
 
@@ -515,8 +522,8 @@ const FunQuizScreen = ({ onBack }) => {
                   {/* TODAY'S SCORE */}
                   <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #059669', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Today's score</div>
-                    <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
-                      {leaderboard.find(u => u.name === (user?.name || user?.employee_name))?.score || lastSessionScore || 0}
+                    <div style={{ fontSize: '15px', fontWeight: '1000', color: '#059669' }}>
+                      {dailyLeaderboard.find(u => u.name === (user?.name || user?.employee_name))?.score || lastSessionScore || 0}
                     </div>
                   </div>
                 </div>
