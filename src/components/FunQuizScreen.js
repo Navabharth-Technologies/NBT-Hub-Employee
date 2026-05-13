@@ -193,7 +193,7 @@ const FunQuizScreen = ({ onBack }) => {
 
     const isCorrect = checkIsCorrect();
 
-    // BACKEND ASSESSMENT (Required for submit-session to succeed)
+    // --- BACKEND-PRIORITY ASSESSMENT ---
     try {
       const token = localStorage.getItem('token');
       const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
@@ -211,32 +211,48 @@ const FunQuizScreen = ({ onBack }) => {
         body: JSON.stringify({
           employee_id: safeUid,
           userId: safeUid,
-          empId: safeUid,
-          emp_id: safeUid,
           question_id: currentQ.id,
           selected_option: selectedOption,
-          selectedOption: selectedOption,
-          answer: selectedOption,
-          selected_answer: optObj?.text || selectedOption,
-          is_correct: isCorrect,
-          points_earned: isCorrect ? (currentQ.points_reward || 10) : 0
+          selected_answer: optObj?.text || selectedOption
         })
       });
 
-      // Backend answer registration is best-effort only.
-      // The answer is already evaluated locally, so a 400/rejection is non-critical.
-      // No error logging here to avoid red console noise on every answer click.
+      let finalIsCorrect = isCorrect;
+      let finalCorrectAnswer = currentQ.correct_answer;
+
+      if (ansRes.ok) {
+        const resultData = await ansRes.json();
+        // Trust backend result if explicitly provided
+        if (typeof resultData.is_correct === 'boolean') {
+          finalIsCorrect = resultData.is_correct;
+        } else if (resultData.status === 'success' || resultData.message?.toLowerCase().includes('correct')) {
+          finalIsCorrect = true;
+        }
+        
+        // Update correct answer if backend provides it now
+        if (resultData.correct_answer || resultData.answer) {
+          finalCorrectAnswer = resultData.correct_answer || resultData.answer;
+        }
+      }
+
+      setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
+        ...q,
+        has_answered: true,
+        previous_result: finalIsCorrect ? 'correct' : 'wrong',
+        correct_answer: finalCorrectAnswer || q.correct_answer,
+        user_selected_letter: selectedOption
+      } : q));
 
     } catch (e) {
-      // Network failure on per-answer sync is non-critical — local state already updated.
+      console.error("Quiz submission network error:", e);
+      // Fallback to local assessment if network fails
+      setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
+        ...q,
+        has_answered: true,
+        previous_result: isCorrect ? 'correct' : 'wrong',
+        user_selected_letter: selectedOption
+      } : q));
     }
-
-    setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
-      ...q,
-      has_answered: true,
-      previous_result: isCorrect ? 'correct' : 'wrong',
-      user_selected_letter: selectedOption
-    } : q));
   };
 
   const handleSendTotalResults = async () => {
@@ -282,22 +298,12 @@ const FunQuizScreen = ({ onBack }) => {
       const submitUrl = API_ENDPOINTS.QUIZ_SUBMIT_SESSION || `${BASE_URL}/api/quizzes/submit-session`;
 
       try {
-        let dbResponse = await fetch(submitUrl, {
+        const dbResponse = await fetch(submitUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload)
         });
         
-        // If the first URL returns 400 or fails, try the fallback fun-quizzes endpoint
-        if (!dbResponse.ok) {
-          const fallbackUrl = `${BASE_URL}/api/fun-quizzes/submit-session`;
-          dbResponse = await fetch(fallbackUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload)
-          }).catch(() => ({ ok: false }));
-        }
-
         if (dbResponse.ok) {
           console.log('[QuizSync] Session stored successfully.');
         }
@@ -492,7 +498,9 @@ const FunQuizScreen = ({ onBack }) => {
                   <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #FBBC05', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Points remaining</div>
                     <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
-                      {questions.filter(q => !q.has_answered).reduce((sum, q) => sum + (Number(q.points_reward) || 10), 0)}
+                      {questions.filter(q => !q.has_answered).length > 0 
+                        ? questions.filter(q => !q.has_answered).length * 100 
+                        : (lastSessionScore === 0 && questions.length > 0 ? questions.length * 100 : 0)}
                     </div>
                   </div>
 
@@ -625,8 +633,34 @@ const FunQuizScreen = ({ onBack }) => {
 
             {/* SUBMIT/NEXT LOGIC */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: currentQ?.previous_result === 'correct' ? '#15803d' : '#b91c1c' }}>
-                {currentQ?.has_answered ? (currentQ.previous_result === 'correct' ? 'Correct!' : 'Incorrect.') : ''}
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: '800', 
+                color: (() => {
+                  const userLetter = String(currentQ?.user_selected_letter || '').trim().toLowerCase();
+                  const optObj = currentQ?.options?.find(o => o.letter === currentQ.user_selected_letter);
+                  const userText = String(optObj?.text || '').trim().toLowerCase();
+                  const correctRaw = String(currentQ?.correct_answer || '').trim().toLowerCase();
+                  const cleanC = correctRaw.replace(/^(option|choice|opt)[_\s\-.]*/, '');
+                  const isActuallyCorrect = (userText === correctRaw || userLetter === correctRaw || 
+                                             cleanC === userLetter || cleanC === userText ||
+                                             correctRaw.startsWith(userLetter + '.') || 
+                                             correctRaw.startsWith(userLetter + ' '));
+                  return isActuallyCorrect ? '#15803d' : '#b91c1c';
+                })()
+              }}>
+                {currentQ?.has_answered && currentQ?.user_selected_letter ? (() => {
+                  const userLetter = String(currentQ.user_selected_letter).trim().toLowerCase();
+                  const optObj = currentQ?.options?.find(o => o.letter === currentQ.user_selected_letter);
+                  const userText = String(optObj?.text || '').trim().toLowerCase();
+                  const correctRaw = String(currentQ?.correct_answer || '').trim().toLowerCase();
+                  const cleanC = correctRaw.replace(/^(option|choice|opt)[_\s\-.]*/, '');
+                  const isActuallyCorrect = (userText === correctRaw || userLetter === correctRaw || 
+                                             cleanC === userLetter || cleanC === userText ||
+                                             correctRaw.startsWith(userLetter + '.') || 
+                                             correctRaw.startsWith(userLetter + ' '));
+                  return isActuallyCorrect ? 'Correct!' : 'Incorrect.';
+                })() : ''}
               </div>
 
               {!currentQ?.has_answered ? (
