@@ -370,9 +370,7 @@ export default function FocusLogs({ onBack }) {
                       <div style={s.reportText}>
                         {log.tasks?.map((t, i) => {
                            const taskId = typeof t === 'object' ? Number(t.id) : null;
-                           const tTime = (!isNaN(taskId) && taskId > 1000000000000) 
-                             ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                             : '';
+                           const tTime = displayDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
                            return (
                              <div key={i} style={{marginBottom: '4px', display:'flex', gap:'8px', alignItems: 'center'}}>
                                <CheckCircle2 size={16} color="#3B5998" /> 

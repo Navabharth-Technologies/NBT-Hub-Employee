@@ -12,6 +12,7 @@ const FunQuizScreen = ({ onBack }) => {
   const [questions, setQuestions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]); // Total/General
   const [dailyLeaderboard, setDailyLeaderboard] = useState([]); // Today only
+  const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isQuestionsLoading, setIsQuestionsLoading] = useState(true);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -90,23 +91,48 @@ const FunQuizScreen = ({ onBack }) => {
 
       const uid = user?.employee_id || user?.userId || user?.id;
       // Fetch from both Daily and General leaderboard for maximum resilience
-      const [dailyRes, generalRes, reRes] = await Promise.all([
+      const [dailyRes, generalRes, reRes, empRes] = await Promise.all([
         fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
         fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
-        fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null)
+        fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null),
+        fetch(API_ENDPOINTS.EMPLOYEES || API_ENDPOINTS.USERS, { headers }).catch(() => null)
       ]);
 
-      const dailyData = dailyRes.ok ? await dailyRes.json() : [];
-      const generalData = generalRes.ok ? await generalRes.json() : [];
-      const reData = reRes.ok ? await reRes.json() : [];
+      const dailyData = dailyRes && dailyRes.ok ? await dailyRes.json() : [];
+      const generalData = generalRes && generalRes.ok ? await generalRes.json() : [];
+      const reData = reRes && reRes.ok ? await reRes.json() : [];
+      const empData = empRes && empRes.ok ? await empRes.json() : [];
+
+      const employeeList = Array.isArray(empData) ? empData : (empData.data || []);
+      setEmployees(employeeList);
 
       const processList = (list) => {
         const arr = Array.isArray(list) ? list : (list.data || []);
-        return arr.map(s => ({
-          name: s.employee_name || s.name || s.username || 'Anonymous',
-          score: Number(s.total_score || s.points || s.quiz_score || s.score || 0),
-          rank: s.rank || null
-        })).sort((a, b) => b.score - a.score);
+        return arr.map(s => {
+          const targetId = String(s.employee_id || s.user_id || s.id || s.userId || '').split(':')[0];
+          const emp = employeeList.find(e => String(e.id || e.employee_id || e.userId || '').split(':')[0] === targetId);
+          
+          let name = s.employee_name || s.name || s.username;
+          if ((!name || name === 'Anonymous') && emp) {
+            name = emp.name || emp.username || emp.employee_name;
+          }
+          if (!name || name === 'Anonymous') name = targetId ? `Employee ${targetId}` : 'Anonymous';
+
+          const score = Number(s.total_score || s.points || s.quiz_score || s.score || 0);
+          const initial = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+          
+          // Generate a consistent color based on name
+          const colors = ['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#673AB7', '#00BCD4', '#0d676c'];
+          const color = colors[Math.abs(name.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % colors.length];
+
+          return {
+            name,
+            score,
+            initial,
+            color,
+            rank: s.rank || null
+          };
+        }).sort((a, b) => b.score - a.score);
       };
 
       setDailyLeaderboard(processList(dailyData));

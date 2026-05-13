@@ -35,8 +35,23 @@ import Reports from './components/Reports';
 
 function App() {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('HOME');
-  const [activeTabState, setActiveTabState] = useState(null);
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nbt_active_tab');
+      // If it's a sub-profile page, default to PROFILE to avoid broken back buttons
+      const profileSubPages = ['PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE'];
+      if (saved && profileSubPages.includes(saved)) return 'PROFILE';
+      return saved || 'HOME';
+    } catch { return 'HOME'; }
+  });
+
+  const [activeTabState, setActiveTabState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nbt_active_tab_state');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
   const [isNewJoinee, setIsNewJoinee] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
   const scrollRef = useRef(null);
@@ -109,6 +124,16 @@ function App() {
   const handleTabChange = (tab, state = null) => {
     setActiveTab(tab);
     setActiveTabState(state);
+    try {
+      localStorage.setItem('nbt_active_tab', tab);
+      if (state) {
+        localStorage.setItem('nbt_active_tab_state', JSON.stringify(state));
+      } else {
+        localStorage.removeItem('nbt_active_tab_state');
+      }
+    } catch (e) {
+      console.warn("Failed to persist tab state:", e);
+    }
   };
 
   const renderTab = () => {

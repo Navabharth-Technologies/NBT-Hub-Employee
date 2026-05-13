@@ -4,6 +4,7 @@ import { CheckCircle2, Edit3, TrendingUp, Clock, Gift, Calendar, Trash2, User, U
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { API_ENDPOINTS, BASE_URL } from '../config';
+import { safeSetItem } from '../context/AuthContext';
 import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 
 const Dashboard = ({ setActiveTab }) => {
@@ -144,8 +145,26 @@ const Dashboard = ({ setActiveTab }) => {
     const curStatus = sprintStatusMap[projName] || 'Pending';
     if (curStatus === 'Completed') return;
 
-    setPendingStatusData({ projName, st, taskId });
-    setShowFinalizeModal(true);
+    if (st === 'Completed') {
+      setPendingStatusData({ projName, st, taskId });
+      setShowFinalizeModal(true);
+    } else {
+      const curProg = sprintProgressMap[projName] || 0;
+      let newProgress = curProg;
+
+      if (st === 'Pending') {
+        // Pending should always reset to 5% and not increase
+        newProgress = 5;
+      } else if (st === 'In Progress') {
+        // In Progress increases the progress
+        newProgress = Math.min(95, curProg + 5);
+        if (newProgress < 10) newProgress = 10; // Ensure it's higher than Pending
+      }
+      
+      setSprintStatusMap(prev => ({ ...prev, [projName]: st }));
+      setSprintProgressMap(prev => ({ ...prev, [projName]: newProgress }));
+      syncSprintToBackend(projName, st, newProgress, taskId);
+    }
   };
 
   const confirmStatusChange = () => {
@@ -154,8 +173,7 @@ const Dashboard = ({ setActiveTab }) => {
     
     let newProgress = sprintProgressMap[projName] || 0;
     if (st === 'Pending') {
-      // Keep existing progress or reset? Usually reset to a lower value if pending
-      newProgress = Math.max(0, newProgress - 5);
+      newProgress = 5;
     } else if (st === 'In Progress') {
       newProgress = Math.min(95, newProgress + 5);
     } else if (st === 'Completed') {
@@ -384,7 +402,7 @@ const Dashboard = ({ setActiveTab }) => {
         
         setIndividualProjects(validTasksData);
         setAssignedTasksList(validTasksData);
-        localStorage.setItem(`ind_projects_${user.id}`, JSON.stringify(validTasksData));
+        safeSetItem(`ind_projects_${user.id}`, JSON.stringify(validTasksData));
 
         if (validTasksData.length > 0) {
           const latest = validTasksData[validTasksData.length - 1];
@@ -428,7 +446,7 @@ const Dashboard = ({ setActiveTab }) => {
               return pName !== '' && !pName.includes('individual');
             });
             setTeamProjects(validT);
-            localStorage.setItem(`team_projects_${user.id}`, JSON.stringify(validT));
+            safeSetItem(`team_projects_${user.id}`, JSON.stringify(validT));
           }
         }
       }
@@ -589,7 +607,15 @@ const Dashboard = ({ setActiveTab }) => {
       return;
     }
 
-    const cleanTasks = editBuffer.filter(t => t.text && t.text.trim() !== '');
+    const now = Date.now();
+    const cleanTasks = editBuffer
+      .filter(t => t.text && t.text.trim() !== '')
+      .map((t, idx) => {
+        // ALWAYS refresh the timestamp ID on save to ensure the timing reflects the actual last-update moment
+        // This solves the issue of edited tasks keeping old timestamps.
+        return { ...t, id: now + idx };
+      });
+
     const payload = {
       userId: Number(uid),
       user_id: Number(uid),        // some backends expect snake_case
@@ -604,7 +630,7 @@ const Dashboard = ({ setActiveTab }) => {
       team_name: user?.team || user?.teamName || 'General',
       projectName: 'Daily Tasks',
       project_name: 'Daily Tasks',
-      tasks: cleanTasks, // Send full objects with IDs as requested
+      tasks: cleanTasks, // Send full objects with updated IDs
       overallStatus: editStatus || 'Pending',
       overall_status: editStatus || 'Pending',
       timestamp: new Date().toISOString()
@@ -617,7 +643,7 @@ const Dashboard = ({ setActiveTab }) => {
       overallStatus: editStatus || 'Pending',
       timestamp: new Date().toISOString()
     };
-    localStorage.setItem(todayKey, JSON.stringify(localRecord));
+    safeSetItem(todayKey, JSON.stringify(localRecord));
     console.log('[Dashboard] Tasks saved to localStorage key:', todayKey, localRecord);
 
     // ── STEP 2: Update UI immediately ──

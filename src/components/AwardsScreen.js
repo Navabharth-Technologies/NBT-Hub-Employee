@@ -72,13 +72,14 @@ const AwardsScreen = ({ onBack }) => {
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
-                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes] = await Promise.all([
+                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.EMPLOYEES || API_ENDPOINTS.USERS, { headers }).catch(() => null)
+                    fetch(API_ENDPOINTS.EMPLOYEES || API_ENDPOINTS.USERS, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null)
                 ]);
 
                 let combinedHistory = [];
@@ -127,12 +128,15 @@ const AwardsScreen = ({ onBack }) => {
                     totalPoints: serverTotal
                 });
                 
-                // Merge Daily and General leaderboards for accurate all-time rankings
+                // Merge Daily, General, and Global Rewards leaderboards for accurate all-time rankings
                 const dailyData = dailyLeadRes && dailyLeadRes.ok ? await dailyLeadRes.json() : [];
                 const genData = genLeadRes && genLeadRes.ok ? await genLeadRes.json() : [];
+                const rewardsData = rewardsLeadRes && rewardsLeadRes.ok ? await rewardsLeadRes.json() : [];
+                
                 const combinedLeaderboard = [
                     ...(Array.isArray(dailyData) ? dailyData : (dailyData?.data || [])),
-                    ...(Array.isArray(genData) ? genData : (genData?.data || []))
+                    ...(Array.isArray(genData) ? genData : (genData?.data || [])),
+                    ...(Array.isArray(rewardsData) ? rewardsData : (rewardsData?.data || []))
                 ];
                 setLeaderboard(combinedLeaderboard);
 
@@ -189,43 +193,55 @@ const AwardsScreen = ({ onBack }) => {
     });
 
     // 3. Final Point Calculation — Fully Dynamic & Accurate
-    // Source 1: Sum of all unique history items (including Saturday grants)
+    // Source 1: Sum of all unique history items
     const totalPointsFromHistory = uniqueHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
 
     // Source 2: Build leaderboard from all participants to find global rank
     const liveMap = new Map();
     leaderboard.forEach(s => {
-        const targetId = s.employee_id || s.user_id || s.id;
-        let name = s.employee_name || s.name;
-        if (!name && String(targetId) === String(user?.id || user?.employee_id || '').split(':')[0]) {
-            name = user?.name || user?.employee_name || 'You';
-        } else if (!name) {
-            name = `Employee ${targetId}`;
-        }
-        const score = Number(s.total_score || s.points || s.quiz_score || s.score || 0);
+        const targetId = String(s.employee_id || s.user_id || s.id || s.userId || '').split(':')[0];
+        if (!targetId) return;
+
+        const name = s.employee_name || s.name || s.userName || 
+                     (targetId === String(user?.id || user?.employee_id || '').split(':')[0] ? (user?.name || 'You') : `Employee ${targetId}`);
+        
+        const score = Number(s.total_score || s.points || s.quiz_score || s.score || s.totalPoints || s.total_points || s.rep || 0);
+        
         if (score > 0) {
-            liveMap.set(name, Math.max(liveMap.get(name) || 0, score));
+            const current = liveMap.get(targetId);
+            if (!current || score > current.score) {
+                liveMap.set(targetId, { name, score });
+            }
         }
     });
 
-    const sortedLeaderboard = Array.from(liveMap, ([name, score]) => ({ name, score }))
+    const sortedLeaderboard = Array.from(liveMap, ([id, data]) => ({ id, ...data }))
         .filter(u => {
             const n = String(u.name || '').toUpperCase();
             return !n.includes('DINESH') && !n.includes('HR') && !n.includes('ADMIN');
         })
         .sort((a, b) => b.score - a.score);
 
-    // Determine this user's rank and best score from leaderboard
-    const userName = user?.name || user?.employee_name || '';
-    const userEntryIndex = sortedLeaderboard.findIndex(e => e.name === userName || e.name === 'You');
-    const userRank = userEntryIndex >= 0 ? userEntryIndex + 1 : 0;
+    // Determine this user's rank and best score from leaderboard using ID for absolute accuracy
+    const myId = String(user?.id || user?.employee_id || '').split(':')[0];
+    const userEntryIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
+    let userRank = userEntryIndex >= 0 ? userEntryIndex + 1 : 0;
     const leaderboardScore = userEntryIndex >= 0 ? sortedLeaderboard[userEntryIndex].score : 0;
     
-    // Final total: Highest of history sum or backend-reported total
-    const finalTotalPoints = Math.max(totalPointsFromHistory, serverTotalPoints, leaderboardScore);
+    // Final total: Trust backend first, then leaderboard score, then history sum
+    const finalTotalPoints = serverTotalPoints > 0 ? serverTotalPoints : (leaderboardScore > 0 ? leaderboardScore : totalPointsFromHistory);
+
+    const userName = user?.name || user?.employee_name || 'You';
+    // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
+    if (userRank === 0 && finalTotalPoints > 0) {
+        sortedLeaderboard.push({ id: myId, name: userName, score: finalTotalPoints });
+        sortedLeaderboard.sort((a, b) => b.score - a.score);
+        const dynamicIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
+        userRank = dynamicIndex >= 0 ? dynamicIndex + 1 : 0;
+    }
 
     const stats = {
-        rank: userRank || 1,
+        rank: userRank > 0 ? userRank : 'N/A',
         points: finalTotalPoints,
         endorsements: Math.floor(finalTotalPoints / 100),
         score: 'Active'
@@ -437,7 +453,7 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                     <div style={{ overflow: 'hidden' }}>
                         <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Global ranking</div>
-                        <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', whiteSpace: 'nowrap' }}>{stats.rank}{getRankSuffix(stats.rank)} Position</div>
+                        <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', whiteSpace: 'nowrap' }}>{stats.rank !== 'N/A' ? `${stats.rank}${getRankSuffix(stats.rank)} Position` : 'Unranked'}</div>
                     </div>
                 </div>
                 
@@ -538,6 +554,69 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                 </motion.div>
             )}
+
+            {/* GLOBAL LEADERBOARD SECTION - NEW */}
+            <div style={{ backgroundColor: 'white', borderRadius: '32px', padding: '30px', border: '1px solid #f1f5f9', marginBottom: '40px', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '25px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Trophy size={20} color="#D97706" />
+                    </div>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Global Leaderboard</h3>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Top performers across all departments</p>
+                    </div>
+                </div>
+
+                <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {sortedLeaderboard.map((entry, idx) => {
+                            const isMe = String(entry.id).split(':')[0] === myId;
+                            const rank = idx + 1;
+                            return (
+                                <motion.div 
+                                    key={idx}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: idx * 0.05 }}
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        padding: '15px 20px', 
+                                        backgroundColor: isMe ? '#F0F9FF' : '#F8FAFC', 
+                                        borderRadius: '20px',
+                                        border: isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
+                                        transition: '0.2s'
+                                    }}
+                                >
+                                    <div style={{ width: '35px', fontSize: '14px', fontWeight: '1000', color: rank <= 3 ? '#D97706' : '#94A3B8' }}>
+                                        #{rank}
+                                    </div>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: isMe ? '#0284C7' : '#E2E8F0', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '1000', marginRight: '15px' }}>
+                                        {entry.name ? entry.name.charAt(0).toUpperCase() : '?'}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '14px', fontWeight: '1000', color: '#0B1E3F' }}>
+                                            {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
+                                            Employee Portal Member
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{entry.score}</div>
+                                        <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>REP Points</div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                        {sortedLeaderboard.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '14px' }}>
+                                No leaderboard data available.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             {/* Modals... */}
             <AnimatePresence>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, safeSetItem } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { 
   User, Users, Briefcase, Clock, CheckCircle2, 
@@ -63,7 +63,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         const data = Array.isArray(list) ? list : (list.value || list.data || []);
         const valid = data.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle)));
         setIndividualProjects(valid);
-        localStorage.setItem(`ind_projects_${user.id}`, JSON.stringify(valid));
+        safeSetItem(`ind_projects_${user.id}`, JSON.stringify(valid));
         
         valid.forEach(p => {
           const pName = p.projectName || p.project_name || p.project || p.task_name;
@@ -90,7 +90,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
             return pName !== '' && !pName.includes('individual');
           });
           setTeamProjects(validT);
-          localStorage.setItem(`team_projects_${user.id}`, JSON.stringify(validT));
+          safeSetItem(`team_projects_${user.id}`, JSON.stringify(validT));
           
           validT.forEach(p => {
              const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
@@ -142,8 +142,48 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     const curStatus = sprintStatusMap[pName] || 'Pending';
     if (curStatus === 'Completed') return;
 
-    setPendingStatusData({ pName, st, taskId });
-    setShowFinalizeModal(true);
+    if (st === 'Completed') {
+      setPendingStatusData({ pName, st, taskId });
+      setShowFinalizeModal(true);
+    } else {
+      const curProg = sprintProgressMap[pName] || 0;
+      let newProgress = curProg;
+
+      if (st === 'Pending') {
+        newProgress = 5;
+      } else if (st === 'In Progress') {
+        newProgress = Math.min(95, curProg + 5);
+        if (newProgress < 10) newProgress = 10;
+      }
+      
+      const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
+      const leadId = user?.reportingManagerId || user?.managerId || user?.reporting_manager_id || user?.representative_tl || user?.team_leader || user?.reporting_manager || user?.manager || uid;
+      const ownerId = activeView === 'INDIVIDUAL' ? uid : leadId;
+      
+      setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
+      setSprintProgressMap(prev => ({ ...prev, [pName]: newProgress }));
+
+      // Inline sync for immediate updates
+      const sid = sanitizeId(ownerId);
+      fetch(`${BASE_URL}/api/sprint-updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: pName,
+          teamLeaderId: sid,
+          sprintStatus: st,
+          progressPercentage: newProgress
+        })
+      });
+
+      if (taskId) {
+        fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(taskId), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: st, overallStatus: st, progress: newProgress })
+        });
+      }
+    }
   };
 
   const confirmStatusChange = async () => {
@@ -155,7 +195,15 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     const ownerId = activeView === 'INDIVIDUAL' ? uid : leadId;
     
     const currentProgress = sprintProgressMap[pName] || 0;
-    const progress = st === 'Completed' ? 100 : (st === 'In Progress' ? Math.min(95, currentProgress + 5) : currentProgress);
+    let progress = currentProgress;
+    
+    if (st === 'Pending') {
+      progress = 5;
+    } else if (st === 'In Progress') {
+      progress = Math.min(95, currentProgress + 5);
+    } else if (st === 'Completed') {
+      progress = 100;
+    }
 
     try {
       // 1. Log to Sprint History (Temporal)
@@ -312,16 +360,33 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const pDesc = proj.description || proj.projectDescription || proj.project_description || proj.task_text || proj.task_description || 'No description provided.';
           
           const td = taskDetailMap[proj.id] || {};
-          // Comprehensive mapping to handle all known backend naming variations
-          const pStatus = proj.status || td.status || proj.sprint_status || proj.overallStatus || sprintStatusMap[pName] || 'Pending';
-          const pProg = proj.progress !== undefined && proj.progress !== null ? proj.progress : 
+          const rd = reviewData[proj.id];
+          const verified = rd?.verified !== undefined ? rd.verified : (proj.verified ?? proj.is_verified ?? proj.approval_status ?? null);
+          const isRejected = verified !== null && String(verified).toLowerCase() === 'rejected';
+
+          // Priority Swap: Local state (sprintStatusMap) must come FIRST
+          // If rejected, override status to 'In Progress' as requested
+          let pStatus = sprintStatusMap[pName] || proj.status || td.status || proj.sprint_status || proj.overallStatus || 'Pending';
+          if (isRejected && pStatus !== 'Completed') pStatus = 'In Progress';
+
+          const pProg = (sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
+                        (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
                         (td.progress !== undefined && td.progress !== null ? td.progress : 
-                        (proj.progress_percentage || proj.sprint_progress || sprintProgressMap[pName] || (pStatus === 'Completed' ? 100 : 0)));
-          const pVerify = proj.verify ?? td.verified ?? td.verify ?? proj.verified ?? proj.approval_status ?? null;
+                        (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0))));
+          const pVerify = verified;
           const pReview = proj.task_review || td.task_review || proj.taskReview || proj.review || proj.feedback || null;
           
           return (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={idx} style={s.projectCard}>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              key={idx} 
+              style={{
+                ...s.projectCard,
+                borderColor: isRejected ? '#ef4444' : '#f1f5f9',
+                boxShadow: isRejected ? '0 10px 30px rgba(239, 68, 68, 0.05)' : '0 15px 45px rgba(0,0,0,0.02)'
+              }}
+            >
               <div style={{ display: 'flex', flexDirection: winWidth < 768 ? 'column' : 'row', gap: '30px' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -344,8 +409,9 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                   {activeView === 'INDIVIDUAL' && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                       {['Pending', 'In Progress', 'Completed'].map(st => (
-                        <button 
+                        <motion.button 
                           key={st}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => handleStatusUpdate(pName, st, proj.id)}
                           style={{ 
                             flex: 1, padding: '10px', borderRadius: '12px', border: '1.5px solid',
@@ -353,11 +419,13 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                             backgroundColor: pStatus === st ? (st === 'Completed' ? '#16a34a' : '#3B5998') : 'white',
                             color: pStatus === st ? 'white' : '#64748b',
                             fontSize: '9px', fontWeight: '800', cursor: pStatus === 'Completed' ? 'not-allowed' : 'pointer',
-                            transition: '0.2s'
+                            transition: '0.2s',
+                            pointerEvents: 'auto',
+                            zIndex: 10
                           }}
                         >
                           {st}
-                        </button>
+                        </motion.button>
                       ))}
                     </div>
                   )}

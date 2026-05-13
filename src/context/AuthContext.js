@@ -13,8 +13,8 @@ if (typeof window !== 'undefined' && !window.__NBT_AUTH_CONTEXT__) {
 export const safeSetItem = (key, value) => {
     let finalValue = value;
     
-    // Aggressive pruning: Only prune if reaching the absolute limits of localStorage (~5MB)
-    if (key === 'user' && value.length > 5000000) { 
+    // Aggressive pruning: Only prune if reaching significant size to avoid QuotaExceededError
+    if (key === 'user' && value.length > 1000000) { 
         try {
             const u = JSON.parse(value);
             // Keep critical identity AND visual data
@@ -203,27 +203,27 @@ export const AuthProvider = ({ children }) => {
         },
         body: JSON.stringify({ [field]: value, email: user.email })
       });
+
+      const updatedUser = { ...user, [field]: value };
+      setUser(updatedUser);
+      // Sync with safeSetItem to avoid QuotaExceededError
+      safeSetItem('user', JSON.stringify(updatedUser));
+
       if (res.ok) {
-        const updatedUser = { ...user, [field]: value };
-        setUser(updatedUser);
-        // Sync with localStorage so it persists on reload
-        localStorage.setItem('user', JSON.stringify(updatedUser));
         return { success: true };
       }
       
       // If 400 (Bad Request), it's likely a payload size issue. Fallback to local-only sync to prevent "vanishing".
       if (res.status === 400) {
         console.warn("[AuthContext] Payload too large for server. Syncing locally only for visual persistence.");
-        const updatedUser = { ...user, [field]: value };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
         return { success: true };
       }
       return { success: false, error: 'Failed to update' };
     } catch (e) {
+      console.error("Profile update error:", e);
       const updatedUser = { ...user, [field]: value };
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      safeSetItem('user', JSON.stringify(updatedUser));
       return { success: true };
     }
   };
