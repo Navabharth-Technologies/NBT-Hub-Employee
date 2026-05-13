@@ -22,6 +22,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const [notificationFeedback, setNotificationFeedback] = useState(null);
   const [reviewData, setReviewData] = useState({}); // taskId -> { review, verified }
   const [taskDetailMap, setTaskDetailMap] = useState({}); // Stores explicit task metadata
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [pendingStatusData, setPendingStatusData] = useState(null);
   
   // Helper to strip legacy ":1" suffixes from IDs
   const sanitizeId = (id) => String(id || '').split(':')[0];
@@ -136,15 +138,24 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   };
 
   // Consolidated Task Persistence
-  const handleStatusUpdate = async (pName, st, taskId) => {
+  const handleStatusUpdate = (pName, st, taskId) => {
+    const curStatus = sprintStatusMap[pName] || 'Pending';
+    if (curStatus === 'Completed') return;
+
+    setPendingStatusData({ pName, st, taskId });
+    setShowFinalizeModal(true);
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusData) return;
+    const { pName, st, taskId } = pendingStatusData;
+
     const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
     const leadId = user?.reportingManagerId || user?.managerId || user?.reporting_manager_id || user?.representative_tl || user?.team_leader || user?.reporting_manager || user?.manager || uid;
     const ownerId = activeView === 'INDIVIDUAL' ? uid : leadId;
     
     const currentProgress = sprintProgressMap[pName] || 0;
     const progress = st === 'Completed' ? 100 : (st === 'In Progress' ? Math.min(95, currentProgress + 5) : currentProgress);
-    
-    if (st === 'Completed' && !window.confirm(`Mark "${pName}" as completed?`)) return;
 
     try {
       // 1. Log to Sprint History (Temporal)
@@ -179,7 +190,10 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         setNotificationFeedback(`Project "${pName}" updated to ${st}!`);
         setTimeout(() => setNotificationFeedback(null), 3000);
       }
-    } catch { }
+    } catch { } finally {
+      setShowFinalizeModal(false);
+      setPendingStatusData(null);
+    }
   };
 
   const s = {
@@ -411,6 +425,43 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} style={{ position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#3B5998', color: 'white', padding: '12px 30px', borderRadius: '15px', fontWeight: '900', boxShadow: '0 15px 30px rgba(0,0,0,0.1)', zIndex: 10000 }}>
             {notificationFeedback}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Finalize Task Modal */}
+      <AnimatePresence>
+        {showFinalizeModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, backdropFilter: 'blur(4px)' }}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              style={{ backgroundColor: 'white', padding: '40px', borderRadius: '32px', width: '90%', maxWidth: '440px', textAlign: 'center', boxShadow: '0 30px 70px rgba(0,0,0,0.3)' }}
+            >
+              <div style={{ width: '64px', height: '64px', backgroundColor: '#eff6ff', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                <CheckCircle2 size={32} color="#1e3a8a" />
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0B1E3F', marginBottom: '12px' }}>Finalize Task?</h2>
+              <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '32px' }}>
+                Are you sure you want to mark <span style={{ fontWeight: '800', color: '#1e3a8a' }}>{pendingStatusData?.pName}</span> as <span style={{ fontWeight: '800' }}>{pendingStatusData?.st}</span>? 
+                {pendingStatusData?.st === 'Completed' && " This will set progress to 100%."}
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={() => setShowFinalizeModal(false)}
+                  style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmStatusChange}
+                  style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(11, 30, 63, 0.2)' }}
+                >
+                  Yes, {pendingStatusData?.st === 'Completed' ? 'Complete' : 'Update'} it
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
