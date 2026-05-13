@@ -117,43 +117,9 @@ const FunQuizScreen = ({ onBack }) => {
       // ── CLEAN-SLATE: Always clear the old local cache so stale data never pollutes the view ──
       try { localStorage.removeItem('nbt_quiz_leaderboard_history'); } catch(e) {}
 
-      // Build leaderboard purely from live backend data
-      const liveMap = new Map();
-      rawScores.forEach(s => {
-        const targetId = String(s.employee_id || s.user_id || s.id || '').split(':')[0];
-        const userInfo = userList.find(u => String(u.id || '').split(':')[0] === targetId);
-        let name = s.employee_name || s.name || userInfo?.name;
+      setIsLoading(false);
 
-        if (!name) {
-          if (targetId && targetId === String(uid || '').split(':')[0]) name = user?.name || user?.employee_name || 'You';
-          else name = `Employee ${targetId || 'Resource'}`;
-        }
 
-        const score = Number(s.total_score || s.points || s.quiz_score || s.score || 0);
-        if (score > 0) {
-          // Keep the highest score per person (in case of duplicate entries)
-          const current = liveMap.get(name) || 0;
-          liveMap.set(name, Math.max(current, score));
-        }
-      });
-
-      const sorted = Array.from(liveMap, ([name, score]) => ({ name, score }))
-        .filter(u => {
-          const n = String(u.name || '').toUpperCase();
-          // Hide system/admin accounts as requested
-          return !n.includes('DINESH') && !n.includes('HR') && !n.includes('ADMIN');
-        })
-        .sort((a, b) => b.score - a.score);
-
-      const list = sorted.map((u, i) => ({
-        name: u.name,
-        score: u.score,
-        rank: i + 1,
-        color: ['#FBBC05', '#EA4335', '#34A853', '#4285F4', '#FBBC05'][i % 5],
-        initial: u.name ? u.name.charAt(0).toUpperCase() : 'U'
-      }));
-
-      setLeaderboard(list);
     } catch (err) {
       // Leaderboard sync failed silently — empty leaderboard shown
     } finally {
