@@ -166,7 +166,7 @@ const FunQuizScreen = ({ onBack }) => {
   const handleSubmit = async () => {
     if (!selectedOption) return;
     const currentQ = questions[currentIdx];
-    if (currentQ.has_answered) return;
+    // Removed has_answered check to allow re-submission/overrides as requested
 
     const optObj = currentQ.options.find(o => o.letter === selectedOption);
 
@@ -607,8 +607,8 @@ const FunQuizScreen = ({ onBack }) => {
                 return (
                   <div
                     key={i}
-                    onClick={() => !currentQ.has_answered && setSelectedOption(opt.letter)}
-                    style={{ ...optStyle }}
+                    onClick={() => setSelectedOption(opt.letter)}
+                    style={{ ...optStyle, cursor: 'pointer' }}
                   >
                     <div style={{ width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', backgroundColor: isSelected ? optStyle.borderColor : '#f1f5f9', color: isSelected ? 'white' : '#94a3b8', fontSize: '12px' }}>
                       {opt.letter}
@@ -663,33 +663,35 @@ const FunQuizScreen = ({ onBack }) => {
                 })() : ''}
               </div>
 
-              {!currentQ?.has_answered ? (
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   onClick={handleSubmit}
-                  disabled={!selectedOption}
-                  style={{ backgroundColor: selectedOption ? '#0d676c' : '#94a3b8', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: '800', fontSize: '14px', cursor: selectedOption ? 'pointer' : 'not-allowed' }}
+                  disabled={!selectedOption || isSubmitting}
+                  style={{ backgroundColor: selectedOption ? '#0d676c' : '#94a3b8', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: '800', fontSize: '14px', cursor: selectedOption ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
+                  {isSubmitting && <Loader2 size={16} className="spin" />}
                   Submit answer
                 </button>
-              ) : (
-                currentIdx === questions.length - 1 ? (
+
+                {currentIdx < questions.length - 1 && (
+                  <button
+                    onClick={() => setCurrentIdx(p => p + 1)}
+                    style={{ backgroundColor: '#f1f5f9', color: '#0B1E3F', border: '1.5px solid #e2e8f0', padding: '12px 24px', borderRadius: '12px', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}
+                  >
+                    Next question
+                  </button>
+                )}
+
+                {(currentQ?.has_answered || currentIdx === questions.length - 1) && (
                   <button
                     onClick={handleSendTotalResults}
                     disabled={isSubmitting}
                     style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: '900', fontSize: '14px', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
-                    {isSubmitting && <Loader2 size={16} className="spin" />}
                     Finish quiz & sync
                   </button>
-                ) : (
-                  <button
-                    onClick={() => setCurrentIdx(p => Math.min(questions.length - 1, p + 1))}
-                    style={{ backgroundColor: '#0d676c', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}
-                  >
-                    Next question
-                  </button>
-                )
-              )}
+                )}
+              </div>
             </div>
           </div>
 
