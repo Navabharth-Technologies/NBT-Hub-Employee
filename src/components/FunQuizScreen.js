@@ -512,11 +512,11 @@ const FunQuizScreen = ({ onBack }) => {
                     </div>
                   </div>
 
-                  {/* SESSION SCORE */}
-                  <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #34A853', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '900', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Session score</div>
+                  {/* TODAY'S SCORE */}
+                  <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #059669', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '900', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Today's score</div>
                     <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
-                      {lastSessionScore > 0 ? lastSessionScore : questions.filter(q => q.previous_result === 'correct').reduce((sum, q) => sum + (Number(q.points_reward) || 0), 0)}
+                      {leaderboard.find(u => u.name === (user?.name || user?.employee_name))?.score || lastSessionScore || 0}
                     </div>
                   </div>
                 </div>
