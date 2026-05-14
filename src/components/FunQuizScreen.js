@@ -84,10 +84,12 @@ const FunQuizScreen = ({ onBack }) => {
   const fetchScores = async () => {
     try {
       const token = localStorage.getItem('token');
-      const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
-      }
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
 
       const uid = user?.employee_id || user?.userId || user?.id;
       // Fetch from both Daily and General leaderboard for maximum resilience

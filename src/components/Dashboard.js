@@ -61,7 +61,14 @@ const Dashboard = ({ setActiveTab }) => {
     }
 
     try {
-      const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`);
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
+      const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const respName = data.project_name || data.projectName;
@@ -82,7 +89,14 @@ const Dashboard = ({ setActiveTab }) => {
     const sid = sanitizeId(tid);
     if (!sid) return;
     try {
-      const res = await fetch(API_ENDPOINTS.SINGLE_TASK_DETAIL(sid));
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
+      const res = await fetch(API_ENDPOINTS.SINGLE_TASK_DETAIL(sid), { headers });
       if (res.ok) {
         const data = await res.json();
         setTaskDetailMap(prev => ({ ...prev, [tid]: data }));
@@ -376,10 +390,12 @@ const Dashboard = ({ setActiveTab }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
-      }
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
 
       // Parallel fetching of core data streams with silent resilience
       let assignedResp = null, logsResp = null, profileResp = null;
@@ -435,7 +451,7 @@ const Dashboard = ({ setActiveTab }) => {
       if (mId && String(mId) !== String(uid) && String(mId) !== 'undefined') {
         const sid = sanitizeId(mId);
         if (sid && sid !== 'undefined') {
-          const teamResp = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(sid)).catch(() => null);
+          const teamResp = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(sid), { headers }).catch(() => null);
           if (teamResp && teamResp.ok) {
             const tList = await teamResp.json().catch(() => []);
             const tData = Array.isArray(tList) ? tList : (tList.value || tList.data || []);

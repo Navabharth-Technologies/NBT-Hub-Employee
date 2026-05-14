@@ -60,114 +60,38 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
             const res = await fetch(API_ENDPOINTS.COURSES, { headers }).catch(() => null);
             
-            let backendData = [];
             if (res && res.ok) {
-                backendData = await res.json();
-            }
-
-            // High-fidelity curriculum defaults (Industrial Grade Assets - Reliable Embeds)
-            const curatedCourses = [
-                { 
-                    id: 'm-java', title: 'Java: Industrial Architecture', level: 'Expert', 
-                    duration: '2h 15m', rating: '4.9', 
-                    image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800',
-                    video: 'https://www.youtube.com/embed/eIrMbAQSU34',
-                    pdf: 'https://www.tutorialspoint.com/java/java_tutorial.pdf'
-                },
-                { 
-                    id: 'm-react', title: 'Advanced React Frameworks', level: 'Expert', 
-                    duration: '4h 30m', rating: '5.0', 
-                    image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=800',
-                    video: 'https://www.youtube.com/embed/Ke90Tje7VS0',
-                    pdf: 'https://www.tutorialspoint.com/reactjs/reactjs_tutorial.pdf'
-                },
-                { 
-                    id: 'm-node', title: 'Node.js Backend Systems', level: 'Expert', 
-                    duration: '3h 45m', rating: '4.8', 
-                    image: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?auto=format&fit=crop&q=80&w=800',
-                    video: 'https://www.youtube.com/embed/ENrzD9HAZK4',
-                    pdf: 'https://www.tutorialspoint.com/nodejs/nodejs_tutorial.pdf'
-                }
-            ];
-
-            // Merge strategy: Use backend data, but fill missing assets (image/video/pdf) from curated defaults if title matches
-            let finalCourses = backendData.map(bc => {
-                const match = curatedCourses.find(cc => {
-                    const bt = (bc.title || '').toLowerCase();
-                    const ct = cc.title.toLowerCase();
-                    return bt.includes('java') && ct.includes('java') || 
-                           bt.includes('react') && ct.includes('react') ||
-                           bt.includes('node') && ct.includes('node');
-                });
-                if (match) {
-                    return {
-                        ...match,
-                        ...bc,
-                        image: bc.image || bc.image_url || bc.thumbnail || bc.course_image || bc.image_path || bc.pic || match.image,
-                        video: bc.video || bc.video_url || bc.video_link || bc.link || match.video,
-                        pdf: bc.pdf || bc.pdf_url || bc.file || bc.document || match.pdf
-                    };
-                }
-                return bc;
-            });
-
-            // Strict duplication removal (Prevent multiple Java/React/Node cards)
-            const seen = new Set();
-            finalCourses = finalCourses.filter(c => {
-                const title = (c.title || '').toLowerCase();
-                let category = 'other';
-                if (title.includes('java')) category = 'java';
-                else if (title.includes('react')) category = 'react';
-                else if (title.includes('node')) category = 'node';
+                const backendData = await res.json();
+                const list = Array.isArray(backendData) ? backendData : (backendData.value || backendData.data || []);
                 
-                if (seen.has(category)) return false;
-                seen.add(category);
-                return true;
-            });
+                // Map backend data to UI fields
+                const finalCourses = list.map(c => ({
+                    ...c,
+                    id: c.id || c.course_id || c.courseId,
+                    title: c.title || c.course_title || c.courseName || 'Untitled Course',
+                    level: c.level || c.course_level || 'Beginner',
+                    duration: c.duration || c.course_duration || 'Self-paced',
+                    rating: c.rating || c.course_rating || '4.5',
+                    image: c.image || c.image_url || c.thumbnail || c.course_image || c.image_path || c.pic || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800',
+                    video: c.video || c.video_url || c.video_link || c.link || c.video_path,
+                    pdf: c.pdf || c.pdf_url || c.file || c.document || c.pdf_path
+                }));
 
-            // Fill gaps to ensure exactly 3: Java, React, Node (in that order)
-            const order = ['java', 'react', 'node'];
-            order.forEach(cat => {
-                if (!seen.has(cat)) {
-                    const match = curatedCourses.find(cc => cc.title.toLowerCase().includes(cat));
-                    if (match) {
-                        finalCourses.push(match);
-                        seen.add(cat);
+                setCourses(finalCourses);
+                
+                // Deep Link: Resume course if passed via prop
+                if (resumeCourseId) {
+                    const target = finalCourses.find(c => String(c.id) === String(resumeCourseId));
+                    if (target) {
+                        setSelectedCourse(target);
                     }
                 }
-            });
-
-            // Sort to ensure 1st is Java, 2nd is React, 3rd is Node
-            finalCourses.sort((a, b) => {
-                const ta = (a.title || '').toLowerCase();
-                const tb = (b.title || '').toLowerCase();
-                const getScore = (t) => t.includes('java') ? 1 : t.includes('react') ? 2 : t.includes('node') ? 3 : 4;
-                return getScore(ta) - getScore(tb);
-            });
-
-            // Fallback for empty backend
-            if (finalCourses.length === 0) {
-                finalCourses = curatedCourses;
-            }
-
-            // Filter to only show Java course as requested
-            const javaOnly = finalCourses.filter(c => (c.title || '').toLowerCase().includes('java'));
-            setCourses(javaOnly);
-            
-            // Deep Link: Resume course if passed via prop
-            if (resumeCourseId) {
-                const target = finalCourses.find(c => c.id === resumeCourseId);
-                if (target) {
-                    setSelectedCourse(target);
-                }
+            } else {
+                setCourses([]);
             }
         } catch (e) {
             console.error("Courses API Error:", e);
-            setCourses([
-                { id: 'm-java', title: 'Java: Industrial Architecture', level: 'Expert', duration: '2h 15m', rating: '4.9', image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=400', video: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-                { id: 'm-node', title: 'Node.js Backend Systems', level: 'Expert', duration: '3h 45m', rating: '4.8', image: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc51?auto=format&fit=crop&q=80&w=400', video: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-                { id: 'm-react', title: 'Advanced React Frameworks', level: 'Expert', duration: '4h 30m', rating: '5.0', image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=400', video: 'https://www.w3schools.com/html/mov_bbb.mp4' }
-            ]);
+            setCourses([]);
         } finally {
             setLoading(false);
         }
@@ -175,9 +99,16 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
     const formatUrl = (path) => {
         if (!path || typeof path !== 'string') return null;
-        if (path.startsWith('http')) return path;
+
+        // If it's already an absolute URL but pointing to localhost, redirect to the actual BASE_URL
+        if (path.startsWith('http')) {
+            if (path.includes('localhost:5000')) {
+                return path.replace(/http:\/\/localhost:5000/g, BASE_URL);
+            }
+            return path;
+        }
         
-        // Handle many formats: 'uploads/file.mp4', '/uploads/file.mp4', 'C:\\...\\uploads\\file.mp4'
+        // Handle path formats (uploads/file.pdf, etc.)
         const parts = path.split(/[\\\/]/);
         const fileName = parts.pop();
         return `${BASE_URL}/uploads/${fileName}`;
@@ -201,9 +132,9 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         courseCard: { backgroundColor: 'white', borderRadius: '35px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 15px 35px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', transition: 'all 0.4s ease', cursor: 'pointer', position: 'relative' },
         courseImage: { width: '100%', height: '180px', objectFit: 'cover' },
         courseContent: { padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' },
-        levelBadge: { backgroundColor: '#eff6ff', padding: '6px 12px', borderRadius: '12px', alignSelf: 'flex-start', marginBottom: '15px', color: '#3b82f6', fontSize: '9px', fontWeight: '1000', letterSpacing: '0.5px', textTransform: 'uppercase' },
-        courseTitle: { fontSize: '15px', fontWeight: '1000', color: '#0B1E3F', marginBottom: '12px', lineHeight: '1.3' },
-        actionBtn: { backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '14px 28px', borderRadius: '16px', fontWeight: '1000', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '10px', marginTop: 'auto', alignSelf: 'flex-start', transition: 'all 0.3s' },
+        levelBadge: { backgroundColor: '#eff6ff', padding: '6px 14px', borderRadius: '12px', alignSelf: 'flex-start', marginBottom: '15px', color: '#3b82f6', fontSize: '11px', fontWeight: '1000', letterSpacing: '0.5px', textTransform: 'uppercase' },
+        courseTitle: { fontSize: '24px', fontWeight: '1000', color: '#0B1E3F', marginBottom: '15px', lineHeight: '1.3' },
+        actionBtn: { backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '16px 32px', borderRadius: '18px', fontWeight: '1000', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', marginTop: 'auto', alignSelf: 'flex-start', transition: 'all 0.3s' },
 
         // PROGRESS BAR
         progressBar: (width) => ({ height: '8px', width: '100%', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }),
@@ -516,13 +447,13 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                                 <div style={s.courseContent}>
                                     <div style={s.levelBadge}>{course.level || 'Expert'}</div>
                                     <h2 style={s.courseTitle}>{course.title}</h2>
-                                    <div style={{ fontSize: '13px', color: '#64748b', display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontWeight: '700' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={16} /> {course.duration || '2h 15m'}</span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Star size={16} color="#f59e0b" fill="#f59e0b" /> {course.rating || '4.9'}</span>
+                                    <div style={{ fontSize: '16px', color: '#64748b', display: 'flex', justifyContent: 'space-between', marginBottom: '18px', fontWeight: '700' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={18} /> {course.duration || '2h 15m'}</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Star size={18} color="#f59e0b" fill="#f59e0b" /> {course.rating || '4.9'}</span>
                                     </div>
                                     <div style={s.progressBar(0)}><div style={s.progressFill(progress)} /></div>
-                                    <div style={{ fontSize: '11px', color: (progress >= 100) ? '#16a34a' : '#94a3b8', fontWeight: '800', marginBottom: '25px', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                        {progress >= 100 ? <><CheckCircle size={12} /> Completed</> : `${Math.round(progress)}% watched`}
+                                    <div style={{ fontSize: '14px', color: (progress >= 100) ? '#16a34a' : '#94a3b8', fontWeight: '800', marginBottom: '30px', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                        {progress >= 100 ? <><CheckCircle size={14} /> Completed</> : `${Math.round(progress)}% watched`}
                                     </div>
                                     <button style={{ ...s.actionBtn, cursor: 'pointer' }}>
                                         <PlayCircle size={18} /> {progress >= 100 ? 'Review' : progress > 0 ? 'Continue' : 'Start'}

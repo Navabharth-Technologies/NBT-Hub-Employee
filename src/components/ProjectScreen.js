@@ -51,10 +51,18 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     if (!uid) return;
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
+
       // Parallelize Initial Fetching
       const [indResp, profileResp] = await Promise.all([
-        fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid)),
-        (!user?.manager_id && user?.email) ? fetch(API_ENDPOINTS.PROFILE(user.email)) : Promise.resolve(null)
+        fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }),
+        (!user?.manager_id && user?.email) ? fetch(API_ENDPOINTS.PROFILE(user.email), { headers }) : Promise.resolve(null)
       ]);
 
       // 1. Process Individual Projects
@@ -79,7 +87,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       }
 
       if (managerId && String(managerId) !== String(uid)) {
-        const teamResp = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(managerId));
+        const teamResp = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(managerId), { headers });
         if (teamResp.ok) {
           const tResp = await teamResp.json();
           const tData = Array.isArray(tResp) ? tResp : (tResp.value || tResp.data || []);
@@ -109,7 +117,14 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
 
   const fetchTaskDetail = async (taskId) => {
     try {
-      const res = await fetch(API_ENDPOINTS.SINGLE_TASK_DETAIL(taskId));
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
+      const res = await fetch(API_ENDPOINTS.SINGLE_TASK_DETAIL(taskId), { headers });
       if (res.ok) {
         const data = await res.json();
         setTaskDetailMap(prev => ({ ...prev, [taskId]: data }));
@@ -120,7 +135,14 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const fetchSprintStatus = async (targetId, currentProjectName) => {
     const sid = sanitizeId(targetId);
     try {
-      const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`);
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined') return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
+      const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
       if (res.ok) {
         const data = await res.json();
         // If names match, use it. If no name in response, assume it's the latest relevant update.

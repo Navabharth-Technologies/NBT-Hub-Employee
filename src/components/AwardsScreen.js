@@ -14,17 +14,17 @@ const AwardsScreen = ({ onBack }) => {
     const [grantLoading, setGrantLoading] = useState(false);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
     const [showJsonInspector, setShowJsonInspector] = useState(false);
-    
+
     // Grant options fetched from backend (replaces the old hardcoded GRANT_OPTIONS)
     const [grantOptions, setGrantOptions] = useState({ TL: [], PM: [], HR: [] });
     const [grantOptionsLoading, setGrantOptionsLoading] = useState(false);
-    
+
     // Modal State for Public Profile
     const [selectedMember, setSelectedMember] = useState(null);
     const [memberRewards, setMemberRewards] = useState([]);
     const [memberPoints, setMemberPoints] = useState(0);
     const [memberLoading, setMemberLoading] = useState(false);
-    
+
     // Form State for Granting Rewards
     const [selectedEmployee, setSelectedEmployee] = useState('');
     const [selectedRewardId, setSelectedRewardId] = useState('');
@@ -91,7 +91,7 @@ const AwardsScreen = ({ onBack }) => {
                     combinedHistory = [...combinedHistory, ...list];
                     serverTotal = Math.max(serverTotal, data.totalPoints || data.total_points || 0);
                 }
-                
+
                 if (userRes && userRes.ok) {
                     const data = await userRes.json();
                     const list = Array.isArray(data) ? data : (data.history || data.awards || data.data || []);
@@ -104,10 +104,10 @@ const AwardsScreen = ({ onBack }) => {
                     const list = Array.isArray(allData) ? allData : (allData.data || allData.rewards || []);
                     const myItems = list.filter(r => {
                         const rId = String(r.userId || r.user_id || r.employee_id || r.empId || '').toLowerCase();
-                        return rId === safeUid.toLowerCase() || 
-                               rId === rawId.toLowerCase() || 
-                               rId.split(':')[0] === safeUid.toLowerCase() ||
-                               (user?.email && rId === user.email.toLowerCase());
+                        return rId === safeUid.toLowerCase() ||
+                            rId === rawId.toLowerCase() ||
+                            rId.split(':')[0] === safeUid.toLowerCase() ||
+                            (user?.email && rId === user.email.toLowerCase());
                     });
                     combinedHistory = [...combinedHistory, ...myItems];
                 }
@@ -127,12 +127,12 @@ const AwardsScreen = ({ onBack }) => {
                     history: uniqueItems,
                     totalPoints: serverTotal
                 });
-                
+
                 // Merge Daily, General, and Global Rewards leaderboards for accurate all-time rankings
                 const dailyData = dailyLeadRes && dailyLeadRes.ok ? await dailyLeadRes.json() : [];
                 const genData = genLeadRes && genLeadRes.ok ? await genLeadRes.json() : [];
                 const rewardsData = rewardsLeadRes && rewardsLeadRes.ok ? await rewardsLeadRes.json() : [];
-                
+
                 const combinedLeaderboard = [
                     ...(Array.isArray(dailyData) ? dailyData : (dailyData?.data || [])),
                     ...(Array.isArray(genData) ? genData : (genData?.data || [])),
@@ -145,7 +145,7 @@ const AwardsScreen = ({ onBack }) => {
                     setEmployees(Array.isArray(el) ? el : (el.data || []));
                 }
 
-                
+
             } catch (err) {
                 // Fetch failed silently — awards data shows empty state
             } finally {
@@ -178,15 +178,15 @@ const AwardsScreen = ({ onBack }) => {
 
     const rawServerHistory = Array.isArray(rewardData) ? rewardData : (rewardData?.history || rewardData?.awards || rewardData?.data || rewardData?.rewards || []);
     const serverTotalPoints = Number(rewardData?.totalPoints || rewardData?.total_points || (Array.isArray(rewardData) ? 0 : rewardData?.points) || 0);
-    
+
     // 2. Combine with server history, avoiding overlapping quiz entries
     const uniqueHistory = [...dedupedQuizHistory];
     rawServerHistory.forEach(item => {
         const isQuiz = String(item.reward_name || item.rewardName || item.title || '').toUpperCase().includes('QUIZ');
         const dateKey = formatDate(item.created_at || item.date);
-        
+
         const alreadyHasQuizForThisDay = isQuiz && dedupedQuizHistory.some(q => formatDate(q.created_at) === dateKey);
-        
+
         if (!alreadyHasQuizForThisDay) {
             uniqueHistory.push(item);
         }
@@ -202,11 +202,12 @@ const AwardsScreen = ({ onBack }) => {
         const targetId = String(s.employee_id || s.user_id || s.id || s.userId || '').split(':')[0];
         if (!targetId) return;
 
-        const name = s.employee_name || s.name || s.userName || 
-                     (targetId === String(user?.id || user?.employee_id || '').split(':')[0] ? (user?.name || 'You') : `Employee ${targetId}`);
-        
+        const empRecord = employees.find(e => String(e.id || e.employee_id || '').split(':')[0] === targetId);
+        const name = s.employee_name || s.name || s.userName || (empRecord ? (empRecord.name || empRecord.username || empRecord.employee_name) : null) ||
+            (targetId === String(user?.id || user?.employee_id || '').split(':')[0] ? (user?.name || 'You') : `Employee ${targetId}`);
+
         const score = Number(s.total_score || s.points || s.quiz_score || s.score || s.totalPoints || s.total_points || s.rep || 0);
-        
+
         if (score > 0) {
             const current = liveMap.get(targetId);
             if (!current || score > current.score) {
@@ -227,7 +228,7 @@ const AwardsScreen = ({ onBack }) => {
     const userEntryIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
     let userRank = userEntryIndex >= 0 ? userEntryIndex + 1 : 0;
     const leaderboardScore = userEntryIndex >= 0 ? sortedLeaderboard[userEntryIndex].score : 0;
-    
+
     // Final total: Trust backend first, then leaderboard score, then history sum
     const finalTotalPoints = serverTotalPoints > 0 ? serverTotalPoints : (leaderboardScore > 0 ? leaderboardScore : totalPointsFromHistory);
 
@@ -244,7 +245,9 @@ const AwardsScreen = ({ onBack }) => {
         rank: userRank > 0 ? userRank : 'N/A',
         points: finalTotalPoints,
         endorsements: Math.floor(finalTotalPoints / 100),
-        score: 'Active'
+        score: 'Active',
+        topName: sortedLeaderboard[0]?.name || 'TBD',
+        topScore: sortedLeaderboard[0]?.score || 0
     };
 
     const openMemberProfile = async (member) => {
@@ -259,16 +262,70 @@ const AwardsScreen = ({ onBack }) => {
                 return;
             }
             const token = localStorage.getItem('token');
-            const res = await fetch(API_ENDPOINTS.REWARDS_USER(memberId), {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => null);
-            if (res && res.ok) {
-                const data = await res.json();
-                setMemberRewards(data.history || []);
-                setMemberPoints(data.totalPoints || 0);
-            } else {
-                setMemberRewards([]);
-                setMemberPoints(0);
+            const headers = { 'Authorization': `Bearer ${token}` };
+            
+            const [rewardRes, quizRes] = await Promise.all([
+                fetch(API_ENDPOINTS.REWARDS_USER(memberId), { headers }).catch(() => null),
+                fetch(`${BASE_URL}/api/quizzes/history?userId=${memberId}`, { headers }).catch(() => null)
+            ]);
+
+            let combinedHistory = [];
+            let total = 0;
+
+            if (rewardRes && rewardRes.ok) {
+                const data = await rewardRes.json();
+                const list = Array.isArray(data) ? data : (data.history || data.awards || data.data || []);
+                combinedHistory = [...list];
+                total = data.totalPoints || data.total_points || 0;
+            }
+
+            if (quizRes && quizRes.ok) {
+                const quizData = await quizRes.json();
+                const qList = Array.isArray(quizData) ? quizData : (quizData.data || []);
+                
+                // Deduplicate quiz history (highest score per day)
+                const qMap = {};
+                qList.forEach(q => {
+                    const d = formatDate(q.created_at || q.date);
+                    if (!qMap[d] || (q.points || 0) > (qMap[d].points || 0)) qMap[d] = q;
+                });
+
+                Object.values(qMap).forEach(q => {
+                    const qDate = formatDate(q.created_at || q.date);
+                    const exists = combinedHistory.some(h => 
+                        formatDate(h.created_at || h.date) === qDate && 
+                        String(h.reward_name || h.title || '').toUpperCase().includes('QUIZ')
+                    );
+                    if (!exists) {
+                        combinedHistory.push({
+                            ...q,
+                            reward_name: q.title || 'Quiz Excellence',
+                            points: q.points || q.score || 300,
+                            created_at: q.created_at || q.date
+                        });
+                    }
+                });
+            }
+
+            setMemberRewards(combinedHistory);
+
+            // Calculate recognition total
+            const recognitionTotal = combinedHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
+            
+            // Get score from leaderboard as a robust fallback
+            const lbScore = Number(member.score || leaderboard.find(e => String(e.id || '').split(':')[0] === String(memberId))?.score || 0);
+
+            // Use the highest known total
+            const finalTotal = Math.max(recognitionTotal, total, lbScore);
+            setMemberPoints(finalTotal);
+
+            // If there's a significant gap between history and total, add a summary quiz entry
+            if (finalTotal > recognitionTotal && !combinedHistory.some(h => String(h.reward_name || '').toUpperCase().includes('QUIZ'))) {
+                setMemberRewards(prev => [...prev, {
+                    reward_name: 'Quiz & Performance Bonus',
+                    points: finalTotal - recognitionTotal,
+                    created_at: new Date().toISOString()
+                }]);
             }
         } catch (err) {
             console.error('[Awards] Member profile load error:', err);
@@ -279,18 +336,18 @@ const AwardsScreen = ({ onBack }) => {
 
     const handleGrant = async () => {
         if (!selectedEmployee || !selectedRewardId) return alert('Please select an employee and a reward category.');
-        
+
         setGrantLoading(true);
         try {
             // Find selected reward from dynamically loaded options
             const rewardObj = activeGrantOptions.find(o => o.id === selectedRewardId)
-                          || FALLBACK_GRANT_OPTIONS[activeCategory]?.find(o => o.id === selectedRewardId);
+                || FALLBACK_GRANT_OPTIONS[activeCategory]?.find(o => o.id === selectedRewardId);
             if (!rewardObj) return alert('Invalid reward selection.');
 
             const token = localStorage.getItem('token');
             const res = await fetch(API_ENDPOINTS.REWARDS_GRANT, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': token && !token.startsWith('joinee-') ? `Bearer ${token}` : ''
                 },
@@ -309,7 +366,7 @@ const AwardsScreen = ({ onBack }) => {
                 setSelectedEmployee('');
                 setSelectedRewardId('');
                 setShowGrantModal(false);
-                window.location.reload(); 
+                window.location.reload();
             } else {
                 const err = await res.json();
                 alert(`Error: ${err.message || 'Failed to sync data.'}`);
@@ -328,14 +385,14 @@ const AwardsScreen = ({ onBack }) => {
 
 
     const history = uniqueHistory;
-    
+
     // Exclusive Categorization Logic: Prioritizes the Granter's Role first.
     const getEffectiveCategory = (r) => {
         // 1. Granter Role Match (HIGHEST PRIORITY based on user request)
         const granterId = String(r.granted_by || r.grantedBy || '').split(':')[0];
         const granter = employees.find(e => String(e.id || e.employee_id || e.userId || '').split(':')[0] === granterId);
         const gRole = String(granter?.role || granter?.designation || '').toUpperCase();
-        
+
         if (gRole.includes('TL') || gRole.includes('TEAM LEADER') || gRole.includes('MANAGER') && !gRole.includes('PROJECT')) return 'TL';
         if (gRole.includes('PM') || gRole.includes('PROJECT MANAGER')) return 'PM';
         if (gRole.includes('HR') || gRole.includes('ADMIN') || gRole.includes('CEO') || gRole.includes('SUPER')) return 'HR';
@@ -375,20 +432,20 @@ const AwardsScreen = ({ onBack }) => {
     const RewardCard = ({ item, color, bg }) => {
         const isQuiz = String(item.reward_name || '').toUpperCase().includes('QUIZ');
         const isGoal = String(item.reward_name || '').toUpperCase().includes('GOAL');
-        
+
         // Define theme colors based on image 2
-        const theme = isQuiz 
-            ? { bg: '#FFFBEB', border: '#FEF3C7', text: '#D97706', date: '#94A3B8' } 
+        const theme = isQuiz
+            ? { bg: '#FFFBEB', border: '#FEF3C7', text: '#D97706', date: '#94A3B8' }
             : (isGoal ? { bg: '#F0FDF4', border: '#DCFCE7', text: '#15803D', date: '#94A3B8' } : { bg: bg, border: color + '15', text: color, date: '#94A3B8' });
 
         return (
-            <motion.div 
+            <motion.div
                 whileHover={{ y: -3, boxShadow: '0 8px 20px rgba(0,0,0,0.06)' }}
-                style={{ 
-                    padding: '20px', 
-                    backgroundColor: theme.bg, 
-                    borderRadius: '24px', 
-                    border: `1px solid ${theme.border}`, 
+                style={{
+                    padding: '20px',
+                    backgroundColor: theme.bg,
+                    borderRadius: '24px',
+                    border: `1px solid ${theme.border}`,
                     cursor: 'pointer',
                     position: 'relative',
                     marginBottom: '10px'
@@ -412,7 +469,7 @@ const AwardsScreen = ({ onBack }) => {
     };
 
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             style={{ padding: winWidth < 768 ? '15px' : '40px', width: '100%', boxSizing: 'border-box', backgroundColor: '#F8F9FA', minHeight: '100vh', position: 'relative' }}
@@ -436,14 +493,14 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
             </div>
 
-            <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(4, 1fr)', 
-                gap: winWidth < 768 ? '10px' : '15px', 
-                marginBottom: '30px', 
-                backgroundColor: '#0B1E3F', 
-                padding: winWidth < 768 ? '20px 15px' : '25px', 
-                borderRadius: '32px', 
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(4, 1fr)',
+                gap: winWidth < 768 ? '10px' : '15px',
+                marginBottom: '30px',
+                backgroundColor: '#0B1E3F',
+                padding: winWidth < 768 ? '20px 15px' : '25px',
+                borderRadius: '32px',
                 color: 'white',
                 boxShadow: '0 15px 40px rgba(11,30,63,0.15)'
             }}>
@@ -456,10 +513,10 @@ const AwardsScreen = ({ onBack }) => {
                         <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', whiteSpace: 'nowrap' }}>{stats.rank !== 'N/A' ? `${stats.rank}${getRankSuffix(stats.rank)} Position` : 'Unranked'}</div>
                     </div>
                 </div>
-                
-                <div style={{ borderRight: winWidth < 1024 ? 'none' : '1px solid rgba(255,255,255,0.1)', padding: '5px', textAlign: winWidth < 768 ? 'left' : 'center' }}>
-                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Rep points</div>
-                    <div style={{ fontSize: winWidth < 768 ? '18px' : '20px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05' }}>{stats.points}</div>
+
+                <div style={{ borderRight: winWidth < 1024 ? 'none' : '1px solid rgba(255,255,255,0.1)', padding: '5px', textAlign: winWidth < 768 ? 'left' : 'center', overflow: 'hidden' }}>
+                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Top Performer</div>
+                    <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{stats.topName}</div>
                 </div>
 
                 <div style={{ borderRight: winWidth < 1024 ? 'none' : '1px solid rgba(255,255,255,0.1)', padding: '5px', textAlign: winWidth < 768 ? 'left' : 'center' }}>
@@ -468,9 +525,9 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
 
                 <div style={{ padding: '5px', textAlign: winWidth < 768 ? 'left' : 'right' }}>
-                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leadership score</div>
+                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Top Rep points</div>
                     <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', display: 'flex', alignItems: 'center', justifyContent: winWidth < 768 ? 'flex-start' : 'flex-end', gap: '6px' }}>
-                        {stats.score} <Star size={14} fill="#FBBC05" color="#FBBC05" />
+                        {stats.topScore} <Star size={14} fill="#FBBC05" color="#FBBC05" />
                     </div>
                 </div>
             </div>
@@ -573,20 +630,22 @@ const AwardsScreen = ({ onBack }) => {
                             const isMe = String(entry.id).split(':')[0] === myId;
                             const rank = idx + 1;
                             return (
-                                <motion.div 
+                                <motion.div
                                     key={idx}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        padding: '15px 20px', 
-                                        backgroundColor: isMe ? '#F0F9FF' : '#F8FAFC', 
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '15px 20px',
+                                        backgroundColor: isMe ? '#F0F9FF' : '#F8FAFC',
                                         borderRadius: '20px',
                                         border: isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
-                                        transition: '0.2s'
+                                        transition: '0.2s',
+                                        cursor: 'pointer'
                                     }}
+                                    onClick={() => openMemberProfile(entry)}
                                 >
                                     <div style={{ width: '35px', fontSize: '14px', fontWeight: '1000', color: rank <= 3 ? '#D97706' : '#94A3B8' }}>
                                         #{rank}
@@ -599,7 +658,7 @@ const AwardsScreen = ({ onBack }) => {
                                             {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
                                         </div>
                                         <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
-                                            Employee Portal Member
+
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
@@ -634,35 +693,35 @@ const AwardsScreen = ({ onBack }) => {
                             </div>
                             <div style={{ padding: '30px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                   <div>
-                                       <label style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'block', marginBottom: '8px' }}>1. Select teammate</label>
-                                       <select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1.5px solid #f1f5f9', fontWeight: '600', outline: 'none', backgroundColor: '#fcfcfd' }}>
-                                           <option value="">Choose employee...</option>
-                                           {employees.map(e => <option key={e.id} value={e.id}>{e.name || e.username}</option>)}
-                                       </select>
-                                   </div>
-                                   <div>
-                                       <label style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'block', marginBottom: '12px' }}>2. Select {activeCategory} recognition type</label>
-                                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                           {activeGrantOptions.map(opt => (
-                                               <button key={opt.id} onClick={() => setSelectedRewardId(opt.id)} style={{ padding: '20px 10px', borderRadius: '20px', border: '2px solid', borderColor: selectedRewardId === opt.id ? '#0B1E3F' : '#f8fafc', backgroundColor: selectedRewardId === opt.id ? '#f0f9ff' : 'white', cursor: 'pointer', textAlign: 'center', transition: '0.2s' }}>
-                                                   <div style={{ color: '#0B1E3F', marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>{opt.icon}</div>
-                                                   <div style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F' }}>{opt.title}</div>
-                                                   <div style={{ fontSize: '10px', fontWeight: '900', color: '#22c55e', marginTop: '4px' }}>+{opt.rep} REP</div>
-                                               </button>
-                                           ))}
-                                       </div>
-                                   </div>
-                                   <button disabled={grantLoading} onClick={handleGrant} style={{ width: '100%', padding: '18px', borderRadius: '20px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '1000', cursor: 'pointer', marginTop: '10px', boxShadow: '0 10px 20px rgba(11,30,63,0.1)', opacity: grantLoading ? 0.7 : 1 }}>
-                                       {grantLoading ? 'Processing...' : 'Confirm recognition'}
-                                   </button>
+                                    <div>
+                                        <label style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'block', marginBottom: '8px' }}>1. Select teammate</label>
+                                        <select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1.5px solid #f1f5f9', fontWeight: '600', outline: 'none', backgroundColor: '#fcfcfd' }}>
+                                            <option value="">Choose employee...</option>
+                                            {employees.map(e => <option key={e.id} value={e.id}>{e.name || e.username}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'block', marginBottom: '12px' }}>2. Select {activeCategory} recognition type</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            {activeGrantOptions.map(opt => (
+                                                <button key={opt.id} onClick={() => setSelectedRewardId(opt.id)} style={{ padding: '20px 10px', borderRadius: '20px', border: '2px solid', borderColor: selectedRewardId === opt.id ? '#0B1E3F' : '#f8fafc', backgroundColor: selectedRewardId === opt.id ? '#f0f9ff' : 'white', cursor: 'pointer', textAlign: 'center', transition: '0.2s' }}>
+                                                    <div style={{ color: '#0B1E3F', marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>{opt.icon}</div>
+                                                    <div style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F' }}>{opt.title}</div>
+                                                    <div style={{ fontSize: '10px', fontWeight: '900', color: '#22c55e', marginTop: '4px' }}>+{opt.rep} REP</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <button disabled={grantLoading} onClick={handleGrant} style={{ width: '100%', padding: '18px', borderRadius: '20px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '1000', cursor: 'pointer', marginTop: '10px', boxShadow: '0 10px 20px rgba(11,30,63,0.1)', opacity: grantLoading ? 0.7 : 1 }}>
+                                        {grantLoading ? 'Processing...' : 'Confirm recognition'}
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
-            
+
             <AnimatePresence>
                 {selectedMember && (
                     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -672,21 +731,26 @@ const AwardsScreen = ({ onBack }) => {
                                     <img src={`https://ui-avatars.com/api/?name=${selectedMember.name}&background=fff&color=0B1E3F&size=128`} style={{ width: '100%', height: '100%' }} />
                                 </div>
                                 <h2 style={{ margin: 0 }}>{selectedMember.name}</h2>
-                                <p style={{ margin: '5px 0 0', opacity: 0.7, fontSize: '13px' }}>Global Rank: #{leaderboard.findIndex(e => String(e.id || e.userId || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginTop: '8px' }}>
+                                    <p style={{ margin: 0, opacity: 0.7, fontSize: '13px' }}>Global Rank: #{sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
+                                    <div style={{ padding: '4px 12px', borderRadius: '10px', backgroundColor: '#FBBC05', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000' }}>
+                                        {memberPoints} REP
+                                    </div>
+                                </div>
                             </div>
                             <div style={{ padding: '30px' }}>
                                 <h4 style={{ fontSize: '14px', color: '#0B1E3F', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '15px' }}>Achievement Timeline</h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
-                                    {memberLoading ? <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div> : 
-                                      memberRewards.map((r, i) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
-                                            <div>
-                                                <div style={{ fontSize: '13px', fontWeight: '800' }}>{r.reward_name || r.title}</div>
-                                                <div style={{ fontSize: '10px', color: '#94a3b8' }}>{formatDate(r.created_at || r.date)}</div>
+                                    {memberLoading ? <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div> :
+                                        memberRewards.map((r, i) => (
+                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '13px', fontWeight: '800' }}>{r.reward_name || r.title}</div>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>{formatDate(r.created_at || r.date)}</div>
+                                                </div>
+                                                <div style={{ fontWeight: '1000', color: '#22c55e' }}>+{r.points || r.rep} REP</div>
                                             </div>
-                                            <div style={{ fontWeight: '1000', color: '#22c55e' }}>+{r.points || r.rep} REP</div>
-                                        </div>
-                                      ))
+                                        ))
                                     }
                                     {!memberLoading && memberRewards.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>No history found.</div>}
                                 </div>
