@@ -31,7 +31,7 @@ export const API_ENDPOINTS = {
   BIRTHDAYS: `${BASE_URL}/api/birthdays`,
 
   ASSIGN_TASK: `${BASE_URL}/api/master-task`,
-  TASKS_ASSIGNED: (userId) => `${BASE_URL}/api/tasks/assigned/${String(userId || '').split(':')[0]}`,
+  TASKS_ASSIGNED: (userId) => `${BASE_URL}/api/tasks/assigned/${userId}`,
   UPDATE_TASK_STATUS: (taskId) => `${BASE_URL}/api/tasks/status/${String(taskId || '').split(':')[0]}`,
   VERIFY_TASK: (taskId) => `${BASE_URL}/api/master-task/review/${String(taskId || '').split(':')[0]}`,
   TASK_UPDATES: `${BASE_URL}/api/task-updates`,

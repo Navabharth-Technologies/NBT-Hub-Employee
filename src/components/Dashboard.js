@@ -356,7 +356,7 @@ const Dashboard = ({ setActiveTab }) => {
   };
 
   const fetchTaskHistory = async () => {
-    const uid = sanitizeId(user?.id || user?.empId || user?.employee_id || user?.userId);
+    const uid = user?.id || user?.empId || user?.employee_id || user?.userId;
     if (!uid) return;
 
     let sortedLogs = []; // Initialize early to avoid scope errors
@@ -599,7 +599,7 @@ const Dashboard = ({ setActiveTab }) => {
   };
 
   const handleSaveTasks = async () => {
-    const uid = sanitizeId(user?.id || user?.empId || user?.userId || user?.employee_id);
+    const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
     const mId = sanitizeId(user?.manager_id || user?.tl_id || user?.team_leader_id || user?.reporting_manager_id || user?.managerId || user?.reportingManagerId || '1');
 
     if (!uid) {

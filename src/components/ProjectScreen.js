@@ -47,7 +47,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   }, [user]);
 
   const fetchProjectData = async () => {
-    const uid = sanitizeId(user?.id || user?.empId || user?.userId || user?.employee_id);
+    const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
     if (!uid) return;
     setLoading(true);
     try {
