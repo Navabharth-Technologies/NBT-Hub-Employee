@@ -724,7 +724,7 @@ const Dashboard = ({ setActiveTab }) => {
 
   const s = {
     page: { 
-      paddingTop: winWidth < 768 ? '20px' : '40px', 
+      paddingTop: winWidth < 768 ? '10px' : '20px', 
       paddingLeft: winWidth < 768 ? '15px' : '40px',
       paddingRight: winWidth < 768 ? '15px' : '40px',
       paddingBottom: '120px', 

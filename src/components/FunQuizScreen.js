@@ -326,13 +326,13 @@ const FunQuizScreen = ({ onBack }) => {
   const currentQ = questions[currentIdx];
 
   const s = {
-    container: { minHeight: '100vh', backgroundColor: '#F8F9FA', padding: isMobile ? '10px' : '20px', paddingBottom: isMobile ? '120px' : '60px', fontFamily: '"Nunito", "Segoe UI", sans-serif' },
+    container: { minHeight: '100vh', backgroundColor: '#F8F9FA', padding: isMobile ? '15px' : '20px', paddingTop: isMobile ? '20px' : '30px', paddingBottom: isMobile ? '120px' : '60px', fontFamily: '"Nunito", "Segoe UI", sans-serif' },
     layout: { display: 'flex', gap: '25px', flexDirection: isTablet ? 'column' : 'row', marginBottom: '25px' },
     hero: {
-      flex: 2, backgroundColor: '#B2DCE2', borderRadius: '24px', padding: isMobile ? '35px 25px' : '60px 70px',
+      flex: 2, backgroundColor: '#B2DCE2', borderRadius: '24px', padding: isMobile ? '25px 20px' : '60px 70px',
       display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between',
       alignItems: 'center', position: 'relative', overflow: 'hidden', textAlign: isMobile ? 'center' : 'left', gap: isMobile ? '20px' : '0',
-      minHeight: isMobile ? '300px' : '400px'
+      minHeight: isMobile ? 'auto' : '400px'
     },
     heroTitle: { fontSize: isMobile ? '26px' : '32px', fontWeight: '1000', color: '#0B1E3F', lineHeight: 1.1, marginBottom: '18px' },
     heroDesc: { fontSize: isMobile ? '12px' : '13px', fontWeight: '800', color: '#0B1E3F', opacity: 0.8, maxWidth: '400px', marginBottom: '35px', lineHeight: 1.5 },
@@ -380,8 +380,8 @@ const FunQuizScreen = ({ onBack }) => {
   };
 
   const LandingMonster = (
-    <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', zIndex: 1, minWidth: '150px' }}>
-      <img src="https://gifdb.com/images/high/quiz-question-eric-cartman-south-park-hrlfxd5qudqyw7n0.gif" alt="South Park Guide" style={{ height: '250px', objectFit: 'contain', borderRadius: '24px' }} />
+    <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', zIndex: 1, minWidth: isMobile ? '120px' : '150px' }}>
+      <img src="https://gifdb.com/images/high/quiz-question-eric-cartman-south-park-hrlfxd5qudqyw7n0.gif" alt="South Park Guide" style={{ height: isMobile ? '160px' : '250px', objectFit: 'contain', borderRadius: '24px' }} />
     </div>
   );
 
@@ -486,15 +486,15 @@ const FunQuizScreen = ({ onBack }) => {
                 <h2 style={s.heroTitle}>Get Ready for<br />a Fun Quiz!</h2>
                 <p style={s.heroDesc}>Train your brain with smart, scientifically backed games that enhance various cognitive functions.</p>
  
-                <div style={{ marginTop: '25px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ marginTop: '25px', display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
                   {/* DAILY QUESTIONS */}
-                  <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                  <div style={{ backgroundColor: 'white', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '14px', border: '1.5px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#4285F4', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Daily questions</div>
                     <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>{questions.length}</div>
                   </div>
 
                   {/* POINTS REMAINING */}
-                  <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #FBBC05', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                  <div style={{ backgroundColor: 'white', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '14px', border: '1.5px solid #FBBC05', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Points remaining</div>
                     <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
                       {questions.filter(q => !q.has_answered).length > 0 
@@ -504,7 +504,7 @@ const FunQuizScreen = ({ onBack }) => {
                   </div>
 
                   {/* OVERALL SCORE */}
-                  <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #4285F4', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                  <div style={{ backgroundColor: 'white', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '14px', border: '1.5px solid #4285F4', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#4285F4', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Overall score</div>
                     <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
                       {leaderboard.find(u => u.name === (user?.name || user?.employee_name))?.score || 0}
@@ -512,7 +512,7 @@ const FunQuizScreen = ({ onBack }) => {
                   </div>
 
                   {/* TODAY'S SCORE */}
-                  <div style={{ backgroundColor: 'white', padding: '10px 18px', borderRadius: '14px', border: '1.5px solid #059669', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                  <div style={{ backgroundColor: 'white', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '14px', border: '1.5px solid #059669', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
                     <div style={{ fontSize: '10px', fontWeight: '900', color: '#059669', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Today's score</div>
                     <div style={{ fontSize: '15px', fontWeight: '1000', color: '#059669' }}>
                       {dailyLeaderboard.find(u => u.name === (user?.name || user?.employee_name))?.score || lastSessionScore || 0}

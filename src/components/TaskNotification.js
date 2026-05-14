@@ -197,9 +197,8 @@ const TaskNotification = ({ onOpenTask }) => {
           const rawTs = t.created_at || t.createdAt || new Date();
           const parseDate = new Date(rawTs);
           const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
-
-          // Notify for posts within last 30 days to ensure they show up
-          if (daysDiff <= 30) {
+          // Notify for posts within last 24 hours to ensure they are fresh "Alerts"
+          if (daysDiff <= 1) {
             const isNewlyPosted = lastIds.size > 0 && !lastIds.has(tid);
             if (isNewlyPosted) addedNew = true;
 
@@ -216,7 +215,7 @@ const TaskNotification = ({ onOpenTask }) => {
         }
       });
 
-      // Map Quizzes - Engagement Alerts (Only within last 48 hours)
+      // Map Quizzes - Engagement Alerts (Only within last 24 hours)
       const mappedQuizzes = [];
       quizzes.forEach(q => {
         const qid = `quiz_${q.id}`;
@@ -226,15 +225,15 @@ const TaskNotification = ({ onOpenTask }) => {
         const parseDate = new Date(rawTs);
         const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
 
-        // Notify for quizzes within last 30 days
-        if (daysDiff <= 30) {
+        // Notify for quizzes within last 24 hours
+        if (daysDiff <= 1) {
           const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
           if (isNewlyAdded) addedNew = true;
 
           mappedQuizzes.push({
             id: qid,
             type: 'QUIZ',
-            title: `New Fun Quiz: ${q.title || 'Leadership Challenge'}`,
+            title: `New Fun Quiz: ${q.title || 'Engagement Task'}`,
             description: q.description || 'A new engagement activity has been posted. Join now!',
             formattedTime: formatDate(parseDate),
             isNew: isNewlyAdded,

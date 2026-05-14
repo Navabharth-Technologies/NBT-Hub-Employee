@@ -124,6 +124,12 @@ function App() {
   const handleTabChange = (tab, state = null) => {
     setActiveTab(tab);
     setActiveTabState(state);
+    
+    // Reset scroll position to top when changing tabs to prevent "merging" with header
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+
     try {
       localStorage.setItem('nbt_active_tab', tab);
       if (state) {
@@ -170,7 +176,7 @@ function App() {
     <ThreadProvider>
       <div className="App" style={{ overflowX: 'hidden' }} onClick={hideNavTemporarily}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
-        <main ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px' }}>
+        <main key={activeTab} ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '40px' }}>
           {renderTab()}
         </main>
         <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} isVisible={isNavVisible} />

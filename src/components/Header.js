@@ -29,7 +29,7 @@ const Header = ({ setActiveTab, isNewJoinee }) => {
             position: 'sticky',
             top: 0,
             zIndex: 1000,
-            height: winWidth < 768 ? '65px' : '80px',
+            height: winWidth < 768 ? '70px' : '90px',
             boxSizing: 'border-box',
             boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
             borderBottom: '2px solid rgba(255,255,255,0.2)',
@@ -40,7 +40,7 @@ const Header = ({ setActiveTab, isNewJoinee }) => {
                 onClick={() => setActiveTab('HOME')}
                 style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '5px' : '15px', cursor: 'pointer', flexShrink: 0 }}
             >
-                <img src={logo} alt="Logo" style={{ height: winWidth < 768 ? '55px' : '95px', width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))', objectFit: 'contain' }} />
+                <img src={logo} alt="Logo" style={{ height: winWidth < 768 ? '60px' : '85px', width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))', objectFit: 'contain' }} />
                 <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '12px' : '20px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '-1px', whiteSpace: 'nowrap' }}>NBT HUB</h1>
             </div>
 

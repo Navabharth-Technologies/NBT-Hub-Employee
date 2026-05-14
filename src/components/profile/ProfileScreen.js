@@ -24,7 +24,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const [aboutMe, setAboutMe] = useState(user?.about_me || 'Write a short introduction about yourself');
   const [dob, setDob] = useState(user?.date_of_birth || 'Add Date of Birth');
   const [isEditingDob, setIsEditingDob] = useState(false);
-  const [teamName, setTeamName] = useState(user?.team || 'NAVABHARATHA TEAM');
+  const [teamName, setTeamName] = useState(user?.team || user?.team_name || user?.process || 'Loading...');
   const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
   const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
     let strId = String(user?.employee_id || user?.id || 'N/A').trim();
@@ -219,7 +219,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       if (uResp.ok) {
         const usersList = await uResp.json();
         const currentUser = usersList.find(u =>
-          String(u.email || '').toLowerCase() === String(user?.email || '').toLowerCase()
+          (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
+          (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
         );
         if (currentUser) {
           const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
@@ -231,8 +232,12 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             let clean = raw;
             if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0,p) === raw.slice(p,p*2) && raw.slice(0,p) === raw.slice(p*2)) clean = raw.slice(0,p); }
             else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0,p) === raw.slice(p)) clean = raw.slice(0,p); }
-            setCleanEmployeeId(clean);
+          setCleanEmployeeId(clean);
           }
+
+          // Fetch Team Name from Users table
+          const fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
+          if (fetchedTeam) setTeamName(fetchedTeam);
 
           // Reporting Manager Lookup in users list
           const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
