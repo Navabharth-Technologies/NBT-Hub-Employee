@@ -471,6 +471,21 @@ export default function DocumentsScreen({ onBack }) {
   const validateField = (key, value) => {
     let error = null;
 
+    const isContinuous = (str) => {
+      const s = String(str).toUpperCase();
+      if (/(.)\1{3,}/.test(s)) return true; // block 4+ same characters (1111, AAAA)
+      let seqCount = 1;
+      for (let i = 1; i < s.length; i++) {
+        if (s.charCodeAt(i) === s.charCodeAt(i - 1) + 1) {
+          seqCount++;
+          if (seqCount >= 4) return true; // block 4+ sequential characters (1234, ABCD)
+        } else {
+          seqCount = 1;
+        }
+      }
+      return false;
+    };
+
     // REQUIRED FIELDS CHECK
     const required = ['emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id'];
     if (required.includes(key) && (!value || String(value).trim() === '')) {
@@ -479,18 +494,23 @@ export default function DocumentsScreen({ onBack }) {
 
     if (!value) return null;
 
-    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality'].includes(key)) {
+    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'blood_group'].includes(key)) {
       if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
+    } else if (key === 'age') {
+      if (value && String(value).length > 2) error = 'Maximum 2 digits allowed';
     } else if (['contact_no', 'emergency_contact_no'].includes(key)) {
       if (/[a-zA-Z]/.test(value)) error = 'Numbers only';
-      else if (value.length !== 10) error = 'Must be 10 digits';
+      else if (value.length !== 10) error = 'Must be exactly 10 digits';
     } else if (key === 'aadhar_number') {
       const clean = String(value).replace(/\s/g, '');
       if (/[a-zA-Z]/.test(clean)) error = 'Numbers only';
-      else if (clean.length !== 12) error = 'Must be 12 digits';
+      else if (clean.length !== 12) error = 'Must be exactly 12 digits';
+      else if (isContinuous(clean)) error = 'Continuous or repeated numbers are not allowed';
     } else if (key === 'pan_number') {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-      if (!panRegex.test(String(value).toUpperCase())) error = 'Use ABCDE1234F format';
+      const clean = String(value).toUpperCase();
+      if (!panRegex.test(clean)) error = 'Format must be: 5 letters, 4 numbers, 1 letter';
+      else if (isContinuous(clean)) error = 'Continuous or repeated sequences are not allowed';
     } else if (key === 'ifsc_code') {
       const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
       if (!ifscRegex.test(String(value).toUpperCase())) error = 'Use ABCD0123456 format';
@@ -528,7 +548,7 @@ export default function DocumentsScreen({ onBack }) {
   const handleChange = (key, value) => {
     // Immediate cleaning for specific fields
     let cleanValue = value;
-    if (['emp_name', 'father_husband_name', 'religion', 'nationality'].includes(key)) {
+    if (['emp_name', 'father_husband_name', 'religion', 'nationality', 'blood_group'].includes(key)) {
       cleanValue = value.replace(/[0-9]/g, ''); // Block numbers instantly
     } else if (['contact_no', 'emergency_contact_no', 'aadhar_number', 'bank_account_no', 'age'].includes(key)) {
       cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
@@ -537,6 +557,7 @@ export default function DocumentsScreen({ onBack }) {
     // Length caps
     if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 10) return;
     if (key === 'aadhar_number' && cleanValue.length > 12) return;
+    if (key === 'age' && cleanValue.length > 2) return;
     if (key === 'pan_number' && cleanValue.length > 10) cleanValue = cleanValue.substring(0, 10).toUpperCase();
     if (key === 'ifsc_code') cleanValue = cleanValue.toUpperCase();
 

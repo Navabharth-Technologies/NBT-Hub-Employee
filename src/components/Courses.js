@@ -6,6 +6,7 @@ import { API_ENDPOINTS, BASE_URL } from '../config';
 
 import logo from '../assets/image.png';
 import petal from '../assets/image.png';
+import certificateImg from '../assets/certificate.png';
 
 export default function CourseScreen({ resumeCourseId, clearState }) {
     const { user } = useAuth();
@@ -320,53 +321,9 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         );
     }
 
-    if (selectedCourse && currentView === 'test') {
-        return (
-            <div style={s.container}>
-                <div style={{ ...s.innerContainer, maxWidth: '800px' }}>
-                    <button style={s.backBtn} onClick={() => setCurrentView(null)}><ChevronLeft size={18} /> Back</button>
-                    <h2 style={{ ...s.title, textAlign: 'center', marginBottom: '40px' }}>Proficiency Assessment</h2>
-                    <div style={{ backgroundColor: '#fffbeb', padding: '30px', borderRadius: '25px', marginBottom: '30px', border: '1.2px solid #fde68a' }}>
-                        <p style={{ fontSize: '15px', fontWeight: '800', color: '#d97706' }}>Complete the master validation test to receive your certificate.</p>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div style={{ padding: '25px', borderRadius: '20px', background: 'white', fontWeight: '700', border: '1.2px solid #f1f5f9' }}>Q1: What is the primary architecture of {selectedCourse.title}?</div>
-                        <div style={{ padding: '25px', borderRadius: '20px', background: 'white', fontWeight: '700', border: '1.2px solid #f1f5f9' }}>Q2: Define state management in scalable industrial apps?</div>
-                    </div>
-                    <button style={{ ...s.finishBtn, backgroundColor: '#f59e0b' }} onClick={() => { setIsTestDone(true); setShowCertificate(true); setCurrentView(null); setTimeout(() => setShowCard(true), 1500); }}>Submit assessment</button>
-                </div>
-            </div>
-        );
-    }
-
     if (selectedCourse) {
         return (
             <div style={s.container}>
-                {showCertificate && (
-                    <div style={s.popupOverlay}>
-                        {particles.map((_, i) => (
-                            <motion.img 
-                                key={i} src={petal} style={{ position: 'absolute', width: '50px', pointerEvents: 'none' }}
-                                initial={{ x: (Math.random() - 0.5) * window.innerWidth, y: -window.innerHeight/2 - Math.random() * 500, opacity: 0, scale: 0.1, rotate: 0 }}
-                                animate={{ x: (Math.random() - 0.5) * window.innerWidth * 1.5, y: window.innerHeight * 1.2, opacity: [0, 1, 1, 0.8, 0], scale: Math.random() * 0.7 + 0.3, rotate: Math.random() * 1080 }}
-                                transition={{ duration: 5 + Math.random() * 3, ease: "linear", repeat: Infinity, delay: Math.random() * 2 }}
-                            />
-                        ))}
-                        {showCard && (
-                            <motion.div initial={{ scale: 0.2, opacity: 0, y: 100 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: 'spring', damping: 10, stiffness: 60 }} style={s.certificate}>
-                                <motion.img src={logo} style={{ width: '140px', marginBottom: '40px' }} animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }} transition={{ repeat: Infinity, duration: 2.5 }} />
-                                <h1 style={{ fontSize: '38px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-1.5px' }}>BOOM! BOOM!</h1>
-                                <p style={{ fontSize: '20px', fontWeight: '800', color: '#3b82f6', margin: '15px 0 35px' }}>Certified for recognition!</p>
-                                <div style={{ border: '5px double #0B1E3F', padding: '40px', borderRadius: '25px', marginBottom: '45px', position: 'relative' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', letterSpacing: '3px' }}>Proficiency credential</div>
-                                    <div style={{ fontSize: '28px', fontWeight: '1000', color: '#0B1E3F', margin: '22px 0' }}>{selectedCourse.title}</div>
-                                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#64748b' }}>Awarded for world-class technical skill mastery.</div>
-                                </div>
-                                <button style={s.finishBtn} onClick={handleBackToFleet}>Collect & return</button>
-                            </motion.div>
-                        )}
-                    </div>
-                )}
                 <div style={s.innerContainer}>
                     <button style={s.backBtn} onClick={handleBackToFleet}><ChevronLeft size={18} /> Back to knowledge hub</button>
                     <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
@@ -392,20 +349,22 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                         </div>
                         <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: isPdfDone ? '#dcfce7' : '#0B1E3F', color: isPdfDone ? '#16a34a' : 'white', cursor: 'pointer' }}>{isPdfDone ? 'Completed' : 'Open pdf'}</button>
                     </div>
-                    <div style={{ ...s.taskRow, opacity: (courseProgressMap[selectedCourse.id]?.progress >= 100 && isPdfDone) ? 1 : 0.6, cursor: (courseProgressMap[selectedCourse.id]?.progress >= 100 && isPdfDone) ? 'pointer' : 'default' }} onClick={() => (courseProgressMap[selectedCourse.id]?.progress >= 100 && isPdfDone) && setCurrentView('test')}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#fffbeb', color: '#f59e0b' }}><Award size={24} /></div>
-                            <div>
-                                <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 3: Certification Test</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Final validation of knowledge mastery.</div>
+                    {(courseProgressMap[selectedCourse.id]?.progress >= 100 && isPdfDone) && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                            style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}
+                        >
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#0B1E3F', textAlign: 'center' }}>Congratulations! Here is your Certificate</div>
+                            <div style={{ position: 'relative', width: '100%', maxWidth: '700px' }}>
+                                <img src={certificateImg} alt="Certificate of Achievement" style={{ width: '100%', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', display: 'block' }} />
+                                <div style={{ position: 'absolute', top: '49%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', textAlign: 'center', color: '#0B1E3F', fontSize: 'clamp(14px, 3vw, 28px)', fontWeight: '900', fontFamily: 'serif', letterSpacing: '1px' }}>
+                                    {user?.name || user?.userName || 'Employee Name'}
+                                </div>
                             </div>
-                        </div>
-                        {(courseProgressMap[selectedCourse.id]?.progress >= 100 && isPdfDone) ? (
-                             <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: isTestDone ? '#dcfce7' : '#f59e0b', color: isTestDone ? '#16a34a' : 'white', cursor: 'pointer' }}>{isTestDone ? 'Certified' : 'Take test'}</button>
-                        ) : (
-                            <div style={{ backgroundColor: '#f1f5f9', color: '#94a3b8', padding: '10px 22px', borderRadius: '14px', fontSize: '12px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} /> Locked</div>
-                        )}
-                    </div>
+                        </motion.div>
+                    )}
                 </div>
             </div>
         );

@@ -190,8 +190,8 @@ const TaskNotification = ({ onOpenTask }) => {
         const threadUserId = sanitizeId(t.user_id || t.userId || t.user_Id);
         const uProfile = usersMap[threadUserId] || {};
         const role = (t.role || t.userRole || uProfile.role || uProfile.Role || '').toLowerCase();
-        // Silence notifications from HR, Admin, and TL per user request
-        const isExcluded = role.includes('hr') || role.includes('admin') || role.includes('tl') || role.includes('superadmin') || (uProfile.email && uProfile.email.includes('dinesh'));
+        // Silence notifications from HR, Admin, TL, and PM per user request
+        const isExcluded = role.includes('hr') || role.includes('admin') || role.includes('tl') || role.includes('superadmin') || role.includes('pm') || role.includes('manager') || (uProfile.email && uProfile.email.includes('dinesh'));
 
         if (!isExcluded && String(threadUserId) !== String(uid)) {
           const rawTs = t.created_at || t.createdAt || new Date();
