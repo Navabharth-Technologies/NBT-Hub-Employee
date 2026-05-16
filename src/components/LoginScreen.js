@@ -106,7 +106,7 @@ export default function LoginScreen() {
         <div style={s.inputGroup}>
           <label style={s.label}>Internal Passkey</label>
           <div style={s.inputWrapper}><Lock size={20} color="#3b82f6" /><input style={s.input} type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <div style={{ cursor: 'pointer', display: 'flex' }} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={20} color="#94a3b8" /> : <Eye size={20} color="#94a3b8" />}</div>
+            <div style={{ cursor: 'pointer', display: 'flex' }} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye size={20} color="#94a3b8" /> : <EyeOff size={20} color="#94a3b8" />}</div>
           </div>
         </div>
         <motion.button 
