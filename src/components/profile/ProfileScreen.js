@@ -377,6 +377,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         setShowPasswordModal(false);
         setOtpRequested(false);
         setPassData({ old: '', new: '', confirm: '', otp: '' });
+        setTimeout(() => {
+          logout();
+          window.location.href = '/login';
+        }, 1500);
       } else {
         const err = await res.json();
         triggerToast(err.message || 'Reset failed', 'error');
@@ -404,6 +408,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         triggerToast('Password updated successfully!');
         setShowPasswordModal(false);
         setPassData({ old: '', new: '', confirm: '', otp: '' });
+        setTimeout(() => {
+          logout();
+          window.location.href = '/login';
+        }, 1500);
       } else {
         const err = await res.json();
         triggerToast(err.message || 'Verification failed', 'error');
