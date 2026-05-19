@@ -373,14 +373,14 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         body: JSON.stringify({ email: user.email, otp: passData.otp, newPassword: passData.new })
       });
       if (res.ok) {
-        triggerToast('Password reset successfully!');
+        triggerToast('Your password has been changed. Please relogin.');
         setShowPasswordModal(false);
         setOtpRequested(false);
         setPassData({ old: '', new: '', confirm: '', otp: '' });
         setTimeout(() => {
           logout();
           window.location.href = '/login';
-        }, 1500);
+        }, 2500);
       } else {
         const err = await res.json();
         triggerToast(err.message || 'Reset failed', 'error');
@@ -405,13 +405,13 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         })
       });
       if (res.ok) {
-        triggerToast('Password updated successfully!');
+        triggerToast('Your password has been changed. Please relogin.');
         setShowPasswordModal(false);
         setPassData({ old: '', new: '', confirm: '', otp: '' });
         setTimeout(() => {
           logout();
           window.location.href = '/login';
-        }, 1500);
+        }, 2500);
       } else {
         const err = await res.json();
         triggerToast(err.message || 'Verification failed', 'error');
