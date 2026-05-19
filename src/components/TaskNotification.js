@@ -10,9 +10,39 @@ const TaskNotification = ({ onOpenTask }) => {
   const [hasUnread, setHasUnread] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [lastIds, setLastIds] = useState(new Set());
+  const [readNotifs, setReadNotifs] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('nbt_read_notifs')) || []);
+    } catch {
+      return new Set();
+    }
+  });
   const sanitizeId = (id) => String(id || '').split(':')[0];
 
   const [winWidth, setWinWidth] = useState(window.innerWidth);
+  
+  const parseDbDate = (dateStr) => {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) return dateStr;
+    try {
+      const s = String(dateStr);
+      const match = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+      if (match) {
+        const [_, y, m, d, hh, mm, ss] = match;
+        return new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+      }
+    } catch (e) {}
+    return new Date(dateStr);
+  };
+
+  const markAsRead = (id) => {
+    setReadNotifs(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem('nbt_read_notifs', JSON.stringify([...next].slice(-100)));
+      return next;
+    });
+  };
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
@@ -24,13 +54,15 @@ const TaskNotification = ({ onOpenTask }) => {
     if (!date || isNaN(date.getTime())) return '';
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const seconds = date.getSeconds();
+    const ampm = hours >= 12 ? 'pm' : 'am';
     const h = hours % 12 || 12;
     const m = minutes < 10 ? '0' + minutes : minutes;
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
+    const s = seconds < 10 ? '0' + seconds : seconds;
+    const day = date.getDate() < 10 ? '0' + date.getDate() : date.getDate();
+    const month = (date.getMonth() + 1) < 10 ? '0' + (date.getMonth() + 1) : (date.getMonth() + 1);
     const year = date.getFullYear();
-    return `${String(h).padStart(2, '0')}:${m} ${ampm} - ${day}/${month}/${year}`;
+    return `${year}/${month}/${day} at ${String(h).padStart(2, '0')}:${m}:${s} ${ampm}`;
   };
 
   const fetchNotifications = async () => {
@@ -40,7 +72,10 @@ const TaskNotification = ({ onOpenTask }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const headers = { 'Authorization': `Bearer ${token?.trim()}` };
+      const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
+      if (!cleanToken) return;
+      
+      const headers = { 'Authorization': `Bearer ${cleanToken}` };
 
       // 0. Fetch Users Map for Role/Name resolution
       let usersMap = {};
@@ -85,13 +120,7 @@ const TaskNotification = ({ onOpenTask }) => {
         }
       }
 
-      // 3. Fetch Threads for TL Alerts
-      let threads = [];
-      const threadRes = await fetch(`${API_ENDPOINTS.THREADS}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
-      if (threadRes && threadRes.ok) {
-        const data = await threadRes.json();
-        threads = Array.isArray(data) ? data : (data.value || data.data || []);
-      }
+      // Threads are no longer fetched here, they are handled by ThreadContext and NavigationDock
 
       // 4. Fetch Funny Quizzes for Engagement
       let quizzes = [];
@@ -117,7 +146,7 @@ const TaskNotification = ({ onOpenTask }) => {
       // Map Tasks - Use "Real Time" from backend
       const mappedTasks = tasks.map(t => {
         const rawTs = t.assigned_at || t.created_at || t.timestamp || t.deadline;
-        const parseDate = rawTs ? new Date(rawTs) : new Date();
+        const parseDate = parseDbDate(rawTs);
         const tid = `task_${t.id}`;
         newIds.add(tid);
         const isNewlyAssigned = lastIds.size > 0 && !lastIds.has(tid);
@@ -160,7 +189,7 @@ const TaskNotification = ({ onOpenTask }) => {
           if (isNewlyUpdated) addedNew = true;
 
           const rawTs = l.updated_at || l.created_at || new Date();
-          const parseDate = new Date(rawTs);
+          const parseDate = parseDbDate(rawTs);
 
           let statusText = 'Updated';
           if (currentSignature.includes('REJECTED')) statusText = 'Rejected';
@@ -180,49 +209,17 @@ const TaskNotification = ({ onOpenTask }) => {
         }
       });
 
-      // Map Threads - Important leadership updates (Only within last 48 hours)
-      const mappedThreads = [];
-      const now = new Date();
-      threads.forEach(t => {
-        const tid = `thread_${t.id}`;
-        newIds.add(tid);
-
-        const threadUserId = sanitizeId(t.user_id || t.userId || t.user_Id);
-        const uProfile = usersMap[threadUserId] || {};
-        const role = (t.role || t.userRole || uProfile.role || uProfile.Role || '').toLowerCase();
-        // Silence notifications from HR, Admin, TL, and PM per user request
-        const isExcluded = role.includes('hr') || role.includes('admin') || role.includes('tl') || role.includes('superadmin') || role.includes('pm') || role.includes('manager') || (uProfile.email && uProfile.email.includes('dinesh'));
-
-        if (!isExcluded && String(threadUserId) !== String(uid)) {
-          const rawTs = t.created_at || t.createdAt || new Date();
-          const parseDate = new Date(rawTs);
-          const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
-          // Notify for posts within last 24 hours to ensure they are fresh "Alerts"
-          if (daysDiff <= 1) {
-            const isNewlyPosted = lastIds.size > 0 && !lastIds.has(tid);
-            if (isNewlyPosted) addedNew = true;
-
-            mappedThreads.push({
-              id: tid,
-              type: 'THREAD',
-              title: `${t.userName || 'Leader'} posted a Thread`,
-              description: t.content || 'New organization update.',
-              formattedTime: formatDate(parseDate),
-              isNew: isNewlyPosted,
-              rawDate: parseDate
-            });
-          }
-        }
-      });
+      // Map Threads - Removed per user request
 
       // Map Quizzes - Engagement Alerts (Only within last 24 hours)
+      const now = new Date();
       const mappedQuizzes = [];
       quizzes.forEach(q => {
         const qid = `quiz_${q.id}`;
         newIds.add(qid);
 
         const rawTs = q.created_at || q.createdAt || new Date();
-        const parseDate = new Date(rawTs);
+        const parseDate = parseDbDate(rawTs);
         const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
 
         // Notify for quizzes within last 24 hours
@@ -246,7 +243,7 @@ const TaskNotification = ({ onOpenTask }) => {
       const mappedGlobal = globalNotifs.map(gn => {
         const gId = `global_${gn.id}`;
         newIds.add(gId);
-        const parseDate = new Date(gn.created_at || gn.createdAt || new Date());
+        const parseDate = parseDbDate(gn.created_at || gn.createdAt || new Date());
         const isNewlyAdded = lastIds.size > 0 && !lastIds.has(gId);
         if (isNewlyAdded) addedNew = true;
 
@@ -263,7 +260,7 @@ const TaskNotification = ({ onOpenTask }) => {
 
       localStorage.setItem(`seen_approvals_${uid}`, JSON.stringify(updatedApprovals));
 
-      const merged = [...mappedTasks, ...mappedLeaves, ...mappedThreads, ...mappedQuizzes, ...mappedGlobal].sort((a, b) => b.rawDate - a.rawDate);
+      const merged = [...mappedTasks, ...mappedLeaves, ...mappedQuizzes, ...mappedGlobal].sort((a, b) => b.rawDate - a.rawDate);
       setNotifications(merged);
 
       if (merged.length > 0) {
@@ -337,65 +334,91 @@ const TaskNotification = ({ onOpenTask }) => {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px', backgroundColor: '#f8fafc' }}>
-              {notifications.length > 0 ? notifications.map((notif, idx) => (
-                <div key={notif.id} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '1000', color: '#94a3b8', marginLeft: '5px', marginBottom: '2px' }}>
-                    {notif.formattedTime}
-                  </div>
-                  <div style={{
-                    background: notif.isNew ? '#ffffff' : '#f1f5f9',
-                    padding: '15px',
-                    borderRadius: '18px 18px 18px 4px',
-                    boxShadow: notif.isNew ? '0 4px 12px rgba(59, 89, 152, 0.15)' : 'none',
-                    border: notif.isNew ? '1.5px solid #3B5998' : '1px solid #eef2f6',
-                    position: 'relative'
-                  }}>
-                    {notif.isNew && (
-                      <div style={{ position: 'absolute', top: '-8px', right: '10px', background: '#3B5998', color: 'white', padding: '2px 8px', borderRadius: '10px', fontSize: '8px', fontWeight: '1000' }}>New Alert</div>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <Bell size={14} color="#3B5998" />
-                      <span style={{ fontWeight: '1000', fontSize: '13px', color: '#0B1E3F' }}>{notif.title}</span>
+              {notifications.length > 0 ? notifications.map((notif, idx) => {
+                const isRead = readNotifs.has(notif.id);
+                return (
+                  <div key={notif.id} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', marginLeft: '5px', marginBottom: '2px' }}>
+                      {notif.formattedTime}
                     </div>
-                    <p style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.4', margin: 0 }}>{notif.description}</p>
+                    <div 
+                      onClick={() => {
+                        markAsRead(notif.id);
+                        let tab = 'HOME';
+                        if (notif.type === 'LEAVE') tab = 'LEAVE';
+                        if (notif.type === 'THREAD') tab = 'THREAD';
+                        if (notif.type === 'QUIZ') tab = 'FUN';
 
-                    {(notif.isNew || idx === 0 || notif.type === 'QUIZ' || notif.type === 'THREAD' || notif.type === 'LEAVE') && (
-                      <button
-                        onClick={() => {
-                          let tab = 'HOME';
-                          if (notif.type === 'LEAVE') tab = 'LEAVE';
-                          if (notif.type === 'THREAD') tab = 'THREAD';
-                          if (notif.type === 'QUIZ') tab = 'FUN';
+                        onOpenTask(tab);
+                        setIsOpen(false);
+                        setHasUnread(false);
+                      }}
+                      style={{
+                        background: isRead ? '#ffffff' : '#eff6ff',
+                        padding: '16px',
+                        borderRadius: '24px',
+                        border: isRead ? '1px solid #f1f5f9' : '1.5px solid #dbeafe',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '15px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Left Icon Box */}
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '16px',
+                        backgroundColor: isRead ? '#f1f5f9' : '#3B5998',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <Bell size={20} fill={isRead ? 'none' : 'white'} color={isRead ? '#94a3b8' : 'white'} />
+                      </div>
 
-                          onOpenTask(tab);
-                          setIsOpen(false);
-                          setHasUnread(false);
-                        }}
-                        style={{
-                          marginTop: '12px',
-                          width: '100%',
-                          background: '#3B5998',
-                          color: 'white',
-                          border: 'none',
-                          padding: '11px',
-                          borderRadius: '11px',
-                          fontWeight: '1000',
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          boxShadow: '0 4px 12px rgba(59, 89, 152, 0.2)'
-                        }}
-                      >
-                        <Play size={12} fill="white" />
-                        {notif.type === 'LEAVE' ? 'Go To Leaves' : (notif.type === 'THREAD' ? 'Go To Threads' : (notif.type === 'QUIZ' ? 'Join Quiz' : 'Go To Dashboard'))}
-                      </button>
-                    )}
+                      {/* Text details */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ 
+                          fontWeight: isRead ? '700' : '900', 
+                          fontSize: '13px', 
+                          color: isRead ? '#64748b' : '#0B1E3F',
+                          marginBottom: '4px'
+                        }}>
+                          {notif.title}
+                        </div>
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: isRead ? '#94a3b8' : '#334e81', 
+                          fontWeight: isRead ? '500' : '700',
+                          lineHeight: '1.4', 
+                          margin: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {notif.description}
+                        </p>
+                      </div>
+
+                      {/* Unread Blue dot */}
+                      {!isRead && (
+                        <div style={{
+                          width: '10px',
+                          height: '10px',
+                          backgroundColor: '#3b82f6',
+                          borderRadius: '50%',
+                          flexShrink: 0,
+                          marginLeft: '5px'
+                        }} />
+                      )}
+                    </div>
                   </div>
-                </div>
-              )) : (
+                );
+              }) : (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '13px', fontWeight: '700' }}>
                   No team updates logged.
                 </div>

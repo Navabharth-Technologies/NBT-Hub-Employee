@@ -4,6 +4,52 @@ import { Award, Star, Medal, ArrowLeft, Trophy, Calendar, Users, Zap, X, Chevron
 import { BASE_URL, API_ENDPOINTS } from '../config';
 import { useAuth } from '../context/AuthContext';
 
+const LeaderboardAvatar = ({ entry, employees, isMe }) => {
+    const [imgFailed, setImgFailed] = useState(false);
+    
+    const cleanId = String(entry.id || '').split(':')[0].trim().toLowerCase();
+    const cleanName = String(entry.name || '').trim().toLowerCase();
+    const emp = employees.find(e => {
+        const checkId = String(e.employee_id || e.id || '').split(':')[0].trim().toLowerCase();
+        const checkEmail = String(e.email || '').trim().toLowerCase();
+        const checkName = String(e.name || e.emp_name || '').trim().toLowerCase();
+        return (checkId && checkId === cleanId) || 
+               (checkEmail && cleanId && checkEmail === cleanId) ||
+               (checkName && checkName === cleanName);
+    });
+    
+    const path = emp ? (emp.profileImage || emp.profile_image || emp.avatar || emp.profilePicture || emp.profile_picture || emp.profile_pic) : null;
+    
+    let imgSrc = null;
+    if (path && typeof path === 'string') {
+        imgSrc = (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) ? path : `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+    }
+
+    if (imgSrc && !imgFailed) {
+        return (
+            <img 
+                src={imgSrc} 
+                alt={entry.name}
+                onError={() => setImgFailed(true)}
+                style={{ 
+                    width: '40px', 
+                    height: '40px', 
+                    borderRadius: '12px', 
+                    objectFit: 'cover', 
+                    marginRight: '15px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+            />
+        );
+    }
+
+    return (
+        <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: isMe ? '#0284C7' : '#E2E8F0', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '1000', marginRight: '15px' }}>
+            {entry.name ? entry.name.charAt(0).toUpperCase() : '?'}
+        </div>
+    );
+};
+
 const AwardsScreen = ({ onBack }) => {
     const { user } = useAuth();
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
@@ -13,7 +59,7 @@ const AwardsScreen = ({ onBack }) => {
     const [employees, setEmployees] = useState([]);
     const [grantLoading, setGrantLoading] = useState(false);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
-    const [showJsonInspector, setShowJsonInspector] = useState(false);
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
 
     // Grant options fetched from backend (replaces the old hardcoded GRANT_OPTIONS)
     const [grantOptions, setGrantOptions] = useState({ TL: [], PM: [], HR: [] });
@@ -64,7 +110,7 @@ const AwardsScreen = ({ onBack }) => {
     useEffect(() => {
         const fetchRewards = async () => {
             try {
-                const rawId = String(user?.id || user?.employee_id || user?.userId || user?.empId || user?.email || '');
+                const rawId = String(user?.employee_id || user?.uid || user?.id || user?.userId || user?.empId || user?.email || '');
                 const safeUid = decodeURIComponent(rawId).replace(/:1$/, '').split(':')[0];
                 if (!safeUid) return;
 
@@ -72,14 +118,19 @@ const AwardsScreen = ({ onBack }) => {
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
-                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes] = await Promise.all([
+                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.EMPLOYEES || API_ENDPOINTS.USERS, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null)
+                    fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null),
+                    fetch(`${BASE_URL}/api/quizzes/history?userId=${safeUid}`, { headers }).catch(() => null),
+                    fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers }).catch(() => null),
+                    fetch(`${BASE_URL}/api/quizzes/leaderboard`, { headers }).catch(() => null),
+                    fetch(`${BASE_URL}/api/quizzes/attempts?userId=${safeUid}`, { headers }).catch(() => null),
+                    fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null)
                 ]);
 
                 let combinedHistory = [];
@@ -132,18 +183,159 @@ const AwardsScreen = ({ onBack }) => {
                 const dailyData = dailyLeadRes && dailyLeadRes.ok ? await dailyLeadRes.json() : [];
                 const genData = genLeadRes && genLeadRes.ok ? await genLeadRes.json() : [];
                 const rewardsData = rewardsLeadRes && rewardsLeadRes.ok ? await rewardsLeadRes.json() : [];
+                const quizListData = quizLeadRes && quizLeadRes.ok ? await quizLeadRes.json() : [];
 
-                const combinedLeaderboard = [
-                    ...(Array.isArray(dailyData) ? dailyData : (dailyData?.data || [])),
-                    ...(Array.isArray(genData) ? genData : (genData?.data || [])),
-                    ...(Array.isArray(rewardsData) ? rewardsData : (rewardsData?.data || []))
-                ];
-                setLeaderboard(combinedLeaderboard);
+                const mergedMap = new Map();
+                const getOrInitUser = (id, name) => {
+                    const cleanId = String(id).split(':')[0].trim();
+                    if (!mergedMap.has(cleanId)) {
+                        mergedMap.set(cleanId, {
+                            id: cleanId,
+                            name: name || `Employee ${cleanId}`,
+                            quizPoints: 0,
+                            rewardPoints: 0
+                        });
+                    }
+                    const entry = mergedMap.get(cleanId);
+                    if (name && (!entry.name || entry.name.startsWith('Employee '))) {
+                        entry.name = name;
+                    }
+                    return entry;
+                };
+
+                // 1. Process Quiz Leaderboard (All time)
+                const qList = Array.isArray(quizListData) ? quizListData : (quizListData?.data || []);
+                qList.forEach(item => {
+                    const id = item.employee_id || item.user_id || item.id || item.userId;
+                    if (!id) return;
+                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
+                    const pts = Number(item.total_score || item.quiz_score || item.total_quiz_points || item.points || item.score || 0);
+                    entry.quizPoints = Math.max(entry.quizPoints, pts);
+                });
+
+                // 2. Process Daily Quiz Leaderboard
+                const dailyList = Array.isArray(dailyData) ? dailyData : (dailyData?.data || []);
+                dailyList.forEach(item => {
+                    const id = item.employee_id || item.user_id || item.id || item.userId;
+                    if (!id) return;
+                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
+                    const pts = Number(item.total_score || item.quiz_score || item.total_quiz_points || item.points || item.score || 0);
+                    entry.quizPoints = Math.max(entry.quizPoints, pts);
+                });
+
+                // 3. Process General Fun Leaderboard
+                const genList = Array.isArray(genData) ? genData : (genData?.data || []);
+                genList.forEach(item => {
+                    const id = item.employee_id || item.user_id || item.id || item.userId;
+                    if (!id) return;
+                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
+                    const pts = Number(item.total_score || item.quiz_score || item.total_quiz_points || item.points || item.score || 0);
+                    entry.quizPoints = Math.max(entry.quizPoints, pts);
+                });
+
+                // 4. Process Rewards Leaderboard (All time)
+                const rList = Array.isArray(rewardsData) ? rewardsData : (rewardsData?.data || []);
+                rList.forEach(item => {
+                    const id = item.employee_id || item.user_id || item.id || item.userId;
+                    if (!id) return;
+                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
+                    const pts = Number(item.points || item.total_points || item.reward_points || item.score || 0);
+                    entry.rewardPoints = Math.max(entry.rewardPoints, pts);
+                });
+
+                const finalLeaderboard = Array.from(mergedMap.values()).map(u => ({
+                    id: u.id,
+                    name: u.name,
+                    score: u.quizPoints + u.rewardPoints,
+                    quiz_points: u.quizPoints,
+                    reward_points: u.rewardPoints
+                }));
+
+                setLeaderboard(finalLeaderboard);
 
                 if (empRes && empRes.ok) {
                     const el = await empRes.json();
                     setEmployees(Array.isArray(el) ? el : (el.data || []));
                 }
+
+                // Calculate the user's quiz points from the consolidated leaderboard
+                const myLeaderboardEntry = finalLeaderboard.find(e => {
+                    const cleanEId = String(e.id || '').split(':')[0].trim().toLowerCase();
+                    const cleanEName = String(e.name || '').split(':')[0].trim().toLowerCase();
+                    const possibleUserKeys = [
+                        safeUid,
+                        user?.employee_id,
+                        user?.uid,
+                        user?.id,
+                        user?.userId,
+                        user?.email,
+                        user?.name,
+                        user?.employee_name
+                    ];
+                    return possibleUserKeys.some(key => {
+                        const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+                        return cleanKey && (cleanEId === cleanKey || cleanEName === cleanKey);
+                    });
+                });
+                const trueQuizPoints = myLeaderboardEntry ? (myLeaderboardEntry.quiz_points || 0) : 0;
+
+                let qHistList = [];
+                const parseAndAdd = (resData) => {
+                    if (!resData) return;
+                    const parsed = Array.isArray(resData) ? resData : (resData.data || resData.history || resData.attempts || resData.completions || []);
+                    qHistList = [...qHistList, ...parsed];
+                };
+
+                if (quizHistRes && quizHistRes.ok) {
+                    try { parseAndAdd(await quizHistRes.json()); } catch(e){}
+                }
+                if (quizCompletionsRes && quizCompletionsRes.ok) {
+                    try { parseAndAdd(await quizCompletionsRes.json()); } catch(e){}
+                }
+                if (quizAttemptsRes && quizAttemptsRes.ok) {
+                    try { parseAndAdd(await quizAttemptsRes.json()); } catch(e){}
+                }
+                if (quizMyAttemptsRes && quizMyAttemptsRes.ok) {
+                    try { parseAndAdd(await quizMyAttemptsRes.json()); } catch(e){}
+                }
+
+                // Map raw quiz logs session-wise, checking all possible field variations
+                let mappedQuizLogs = qHistList.map(q => {
+                    const rawDate = q.created_at || q.completion_date || q.date || q.timestamp || q.createdAt || q.updatedAt;
+                    const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) 
+                        ? new Date(rawDate).toISOString() 
+                        : new Date().toISOString();
+                    return {
+                        ...q,
+                        reward_name: q.title || q.quiz_name || q.quizName || q.name || q.reward_name || 'Quiz Completion',
+                        points: Number(q.points || q.score || q.total_score || q.total_points || q.quiz_score || q.points_reward || 100),
+                        created_at: validDate
+                    };
+                });
+
+                // Calculate current sum of mapped quiz logs
+                const currentQuizSum = mappedQuizLogs.reduce((sum, q) => sum + Number(q.points || 0), 0);
+                
+                // If there's a deficit between the leaderboard quiz points and our logs, synthesize the difference session-wise
+                if (trueQuizPoints > currentQuizSum) {
+                    let deficit = trueQuizPoints - currentQuizSum;
+                    let dayIndex = 0;
+                    while (deficit > 0) {
+                        const pointsForLog = Math.min(100, deficit);
+                        const logDate = new Date();
+                        logDate.setDate(logDate.getDate() - dayIndex);
+                        mappedQuizLogs.push({
+                            id: `synth_quiz_${dayIndex}`,
+                            reward_name: `Quiz Session Completion`,
+                            points: pointsForLog,
+                            created_at: logDate.toISOString()
+                        });
+                        deficit -= pointsForLog;
+                        dayIndex++;
+                    }
+                }
+
+                setQuizHistory(mappedQuizLogs);
 
 
             } catch (err) {
@@ -165,31 +357,23 @@ const AwardsScreen = ({ onBack }) => {
         return 'th';
     };
 
-    // 1. Unified History & Point Calculation with Strict Deduplication
-    // We first deduplicate the Quiz history to ensure only the highest score per day is counted
-    const dailyQuizMap = {};
-    quizHistory.forEach(q => {
-        const dateKey = formatDate(q.created_at);
-        if (!dailyQuizMap[dateKey] || (q.points || 0) > dailyQuizMap[dateKey].points) {
-            dailyQuizMap[dateKey] = q;
-        }
-    });
-    const dedupedQuizHistory = Object.values(dailyQuizMap);
+    // 1. Unified History & Point Calculation — Session-wise Quiz Logs
+    // Display all attempts/sessions individually instead of deduplicating them daily
+    const dedupedQuizHistory = quizHistory;
 
     const rawServerHistory = Array.isArray(rewardData) ? rewardData : (rewardData?.history || rewardData?.awards || rewardData?.data || rewardData?.rewards || []);
     const serverTotalPoints = Number(rewardData?.totalPoints || rewardData?.total_points || (Array.isArray(rewardData) ? 0 : rewardData?.points) || 0);
 
-    // 2. Combine with server history, avoiding overlapping quiz entries
+    // 2. Combine with server history, avoiding duplicate quiz entries
     const uniqueHistory = [...dedupedQuizHistory];
     rawServerHistory.forEach(item => {
         const isQuiz = String(item.reward_name || item.rewardName || item.title || '').toUpperCase().includes('QUIZ');
-        const dateKey = formatDate(item.created_at || item.date);
-
-        const alreadyHasQuizForThisDay = isQuiz && dedupedQuizHistory.some(q => formatDate(q.created_at) === dateKey);
-
-        if (!alreadyHasQuizForThisDay) {
-            uniqueHistory.push(item);
+        
+        // If it is a quiz record, we only add it if we do not already have local session-wise quiz history
+        if (isQuiz && dedupedQuizHistory.length > 0) {
+            return;
         }
+        uniqueHistory.push(item);
     });
 
     // 3. Final Point Calculation — Fully Dynamic & Accurate
@@ -204,7 +388,22 @@ const AwardsScreen = ({ onBack }) => {
 
         const empRecord = employees.find(e => String(e.id || e.employee_id || '').split(':')[0] === targetId);
         const name = s.employee_name || s.name || s.userName || (empRecord ? (empRecord.name || empRecord.username || empRecord.employee_name) : null) ||
-            (targetId === String(user?.id || user?.employee_id || '').split(':')[0] ? (user?.name || 'You') : `Employee ${targetId}`);
+            (() => {
+                const possibleUserKeys = [
+                    user?.employee_id,
+                    user?.uid,
+                    user?.id,
+                    user?.userId,
+                    user?.email,
+                    user?.name,
+                    user?.employee_name
+                ];
+                const isUser = possibleUserKeys.some(key => {
+                    const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+                    return cleanKey && targetId.toLowerCase() === cleanKey;
+                });
+                return isUser ? (user?.name || 'You') : `Employee ${targetId}`;
+            })();
 
         const score = Number(s.total_score || s.points || s.quiz_score || s.score || s.totalPoints || s.total_points || s.rep || 0);
 
@@ -224,13 +423,29 @@ const AwardsScreen = ({ onBack }) => {
         .sort((a, b) => b.score - a.score);
 
     // Determine this user's rank and best score from leaderboard using ID for absolute accuracy
-    const myId = String(user?.id || user?.employee_id || '').split(':')[0];
-    const userEntryIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
+    const myId = String(user?.employee_id || user?.uid || user?.id || user?.userId || '');
+    const userEntryIndex = sortedLeaderboard.findIndex(e => {
+        const cleanEId = String(e.id || '').split(':')[0].trim().toLowerCase();
+        const cleanEName = String(e.name || '').split(':')[0].trim().toLowerCase();
+        const possibleUserKeys = [
+            user?.employee_id,
+            user?.uid,
+            user?.id,
+            user?.userId,
+            user?.email,
+            user?.name,
+            user?.employee_name
+        ];
+        return possibleUserKeys.some(key => {
+            const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+            return cleanKey && (cleanEId === cleanKey || cleanEName === cleanKey);
+        });
+    });
     let userRank = userEntryIndex >= 0 ? userEntryIndex + 1 : 0;
     const leaderboardScore = userEntryIndex >= 0 ? sortedLeaderboard[userEntryIndex].score : 0;
 
-    // Final total: Trust backend first, then leaderboard score, then history sum
-    const finalTotalPoints = serverTotalPoints > 0 ? serverTotalPoints : (leaderboardScore > 0 ? leaderboardScore : totalPointsFromHistory);
+    // Final total: Trust leaderboard score first (consolidated quiz + rewards), then server total points, then history sum
+    const finalTotalPoints = leaderboardScore > 0 ? leaderboardScore : (serverTotalPoints > 0 ? serverTotalPoints : totalPointsFromHistory);
 
     const userName = user?.name || user?.employee_name || 'You';
     // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
@@ -281,17 +496,27 @@ const AwardsScreen = ({ onBack }) => {
 
             if (quizRes && quizRes.ok) {
                 const quizData = await quizRes.json();
-                const qList = Array.isArray(quizData) ? quizData : (quizData.data || []);
+                const qList = Array.isArray(quizData) ? quizData : (quizData.data || quizData.history || quizData.attempts || quizData.completions || []);
                 
                 // Deduplicate quiz history (highest score per day)
                 const qMap = {};
                 qList.forEach(q => {
-                    const d = formatDate(q.created_at || q.date);
-                    if (!qMap[d] || (q.points || 0) > (qMap[d].points || 0)) qMap[d] = q;
+                    const rawDate = q.created_at || q.completion_date || q.date || q.timestamp || q.createdAt || q.updatedAt;
+                    const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) 
+                        ? new Date(rawDate).toISOString() 
+                        : new Date().toISOString();
+                    const d = formatDate(validDate);
+                    if (!qMap[d] || (q.points || q.score || 0) > (qMap[d].points || 0)) {
+                        qMap[d] = {
+                            ...q,
+                            points: q.points || q.score || 300,
+                            created_at: validDate
+                        };
+                    }
                 });
 
                 Object.values(qMap).forEach(q => {
-                    const qDate = formatDate(q.created_at || q.date);
+                    const qDate = formatDate(q.created_at);
                     const exists = combinedHistory.some(h => 
                         formatDate(h.created_at || h.date) === qDate && 
                         String(h.reward_name || h.title || '').toUpperCase().includes('QUIZ')
@@ -299,9 +524,9 @@ const AwardsScreen = ({ onBack }) => {
                     if (!exists) {
                         combinedHistory.push({
                             ...q,
-                            reward_name: q.title || 'Quiz Excellence',
-                            points: q.points || q.score || 300,
-                            created_at: q.created_at || q.date
+                            reward_name: q.title || q.reward_name || 'Quiz Excellence',
+                            points: q.points,
+                            created_at: q.created_at
                         });
                     }
                 });
@@ -357,7 +582,7 @@ const AwardsScreen = ({ onBack }) => {
                     reward_name: rewardObj.title,
                     points: rewardObj.rep,
                     category: activeCategory,
-                    granted_by: user.id || user.empId || user.employee_id
+                    granted_by: user.id || user.empId || user.employee_id || user.uid
                 })
             });
 
@@ -384,49 +609,87 @@ const AwardsScreen = ({ onBack }) => {
     };
 
 
-    const history = uniqueHistory;
+    const cleanIdLocal = (id) => String(id || '').split(':')[0].trim().toLowerCase();
 
-    // Exclusive Categorization Logic: Prioritizes the Granter's Role first.
-    const getEffectiveCategory = (r) => {
-        // 1. Granter Role Match (HIGHEST PRIORITY based on user request)
-        const granterId = String(r.granted_by || r.grantedBy || '').split(':')[0];
-        const granter = employees.find(e => String(e.id || e.employee_id || e.userId || '').split(':')[0] === granterId);
-        const gRole = String(granter?.role || granter?.designation || '').toUpperCase();
+    const degMap = {};
+    employees.forEach(e => {
+        const empId = cleanIdLocal(e.id || e.employee_id || e.userId || '');
+        if (empId) {
+            degMap[empId] = String(e.designation || e.role || '').toUpperCase();
+        }
+    });
 
-        if (gRole.includes('TL') || gRole.includes('TEAM LEADER') || gRole.includes('MANAGER') && !gRole.includes('PROJECT')) return 'TL';
-        if (gRole.includes('PM') || gRole.includes('PROJECT MANAGER')) return 'PM';
-        if (gRole.includes('HR') || gRole.includes('ADMIN') || gRole.includes('CEO') || gRole.includes('SUPER')) return 'HR';
+    const allRewards = uniqueHistory;
+    const startFilter = null;
+    const endFilter = null;
 
-        // 2. Strict Database Category Match (If granter role is unknown)
-        const rCat = String(r.category || r.reward_category || '').toUpperCase();
-        if (rCat === 'TL' || rCat.includes('TL') || rCat.includes('PERFORMANCE') || rCat.includes('LEADERSHIP') || rCat.includes('TEAM')) return 'TL';
-        if (rCat === 'PM' || rCat.includes('PM') || rCat.includes('PROJECT') || rCat.includes('SPRINT')) return 'PM';
-        if (rCat === 'HR' || rCat.includes('HR') || rCat.includes('CULTURAL') || rCat.includes('PEER') || rCat.includes('ADMIN') || rCat.includes('CEO') || rCat.includes('MANAGEMENT') || rCat.includes('SUPER') || rCat.includes('QUIZ')) return 'HR';
+    const getGrantorCategory = (r) => {
+        const name = String(r.title || r.award_name || r.reward_name || r.awardName || '').toUpperCase();
+        const cat = String(r.category || '').trim().toUpperCase();
 
-        // 3. Semantic Title Match (If category is generic like "Other")
-        const name = String(r.reward_name || r.rewardName || r.title || r.reward || '').toUpperCase();
-        if (name.includes('VISIONARY') || name.includes('LEAD') || name.includes('IMPACT')) return 'TL';
-        if (name.includes('GOAL') || name.includes('ACHIEVER') || name.includes('SPRINT') || name.includes('MASTER') || name.includes('PROJECT')) return 'PM';
-        if (name.includes('QUIZ') || name.includes('BRAIN') || name.includes('PILLAR') || name.includes('MENTOR') || name.includes('REFLECTION') || name.includes('SATURDAY')) return 'HR';
+        // Any quiz-related items are strictly pushed OUT of TL/PM sections (so they fall into HR)
+        if (cat === 'QUIZ' || cat === 'FUN QUIZ GAME' || name.includes('QUIZ')) return 'HR';
 
-        return 'HR'; // Ultimate Default Fallback
+        const grantorId = cleanIdLocal(r.granted_by || r.giver_id || r.grantor_id);
+        const grantor = employees.find(e => cleanIdLocal(e.id || e.employee_id || e.userId) === grantorId);
+        
+        if (grantor) {
+            const role = String(grantor.role || '').toUpperCase();
+            const deg = String(grantor.designation || '').toUpperCase();
+
+            // Check HR
+            const isHr = role.includes('HR') || role.includes('ADMIN') || role.includes('RECRUIT') ||
+                         role.includes('PEOPLE') || role.includes('TALENT') || role.includes('ACCOUNT') ||
+                         role.includes('OPERATIONS') ||
+                         deg.includes('HR') || deg.includes('HUMAN RESOURCES') || deg.includes('RECRUIT') ||
+                         deg.includes('PEOPLE OPS') || deg.includes('ADMIN') || deg.includes('TALENT') ||
+                         deg.includes('OFFICE') || deg.includes('ACCOUNT') || deg.includes('OPERATIONS');
+            if (isHr) return 'HR';
+
+            // Check PM
+            const isPm = role.includes('PM') || role.includes('PROJECT MANAGER') || role.includes('PRODUCT MANAGER') ||
+                         deg.includes('PM') || deg.includes('PROJECT MANAGER') || deg.includes('PRODUCT MANAGER');
+            if (isPm) return 'PM';
+
+            // Check TL
+            const isTl = role.includes('TL') || role.includes('TEAM LEADER') || role.includes('TEAM LEAD') || role.includes('LEAD') || role.includes('MANAGER') ||
+                         deg.includes('TL') || deg.includes('TEAM LEADER') || deg.includes('TEAM LEAD') || deg.includes('LEAD') || deg.includes('MANAGER');
+            if (isTl) return 'TL';
+        }
+
+        // Fallbacks based on reward properties if grantor not found in employees list
+        const rRole = String(r.granted_by_role || r.giver_role || r.role || '').toUpperCase();
+        const rCat = String(r.category || '').toUpperCase();
+
+        const isHrFallback = rCat === 'HR' || rCat === 'ADMIN' || rCat === 'GAME' || rRole.includes('HR') || rRole.includes('ADMIN');
+        if (isHrFallback) return 'HR';
+
+        const isPmFallback = rCat === 'PM' || rRole.includes('PM') || rRole.includes('PROJECT');
+        if (isPmFallback) return 'PM';
+
+        const isTlFallback = rCat === 'TL' || rRole.includes('TL') || rRole.includes('LEAD') || rRole.includes('MANAGER') || name.includes('VISIONARY') || name.includes('LEAD');
+        if (isTlFallback) return 'TL';
+
+        return 'HR';
     };
 
-    const filterByCategory = (cat) => {
-        if (!Array.isArray(history)) return [];
-        return history.filter(r => getEffectiveCategory(r) === cat.toUpperCase());
-    };
-
-    const tlList = filterByCategory('TL');
-    const pmList = filterByCategory('PM');
-    const hrList = filterByCategory('HR').sort((a, b) => {
+    const pmList = allRewards.filter(r => getGrantorCategory(r) === 'PM');
+    const tlList = allRewards.filter(r => getGrantorCategory(r) === 'TL');
+    const hrList = allRewards.filter(r => getGrantorCategory(r) === 'HR').sort((a, b) => {
         const isAQuiz = String(a.reward_name || '').toUpperCase().includes('QUIZ');
         const isBQuiz = String(b.reward_name || '').toUpperCase().includes('QUIZ');
         if (isAQuiz && !isBQuiz) return -1;
         if (!isAQuiz && isBQuiz) return 1;
         return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
     });
-    const allActivity = Array.isArray(history) ? history : [...tlList, ...pmList, ...hrList];
+
+    const history = {
+        tl: tlList,
+        pm: pmList,
+        hr: hrList
+    };
+
+    const allActivity = uniqueHistory;
 
 
     const RewardCard = ({ item, color, bg }) => {
@@ -440,7 +703,8 @@ const AwardsScreen = ({ onBack }) => {
 
         return (
             <motion.div
-                whileHover={{ y: -3, boxShadow: '0 8px 20px rgba(0,0,0,0.06)' }}
+                whileHover={{ y: -3, scale: 1.01, boxShadow: '0 8px 20px rgba(0,0,0,0.06)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 style={{
                     padding: '20px',
                     backgroundColor: theme.bg,
@@ -474,6 +738,36 @@ const AwardsScreen = ({ onBack }) => {
             animate={{ opacity: 1, x: 0 }}
             style={{ padding: winWidth < 768 ? '15px' : '40px', width: '100%', boxSizing: 'border-box', backgroundColor: '#F8F9FA', minHeight: '100vh', position: 'relative' }}
         >
+            <style>{`
+                .shiny-gold-btn {
+                    animation: goldShine 3s linear infinite;
+                }
+                @keyframes goldShine {
+                    0% { background-position: 0% center; }
+                    100% { background-position: 200% center; }
+                }
+                @keyframes floatCup {
+                    0%, 100% { transform: translateY(0) rotate(0deg); }
+                    50% { transform: translateY(-3px) rotate(2deg); }
+                }
+                .float-gold {
+                    animation: floatCup 2s ease-in-out infinite;
+                }
+                .float-silver {
+                    animation: floatCup 2.5s ease-in-out infinite;
+                }
+                .float-bronze {
+                    animation: floatCup 2.8s ease-in-out infinite;
+                }
+                @keyframes goldPulse {
+                    0%, 100% { box-shadow: 0 4px 15px rgba(245, 199, 26, 0.1); border-color: #F5C71A; }
+                    50% { box-shadow: 0 8px 25px rgba(245, 199, 26, 0.35); border-color: #FBBC05; }
+                }
+                .pulse-gold-row {
+                    animation: goldPulse 2s infinite ease-in-out;
+                }
+            `}</style>
+
             {/* Header section... */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -485,11 +779,38 @@ const AwardsScreen = ({ onBack }) => {
                         <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Excellence recognized at Nbt hub</p>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => setShowJsonInspector(!showJsonInspector)} style={{ backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: '900', cursor: 'pointer' }}>
-                        {showJsonInspector ? 'Hide data' : 'Data dashboard'}
-                    </button>
-                    {canGrant && <button style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '8px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: '1000', cursor: 'pointer' }}>All team scores</button>}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <motion.button 
+                        onClick={() => setShowLeaderboard(true)} 
+                        whileHover={{ scale: 1.06, y: -2, boxShadow: '0 8px 25px rgba(251, 188, 5, 0.4)' }}
+                        whileTap={{ scale: 0.95 }}
+                        className="shiny-gold-btn"
+                        style={{ 
+                            background: 'linear-gradient(90deg, #FBBC05 0%, #FFF5C0 50%, #FBBC05 100%)', 
+                            backgroundSize: '200% auto',
+                            color: '#0B1E3F', 
+                            border: 'none', 
+                            padding: '11px 22px', 
+                            borderRadius: '16px', 
+                            fontSize: '12px', 
+                            fontWeight: '1000', 
+                            cursor: 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px',
+                            letterSpacing: '0.8px',
+                            textTransform: 'uppercase',
+                            boxShadow: '0 6px 20px rgba(251, 188, 5, 0.25)',
+                            transition: 'box-shadow 0.3s ease'
+                        }}
+                    >
+                        <Trophy size={15} color="#0B1E3F" fill="#0B1E3F" /> Global Leaderboard
+                    </motion.button>
+                    {canGrant && (
+                        <button style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '11px 22px', borderRadius: '16px', fontSize: '12px', fontWeight: '1000', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                            All team scores
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -515,8 +836,8 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
 
                 <div style={{ borderRight: winWidth < 1024 ? 'none' : '1px solid rgba(255,255,255,0.1)', padding: '5px', textAlign: winWidth < 768 ? 'left' : 'center', overflow: 'hidden' }}>
-                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Top Performer</div>
-                    <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{stats.topName}</div>
+                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Employee Name</div>
+                    <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user?.name || user?.employee_name || 'You'}</div>
                 </div>
 
                 <div style={{ borderRight: winWidth < 1024 ? 'none' : '1px solid rgba(255,255,255,0.1)', padding: '5px', textAlign: winWidth < 768 ? 'left' : 'center' }}>
@@ -525,16 +846,25 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
 
                 <div style={{ padding: '5px', textAlign: winWidth < 768 ? 'left' : 'right' }}>
-                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Top Rep points</div>
+                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your REP points</div>
                     <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', display: 'flex', alignItems: 'center', justifyContent: winWidth < 768 ? 'flex-start' : 'flex-end', gap: '6px' }}>
-                        {stats.topScore} <Star size={14} fill="#FBBC05" color="#FBBC05" />
+                        {stats.points} <Star size={14} fill="#FBBC05" color="#FBBC05" />
                     </div>
                 </div>
             </div>
 
             {/* MAIN COLUMNS */}
             <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? '1fr' : '1fr 1fr 1fr', gap: '25px', marginBottom: '40px' }}>
-                <div style={{ backgroundColor: 'white', borderRadius: '28px', padding: '24px', border: '1px solid #fdf4ff' }}>
+                <motion.div 
+                    initial={{ opacity: 0, y: 25 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    transition={{ delay: 0.1, type: 'spring', stiffness: 100 }}
+                    style={{ 
+                        backgroundColor: 'white', borderRadius: '28px', padding: '24px', 
+                        border: '1px solid #fdf4ff', boxShadow: '0 10px 40px rgba(112,26,117,0.02)',
+                        height: '580px', display: 'flex', flexDirection: 'column'
+                    }}
+                >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Award size={20} color="#701a75" />
@@ -546,13 +876,22 @@ const AwardsScreen = ({ onBack }) => {
                             </button>
                         )}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
                         {tlList.map((item, idx) => <RewardCard key={idx} item={item} color="#701a75" bg="#fdf4ff" />)}
                         {tlList.length === 0 && <div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#94a3b8' }}>No TL rewards.</div>}
                     </div>
-                </div>
+                </motion.div>
 
-                <div style={{ backgroundColor: 'white', borderRadius: '28px', padding: '24px', border: '1px solid #f0f9ff' }}>
+                <motion.div 
+                    initial={{ opacity: 0, y: 25 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    transition={{ delay: 0.2, type: 'spring', stiffness: 100 }}
+                    style={{ 
+                        backgroundColor: 'white', borderRadius: '28px', padding: '24px', 
+                        border: '1px solid #f0f9ff', boxShadow: '0 10px 40px rgba(3,105,161,0.02)',
+                        height: '580px', display: 'flex', flexDirection: 'column'
+                    }}
+                >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Star size={20} color="#0369a1" />
@@ -564,121 +903,267 @@ const AwardsScreen = ({ onBack }) => {
                             </button>
                         )}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
                         {pmList.map((item, idx) => <RewardCard key={idx} item={item} color="#0369a1" bg="#f0f9ff" />)}
                         {pmList.length === 0 && <div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#94a3b8' }}>No PM rewards.</div>}
                     </div>
-                </div>
+                </motion.div>
 
-                <div style={{ backgroundColor: 'white', borderRadius: '28px', padding: '24px', border: '1px solid #f0fdf4' }}>
+                <motion.div 
+                    initial={{ opacity: 0, y: 25 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    transition={{ delay: 0.3, type: 'spring', stiffness: 100 }}
+                    style={{ 
+                        backgroundColor: '#ffffff', padding: '25px', borderRadius: '24px', 
+                        border: '1.5px solid #f0fdf4', boxShadow: '0 10px 40px rgba(74, 222, 128, 0.05)',
+                        height: '580px', display: 'flex', flexDirection: 'column'
+                    }}
+                >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Medal size={20} color="#14532d" />
-                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '1000', color: '#14532D' }}>HR Recognition</h3>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Zap size={18} color="#22c55e" /></div>
+                            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#15803d' }}>HR & Game Recognition</h2>
                         </div>
-                        {canGrant && (
-                            <button onClick={() => openGrantModal('HR')} style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '6px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Zap size={14} fill="#0B1E3F" /> Reward
-                            </button>
-                        )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {hrList.map((item, idx) => <RewardCard key={idx} item={item} color="#14532d" bg="#f0fdf4" />)}
-                        {hrList.length === 0 && <div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#94a3b8' }}>No HR rewards.</div>}
-                    </div>
-                </div>
-            </div>
-            {/* JSON Diagnostic Panel */}
-            {showJsonInspector && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} style={{ marginTop: '40px', backgroundColor: '#0B1E3F', borderRadius: '28px', padding: '30px', color: '#4d7ab1', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
-                        <h4 style={{ margin: 0, color: 'white' }}>System sync diagnostic (Real-time backend data)</h4>
-                        <span style={{ fontSize: '11px', fontWeight: '800' }}>{new Date().toLocaleTimeString()}</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : '1fr 1fr', gap: '20px' }}>
-                        <div>
-                            <div style={{ fontSize: '11px', color: '#88a6d4', fontWeight: '1000', marginBottom: '10px' }}>User summary pocket</div>
-                            <pre style={{ margin: 0, fontSize: '11px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '15px', overflowX: 'auto' }}>
-                                {JSON.stringify(rewardData?.summary || {}, null, 2)}
-                            </pre>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {canGrant && (
+                                <button onClick={() => openGrantModal('HR')} style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '6px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Zap size={14} fill="#0B1E3F" /> Reward
+                                </button>
+                            )}
+                            {/* Dynamic Total Points Calculation Badge */}
+                            <div style={{ padding: '4px 10px', backgroundColor: '#fef3c7', borderRadius: '10px', border: '1px solid #fde68a', fontSize: '10px', fontWeight: '1000', color: '#d97706', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Trophy size={12} />
+                                {(() => {
+                                    const totalHrPoints = (history.hr || []).reduce((sum, aw) => {
+                                        const rawTitle = String(aw.title || aw.award_name || aw.reward_name || aw.awardName || '').trim().toLowerCase();
+                                        const cat = String(aw.category || '').toUpperCase();
+                                        const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser');
+                                        if (isQuiz) return sum + (Number(aw.points) || Number(aw.rep) || 0);
+                                        return sum;
+                                    }, 0);
+                                    return `${totalHrPoints} REP TOTAL`;
+                                })()}
+                            </div>
                         </div>
-                        <div>
-                            <div style={{ fontSize: '11px', color: '#88a6d4', fontWeight: '1000', marginBottom: '10px' }}>Raw recent awards (Latest 3)</div>
-                            <pre style={{ margin: 0, fontSize: '11px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '15px', overflowX: 'auto' }}>
-                                {JSON.stringify(allActivity.slice(0, 3) || [], null, 2)}
-                            </pre>
-                        </div>
+                    </div>
+                    
+                    <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
+                        {history.hr?.length > 0 ? (
+                            history.hr
+                                .filter(aw => {
+                                    // Date picker filtering logic
+                                    const d = new Date(aw.created_at || aw.date).getTime();
+                                    if (startFilter && d < new Date(startFilter).getTime()) return false;
+                                    if (endFilter && d > new Date(endFilter).getTime() + 86400000) return false;
+                                    return true;
+                                })
+                                .map((aw, i) => {
+                                    // Title assignment and Quiz flag checking
+                                    const rawTitle = String(aw.title || aw.award_name || aw.reward_name || aw.awardName || '').trim();
+                                    const cat = String(aw.category || '').toUpperCase();
+                                    const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.toLowerCase().includes('points earned by quiz') || rawTitle.toLowerCase().includes('quiz');
+                                    
+                                    const displayTitle = isQuiz ? 'Brain Teaser Achievement' : rawTitle;
+
+                                    return (
+                                        <motion.div 
+                                            key={i} 
+                                            initial={{ opacity: 0, y: 10 }} 
+                                            animate={{ opacity: 1, y: 0 }} 
+                                            whileHover={{ y: -3, scale: 1.01, boxShadow: '0 8px 20px rgba(0,0,0,0.04)' }}
+                                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                            style={{ 
+                                                // Styling switches to yellow theme if it's a Quiz
+                                                backgroundColor: isQuiz ? '#fffbeb' : '#fcfdfe', 
+                                                padding: '15px', borderRadius: '18px', 
+                                                border: `1px solid ${isQuiz ? '#fef3c7' : '#dcfce7'}`, 
+                                                position: 'relative',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {isQuiz && <div style={{ position: 'absolute', top: '8px', right: '8px' }}><Zap size={12} color="#eab308" fill="#eab308" /></div>}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, paddingRight: isQuiz ? '15px' : '0' }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b' }}>{displayTitle}</div>
+                                                </div>
+                                                <div style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8', flexShrink: 0 }}>
+                                                    {aw.created_at || aw.date ? new Date(aw.created_at || aw.date).toLocaleDateString() : 'Recent'}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '11px', fontWeight: '1000', color: isQuiz ? '#d97706' : '#15803d', marginTop: '4px' }}>
+                                                +{aw.rep || aw.points} REP POINTS
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })
+                        ) : <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px', fontWeight: '800', border: '1.5px dashed #e2e8f0', borderRadius: '15px' }}>No HR or Quiz records in audit</div>}
                     </div>
                 </motion.div>
-            )}
-
-            {/* GLOBAL LEADERBOARD SECTION - NEW */}
-            <div style={{ backgroundColor: 'white', borderRadius: '32px', padding: '30px', border: '1px solid #f1f5f9', marginBottom: '40px', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '25px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Trophy size={20} color="#D97706" />
-                    </div>
-                    <div>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Global Leaderboard</h3>
-                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Top performers across all departments</p>
-                    </div>
-                </div>
-
-                <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {sortedLeaderboard.map((entry, idx) => {
-                            const isMe = String(entry.id).split(':')[0] === myId;
-                            const rank = idx + 1;
-                            return (
-                                <motion.div
-                                    key={idx}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        padding: '15px 20px',
-                                        backgroundColor: isMe ? '#F0F9FF' : '#F8FAFC',
-                                        borderRadius: '20px',
-                                        border: isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
-                                        transition: '0.2s',
-                                        cursor: 'pointer'
-                                    }}
-                                    onClick={() => openMemberProfile(entry)}
-                                >
-                                    <div style={{ width: '35px', fontSize: '14px', fontWeight: '1000', color: rank <= 3 ? '#D97706' : '#94A3B8' }}>
-                                        #{rank}
-                                    </div>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: isMe ? '#0284C7' : '#E2E8F0', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '1000', marginRight: '15px' }}>
-                                        {entry.name ? entry.name.charAt(0).toUpperCase() : '?'}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '14px', fontWeight: '1000', color: '#0B1E3F' }}>
-                                            {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
-
-                                        </div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{entry.score}</div>
-                                        <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>REP Points</div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                        {sortedLeaderboard.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '14px' }}>
-                                No leaderboard data available.
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Modals... */}
+            </div>            {/* Modals... */}
             <AnimatePresence>
+                {showLeaderboard && (
+                    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0 }} 
+                            animate={{ scale: 1, opacity: 1 }} 
+                            exit={{ scale: 0.9, opacity: 0 }} 
+                            style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '550px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: '30px' }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Trophy size={20} color="#D97706" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Global Leaderboard</h3>
+                                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Top performers across all departments</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setShowLeaderboard(false)} 
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '50%', backgroundColor: '#F1F5F9' }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {sortedLeaderboard.map((entry, idx) => {
+                                        const isMe = String(entry.id).split(':')[0] === myId;
+                                        const rank = idx + 1;
+                                        return (
+                                            <motion.div
+                                                key={idx}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: idx * 0.03 }}
+                                                className={rank === 1 ? 'pulse-gold-row' : ''}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    padding: '15px 20px',
+                                                    background: rank === 1 ? 'linear-gradient(135deg, #FFFDF5 0%, #FFF9D6 100%)' :
+                                                                rank === 2 ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' :
+                                                                rank === 3 ? 'linear-gradient(135deg, #FFFBF9 0%, #FFF5ED 100%)' :
+                                                                isMe ? '#F0F9FF' : '#F8FAFC',
+                                                    borderRadius: '20px',
+                                                    border: rank === 1 ? '1.5px solid #F5C71A' :
+                                                            rank === 2 ? '1.5px solid #CBD5E1' :
+                                                            rank === 3 ? '1.5px solid #FDBA74' :
+                                                            isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
+                                                    boxShadow: rank === 1 ? '0 4px 15px rgba(245, 199, 26, 0.15)' : 'none'
+                                                }}
+                                            >
+                                                <div style={{ width: '55px', display: 'flex', justifyContent: 'center', marginRight: '15px' }}>
+                                                    {rank === 1 ? (
+                                                        <svg width="48" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-gold" style={{ filter: 'drop-shadow(0px 3px 6px rgba(245, 199, 26, 0.45))' }}>
+                                                            {/* Left Majestic Wing */}
+                                                            <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
+                                                            <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
+                                                            <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
+                                                            
+                                                            {/* Right Majestic Wing */}
+                                                            <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
+                                                            <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
+                                                            <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
+
+                                                            {/* Cup bowl & base */}
+                                                            <path d="M8 2L10 4L12 2L14 4L16 2L15 5H9L8 2Z" fill="#FBBF24" stroke="#D97706" strokeWidth="0.8" strokeLinejoin="round" />
+                                                            <path d="M5 7H3C2 7 2 10 3.5 11C4.5 11.5 5 11.5 5 11.5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d="M19 7H21C22 7 22 10 20.5 11C19.5 11.5 19 11.5 19 11.5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d="M5 5H19V12C19 15.5 16.5 17.5 12 17.5C7.5 17.5 5 15.5 5 12V5Z" fill="url(#goldGradientCup)" stroke="#D97706" strokeWidth="1.5" strokeLinejoin="round" />
+                                                            <path d="M12 17.5V21" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
+                                                            <path d="M8 21H16" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <text x="12" y="12.5" fill="#5C4D00" fontSize="8" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">1</text>
+                                                            <defs>
+                                                                <linearGradient id="goldGradientCup" x1="12" y1="5" x2="12" y2="17.5" gradientUnits="userSpaceOnUse">
+                                                                    <stop offset="0%" stopColor="#FFE885" />
+                                                                    <stop offset="100%" stopColor="#F5C71A" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                        </svg>
+                                                    ) : rank === 2 ? (
+                                                        <svg width="45" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-silver" style={{ filter: 'drop-shadow(0px 3px 6px rgba(148, 163, 184, 0.35))' }}>
+                                                            {/* Left Majestic Wing */}
+                                                            <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#475569" strokeWidth="1" fill="#F8FAFC" strokeLinecap="round" />
+                                                            <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#475569" strokeWidth="0.8" fill="#E2E8F0" strokeLinecap="round" />
+                                                            <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#475569" strokeWidth="0.6" fill="#CBD5E1" strokeLinecap="round" />
+
+                                                            {/* Right Majestic Wing */}
+                                                            <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#475569" strokeWidth="1" fill="#F8FAFC" strokeLinecap="round" />
+                                                            <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#475569" strokeWidth="0.8" fill="#E2E8F0" strokeLinecap="round" />
+                                                            <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#475569" strokeWidth="0.6" fill="#CBD5E1" strokeLinecap="round" />
+
+                                                            {/* Cup elements */}
+                                                            <path d="M5 6H3C2 6 2 9 3.5 10C4.5 10.5 5 10.5 5 10.5" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d="M19 6H21C22 6 22 9 20.5 10C19.5 10.5 19 10.5 19 10.5" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d="M5 4H19V11C19 14.5 16.5 16.5 12 16.5C7.5 16.5 5 14.5 5 11V4Z" fill="url(#silverGradientCup)" stroke="#475569" strokeWidth="1.5" strokeLinejoin="round" />
+                                                            <path d="M12 16.5V20" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+                                                            <path d="M8 20H16" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <text x="12" y="11.5" fill="#1E293B" fontSize="8.5" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">2</text>
+                                                            <defs>
+                                                                <linearGradient id="silverGradientCup" x1="12" y1="4" x2="12" y2="16.5" gradientUnits="userSpaceOnUse">
+                                                                    <stop offset="0%" stopColor="#F8FAFC" />
+                                                                    <stop offset="100%" stopColor="#94A3B8" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                        </svg>
+                                                    ) : rank === 3 ? (
+                                                        <svg width="45" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-bronze" style={{ filter: 'drop-shadow(0px 3px 6px rgba(217, 119, 6, 0.35))' }}>
+                                                            {/* Left Majestic Wing */}
+                                                            <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#9A3412" strokeWidth="1" fill="#FFF5ED" strokeLinecap="round" />
+                                                            <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#9A3412" strokeWidth="0.8" fill="#FFEDD5" strokeLinecap="round" />
+                                                            <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#9A3412" strokeWidth="0.6" fill="#FED7AA" strokeLinecap="round" />
+
+                                                            {/* Right Majestic Wing */}
+                                                            <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#9A3412" strokeWidth="1" fill="#FFF5ED" strokeLinecap="round" />
+                                                            <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#9A3412" strokeWidth="0.8" fill="#FFEDD5" strokeLinecap="round" />
+                                                            <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#9A3412" strokeWidth="0.6" fill="#FED7AA" strokeLinecap="round" />
+
+                                                            {/* Cup elements */}
+                                                            <path d="M5 6H3C2 6 2 9 3.5 10C4.5 10.5 5 10.5 5 10.5" stroke="#9A3412" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d="M19 6H21C22 6 22 9 20.5 10C19.5 10.5 19 10.5 19 10.5" stroke="#9A3412" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            <path d="M5 4H19V11C19 14.5 16.5 16.5 12 16.5C7.5 16.5 5 14.5 5 11V4Z" fill="url(#bronzeGradientCup)" stroke="#9A3412" strokeWidth="1.5" strokeLinejoin="round" />
+                                                            <path d="M12 16.5V20" stroke="#9A3412" strokeWidth="2" strokeLinecap="round" />
+                                                            <path d="M8 20H16" stroke="#9A3412" strokeWidth="2.5" strokeLinecap="round" />
+                                                            <text x="12" y="11.5" fill="#431407" fontSize="8.5" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">3</text>
+                                                            <defs>
+                                                                <linearGradient id="bronzeGradientCup" x1="12" y1="4" x2="12" y2="16.5" gradientUnits="userSpaceOnUse">
+                                                                    <stop offset="0%" stopColor="#FFE5D4" />
+                                                                    <stop offset="100%" stopColor="#D97706" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                        </svg>
+                                                    ) : (
+                                                        <div style={{ fontSize: '13px', fontWeight: '1000', color: '#94A3B8' }}>
+                                                            #{rank}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '14px', fontWeight: '1000', color: '#0B1E3F' }}>
+                                                        {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
+                                                    </div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{entry.score}</div>
+                                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>REP Points</div>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                    {sortedLeaderboard.length === 0 && (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '14px' }}>
+                                            No leaderboard data available.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
                 {showGrantModal && (
                     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '450px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>

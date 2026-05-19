@@ -13,7 +13,7 @@ import { BASE_URL, API_ENDPOINTS } from '../../config';
 
 // These fields are strictly controlled by the backend for non-admin users
 const LOCKED_FIELDS = [
-  'designation', 'department',
+  'designation',
   'gross_salary_a', 'salary', 'pt', 'bgv_status', 'approved_by_ceo',
   'onboarding_link', 'appointment_letter', 'onboarding_doc_completed', 'id_card',
   'emp_id', 'doj', 'lwd', 'asset_name', 'asset_serial_no', 'asset_charger_details',
@@ -30,7 +30,7 @@ const SECTIONS = [
     fields: [
       { key: 'emp_name', label: 'Employee Name', placeholder: 'Full Name', type: 'text' },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'YYYY-MM-DD' },
+      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'age', label: 'Age', type: 'text', placeholder: 'Years' },
       { key: 'religion', label: 'Religion', type: 'text' },
       { key: 'blood_group', label: 'Blood Group', type: 'text' },
@@ -58,7 +58,7 @@ const SECTIONS = [
       { key: 'process', label: 'Process', type: 'text' },
       { key: 'supervisor_l1', label: 'Supervisor L1 (Reporting Person)', type: 'text' },
       { key: 'supervisor_l2', label: 'Supervisor L2', type: 'text' },
-      { key: 'doj', label: 'Date of Joining', type: 'text', placeholder: 'YYYY-MM-DD' },
+      { key: 'doj', label: 'Date of Joining', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'ft_pt', label: 'FT/PT', type: 'select', options: ['Full Time', 'Part Time', 'Contract'] },
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'On Bench', 'Notice Period', 'Terminated'] },
       { key: 'place', label: 'Work Location', type: 'text' },
@@ -148,8 +148,8 @@ const SECTIONS = [
       { key: 'emp_id', label: 'Employee ID', type: 'text' },
       { key: 'emp_name', label: 'Employee Name', type: 'text' },
       { key: 'designation', label: 'Designation', type: 'text' },
-      { key: 'doj', label: 'Joining Date', type: 'text', placeholder: 'YYYY-MM-DD' },
-      { key: 'lwd', label: 'Last Working Day', type: 'text', placeholder: 'YYYY-MM-DD' },
+      { key: 'doj', label: 'Joining Date', type: 'text', placeholder: 'DD/MM/YYYY' },
+      { key: 'lwd', label: 'Last Working Day', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'asset_name', label: 'Laptop Details', type: 'textarea' },
       { key: 'has_mouse', label: 'Mouse', type: 'boolean' },
       { key: 'has_keyboard', label: 'Keyboard', type: 'boolean' },
@@ -172,7 +172,7 @@ const SECTIONS = [
       { key: 'previous_experience', label: 'Previous Experience (Years)', type: 'text' },
       { key: 'total_experience', label: 'Total Experience (Years)', type: 'text' },
       { key: 'experience_letter_photo', label: 'Experience Letter', type: 'file' },
-      { key: 'separation', label: 'Separation Date', type: 'text', placeholder: 'YYYY-MM-DD' },
+      { key: 'separation', label: 'Separation Date', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'lwd', label: 'Last Working Day (LWD)', type: 'text' },
       { key: 'attrition_bucket', label: 'Attrition Bucket', type: 'select', options: ['N/A', 'Resignation', 'Performance', 'Behavioral', 'Medical'] },
       { key: 'reason', label: 'Primary Reason', type: 'text' },
@@ -325,7 +325,9 @@ export default function DocumentsScreen({ onBack }) {
             ...prev,
             emp_name: prev.emp_name && prev.emp_name !== 'Not Provided' ? prev.emp_name : (foundUser.name || foundUser.userName || ''),
             emp_id: prev.emp_id && prev.emp_id !== 'Not Provided' ? prev.emp_id : (foundUser.employee_id || foundUser.id || ''),
-            official_email_id: prev.official_email_id || foundUser.email || ''
+            official_email_id: prev.official_email_id || foundUser.email || '',
+            department: prev.department && prev.department !== 'Not Provided' ? prev.department : (foundUser.department || foundUser.dept || ''),
+            designation: prev.designation && prev.designation !== 'Not Provided' ? prev.designation : (foundUser.designation || foundUser.role || '')
           }));
           return foundUser;
         }
@@ -375,7 +377,10 @@ export default function DocumentsScreen({ onBack }) {
           const lwdVal = cleanData.lwd || cleanData.last_working_day || cleanData.last_working_date || cleanData.lwd_date;
           if (lwdVal) cleanData.lwd = lwdVal;
 
-          // Aggressive Name Resolution
+          const dobVal = cleanData.dob || cleanData.date_of_birth || cleanData.dateofbirth || cleanData.birth_date;
+          if (dobVal) cleanData.dob = dobVal;
+
+          // Aggressive Name and DOB Resolution
           const isOwnProfile = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
           if (isOwnProfile && (!cleanData.emp_name || cleanData.emp_name === 'Not Provided')) {
             cleanData.emp_name = user?.name || user?.userName || '';
@@ -383,6 +388,10 @@ export default function DocumentsScreen({ onBack }) {
 
           if (isOwnProfile && (!cleanData.emp_id || cleanData.emp_id === 'Not Provided')) {
             cleanData.emp_id = user?.employee_id || user?.empId || user?.id || '';
+          }
+
+          if (isOwnProfile && (!cleanData.dob || cleanData.dob === 'Not Provided')) {
+            cleanData.dob = user?.date_of_birth || user?.dob || '';
           }
 
           if (!cleanData.designation) cleanData.designation = user?.role || user?.designation || '';
@@ -436,6 +445,7 @@ export default function DocumentsScreen({ onBack }) {
           emp_name: user.name || user.userName || '',
           emp_id: user.employee_id || user.empId || user.id || '',
           designation: user.role || user.designation || '',
+          department: user.department || user.dept || '',
           official_email_id: user.email || ''
         }));
       }
@@ -463,6 +473,7 @@ export default function DocumentsScreen({ onBack }) {
         emp_name: user.name || user.userName || prev.emp_name,
         emp_id: user.employee_id || user.empId || user.id || prev.emp_id,
         designation: user.role || user.designation || prev.designation,
+        department: user.department || user.dept || prev.department,
         official_email_id: user.email || prev.official_email_id
       }));
     }
@@ -471,19 +482,10 @@ export default function DocumentsScreen({ onBack }) {
   const validateField = (key, value) => {
     let error = null;
 
-    const isContinuous = (str) => {
-      const s = String(str).toUpperCase();
-      if (/(.)\1{3,}/.test(s)) return true; // block 4+ same characters (1111, AAAA)
-      let seqCount = 1;
-      for (let i = 1; i < s.length; i++) {
-        if (s.charCodeAt(i) === s.charCodeAt(i - 1) + 1) {
-          seqCount++;
-          if (seqCount >= 4) return true; // block 4+ sequential characters (1234, ABCD)
-        } else {
-          seqCount = 1;
-        }
-      }
-      return false;
+    const isRepeatedPlaceholder = (str) => {
+      if (!str) return false;
+      const s = String(str).toUpperCase().replace(/\s/g, '');
+      return /^(.)\1+$/.test(s);
     };
 
     // REQUIRED FIELDS CHECK
@@ -494,8 +496,14 @@ export default function DocumentsScreen({ onBack }) {
 
     if (!value) return null;
 
-    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'blood_group'].includes(key)) {
+    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
+      if (/[^a-zA-Z\s]/.test(value)) error = 'Special characters are not allowed';
+    } else if (key === 'blood_group') {
+      const clean = String(value).toUpperCase().trim();
+      if (!/^(A|B|AB|O)[+-]$/.test(clean)) {
+        error = 'Invalid blood group (e.g., A+, AB-)';
+      }
     } else if (key === 'age') {
       if (value && String(value).length > 2) error = 'Maximum 2 digits allowed';
     } else if (['contact_no', 'emergency_contact_no'].includes(key)) {
@@ -503,20 +511,32 @@ export default function DocumentsScreen({ onBack }) {
       else if (value.length !== 10) error = 'Must be exactly 10 digits';
     } else if (key === 'aadhar_number') {
       const clean = String(value).replace(/\s/g, '');
-      if (/[a-zA-Z]/.test(clean)) error = 'Numbers only';
-      else if (clean.length !== 12) error = 'Must be exactly 12 digits';
-      else if (isContinuous(clean)) error = 'Continuous or repeated numbers are not allowed';
+      if (!/^\d{12}$/.test(clean)) error = 'Aadhaar must be exactly 12 digits';
+      else if (isRepeatedPlaceholder(clean)) error = 'Repeated placeholder numbers are not allowed';
     } else if (key === 'pan_number') {
-      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      const clean = String(value).toUpperCase().trim();
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(clean)) {
+        error = 'Format must be: 5 Letters, 4 Numbers, 1 Letter (e.g., ABCDE1234F)';
+      } else if (isRepeatedPlaceholder(clean)) {
+        error = 'Repeated placeholder sequences are not allowed';
+      }
+    } else if (key === 'voter_id') {
       const clean = String(value).toUpperCase();
-      if (!panRegex.test(clean)) error = 'Format must be: 5 letters, 4 numbers, 1 letter';
-      else if (isContinuous(clean)) error = 'Continuous or repeated sequences are not allowed';
+      if (clean.length > 11) error = 'Maximum 11 characters allowed';
+      else if (/[^A-Z0-9]/.test(clean)) error = 'Alphanumeric only';
     } else if (key === 'ifsc_code') {
-      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-      if (!ifscRegex.test(String(value).toUpperCase())) error = 'Use ABCD0123456 format';
-    } else if (key.includes('email')) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) error = 'Invalid email address';
+      const clean = String(value).toUpperCase();
+      if (clean.length !== 11) error = 'IFSC must be 11 characters';
+      else if (/[^A-Z0-9]/.test(clean)) error = 'Alphanumeric only';
+    } else if (key === 'bank_account_no') {
+      if (/\D/.test(value)) error = 'Numbers only';
+    } else if (key === 'edu_completion_year') {
+      if (value && value.length !== 4) error = 'Year must be exactly 4 digits';
+    } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
+      if (value && parseFloat(value) > 100) error = 'Maximum 100% allowed';
+    } else if (key.toLowerCase().includes('email')) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(value)) error = 'Format: abc@gmail.com';
     }
 
     return error;
@@ -548,25 +568,67 @@ export default function DocumentsScreen({ onBack }) {
   const handleChange = (key, value) => {
     // Immediate cleaning for specific fields
     let cleanValue = value;
-    if (['emp_name', 'father_husband_name', 'religion', 'nationality', 'blood_group'].includes(key)) {
-      cleanValue = value.replace(/[0-9]/g, ''); // Block numbers instantly
-    } else if (['contact_no', 'emergency_contact_no', 'aadhar_number', 'bank_account_no', 'age'].includes(key)) {
+    if (['emp_name', 'father_husband_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
+      cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
+    } else if (key === 'blood_group') {
+      const clean = value.replace(/[^a-zA-Z\+\-]/g, '').toUpperCase();
+      if (clean.length > 3) return;
+      if (clean.length >= 1 && !/^[A-Z]/.test(clean)) return;
+      if (clean.length >= 2 && !/^[A-Z][A-Z+-]/.test(clean)) return;
+      if (clean.length >= 3 && !/^[A-Z][A-Z+-][+-]$/.test(clean)) return;
+      cleanValue = clean;
+    } else if (['contact_no', 'emergency_contact_no', 'aadhar_number', 'bank_account_no', 'age', 'edu_completion_year'].includes(key)) {
       cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
+    } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
+      cleanValue = value.replace(/[^0-9.]/g, ''); // Block characters, allow dots for decimals
+      const parts = cleanValue.split('.');
+      if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join(''); // Prevent multiple dots
+    } else if (['pan_number', 'voter_id', 'ifsc_code'].includes(key)) {
+      cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); // Alphanumeric only
+    } else if (key.toLowerCase().includes('email')) {
+      const basicClean = value.replace(/[^a-zA-Z0-9@\._\-\+]/g, ''); // Block spaces and invalid characters instantly
+      const tldMatch = basicClean.match(/^(.*@[a-zA-Z0-9.-]+\.(?:com|co\.in|in|org|net|edu|gov))(.*)$/i);
+      if (tldMatch) {
+        cleanValue = tldMatch[1]; // Truncate everything after the TLD
+      } else {
+        cleanValue = basicClean;
+      }
     }
 
     // Length caps
     if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 10) return;
     if (key === 'aadhar_number' && cleanValue.length > 12) return;
     if (key === 'age' && cleanValue.length > 2) return;
-    if (key === 'pan_number' && cleanValue.length > 10) cleanValue = cleanValue.substring(0, 10).toUpperCase();
-    if (key === 'ifsc_code') cleanValue = cleanValue.toUpperCase();
+    if (key === 'edu_completion_year' && cleanValue.length > 4) return;
+    if (key === 'pan_number' && cleanValue.length > 10) return;
+    if (key === 'voter_id' && cleanValue.length > 11) return;
+    if (key === 'ifsc_code' && cleanValue.length > 11) return;
 
     let updates = { [key]: cleanValue };
 
-    // Auto-calculate age for DOB format YYYY-MM-DD
+    // Auto-calculate age for DOB formats (DD/MM/YYYY or YYYY-MM-DD)
     if (key === 'dob' && cleanValue && cleanValue.length === 10) {
-      const birthDate = new Date(cleanValue);
-      if (!isNaN(birthDate.getTime())) {
+      let birthDate = null;
+      if (cleanValue.includes('/')) {
+        const parts = cleanValue.split('/');
+        if (parts.length === 3) {
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          const y = parseInt(parts[2], 10);
+          if (y > 1000) birthDate = new Date(y, m - 1, d);
+        }
+      } else if (cleanValue.includes('-')) {
+        const parts = cleanValue.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) { // YYYY-MM-DD
+            birthDate = new Date(parts[0], parts[1] - 1, parts[2]);
+          } else { // DD-MM-YYYY
+            birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
+          }
+        }
+      }
+
+      if (birthDate && !isNaN(birthDate.getTime())) {
         const today = new Date();
         let age = today.getFullYear() - birthDate.getFullYear();
         const m = today.getMonth() - birthDate.getMonth();
@@ -663,20 +725,24 @@ export default function DocumentsScreen({ onBack }) {
       const uid = employeeId || user?.employee_id || user?.id || user?.userId;
       const token = localStorage.getItem('token');
 
-      // Scrub data before sending to prevent backend "appending" loops
+      // Scrub data: Only include fields from the current section for targeted updates
       const sanitizedForm = {};
-      Object.keys(form).forEach(key => {
-        let val = form[key];
-        if (typeof val === 'string') {
-          val = val.trim();
-        }
+      if (currentSectionConfig && currentSectionConfig.fields) {
+        currentSectionConfig.fields.forEach(field => {
+          if (field.key) {
+            let val = form[field.key];
+            if (typeof val === 'string') {
+              val = val.trim();
+            }
 
-        // Convert "Yes"/"No" strings to booleans for fields starting with 'has_'
-        if (key.startsWith('has_')) {
-          val = (val === 'Yes');
-        }
-        sanitizedForm[key] = val;
-      });
+            // Convert "Yes"/"No" strings to booleans for fields starting with 'has_'
+            if (field.key.startsWith('has_')) {
+              val = (val === 'Yes');
+            }
+            sanitizedForm[field.key] = val;
+          }
+        });
+      }
 
       const res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
         method: 'POST',
@@ -760,7 +826,7 @@ export default function DocumentsScreen({ onBack }) {
               style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
             />
             <button style={{ position: 'absolute', top: '30px', right: '30px', background: 'white', border: 'none', borderRadius: '50%', padding: '10px', cursor: 'pointer' }}>
-              <Trash2 size={20} color="#ef4444" onClick={(e) => { e.stopPropagation(); setViewImage(null); }} />
+              <X size={20} color="#ef4444" onClick={(e) => { e.stopPropagation(); setViewImage(null); }} />
             </button>
           </motion.div>
         )}
@@ -815,7 +881,7 @@ export default function DocumentsScreen({ onBack }) {
               }}
             >
               {saving ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
-              {isMobile ? 'Save' : 'Save All Details'}
+              {isMobile ? 'Save' : 'Save Section Details'}
             </motion.button>
           ) : (
             <motion.button
@@ -1033,7 +1099,7 @@ export default function DocumentsScreen({ onBack }) {
                   );
                 }
                 const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
-                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
+                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole || field.key === 'age';
 
                 return (
                   <div key={field.key} style={{

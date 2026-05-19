@@ -1,6 +1,15 @@
 export const BASE_URL = 'http://192.168.1.5:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
+// ✅ Company branding constants — single source of truth
+export const COMPANY_INFO = {
+  name: 'Navabharath Technologies',
+  tagline: 'Smarter Solutions for Better Future',
+  phone: '0821-3128831',
+  website: 'www.navabharathtechnologies.com',
+  email: 'contact@navabharathtechnologies.com',
+};
+
 // ✅ Helper to resolve any image path (URL or Base64) without corrupting data
 export const resolveImagePath = (path) => {
   if (!path || typeof path !== 'string') return null;
@@ -119,7 +128,7 @@ export const API_ENDPOINTS = {
   MY_ASSETS: (id) => `${BASE_URL}/api/my-assets?employee_id=${String(id || '').split(':')[0]}`,
   USER_SEARCH: (query) => `${BASE_URL}/api/users/search?query=${query}`,
   SUGGESTIONS: `${BASE_URL}/api/suggestions`,
-  MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my`,
+  MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my${userId ? `?userId=${String(userId).split(':')[0]}` : ''}`,
   REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`,
   RESET_PASSWORD_OTP: `${BASE_URL}/api/auth/reset-password`,
   CHANGE_PASSWORD: `${BASE_URL}/api/profile/update-password`

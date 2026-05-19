@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cake, ChevronLeft, Search, Gift, Calendar, RefreshCcw } from 'lucide-react';
+import { Cake, ChevronLeft, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
@@ -9,7 +9,6 @@ const BirthdayScreen = ({ onBack }) => {
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [birthdays, setBirthdays] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
 
   const getInitials = (name) => {
     if (!name) return '??';
@@ -51,7 +50,7 @@ const BirthdayScreen = ({ onBack }) => {
   }, []);
 
   // Robust date parsing utility
-  const parseSafe = (dStr) => {
+  function parseSafe(dStr) {
     if (!dStr) return new Date();
     // Handle DD-MM-YYYY or DD/MM/YYYY
     if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dStr)) {
@@ -59,9 +58,9 @@ const BirthdayScreen = ({ onBack }) => {
       return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
     }
     return new Date(dStr);
-  };
+  }
 
-  const fetchBirthdays = async () => {
+  async function fetchBirthdays() {
     setLoading(true);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -172,26 +171,26 @@ const BirthdayScreen = ({ onBack }) => {
 
   const s = {
     container: {
-      padding: window.innerWidth < 768 ? '20px 15px' : '30px 40px',
+      padding: window.innerWidth < 768 ? '10px 15px' : '15px 40px',
       maxWidth: '100%',
       margin: '0 auto',
       display: 'flex',
       flexDirection: 'column',
-      gap: '30px',
+      gap: '15px',
       minHeight: '100vh',
       backgroundColor: '#f8fafc'
     },
     headerCard: {
       backgroundColor: 'white',
       borderRadius: '45px',
-      padding: winWidth < 768 ? '40px 20px' : '60px',
+      padding: winWidth < 768 ? '25px 20px' : '35px',
       textAlign: 'center',
       boxShadow: '0 20px 60px rgba(0,0,0,0.02)',
       border: '1px solid #f1f5f9',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: '20px',
+      gap: '10px',
       position: 'relative'
     },
     syncStatus: {
@@ -203,27 +202,27 @@ const BirthdayScreen = ({ onBack }) => {
       color: '#0B1E3F',
       textTransform: 'uppercase',
       letterSpacing: '1px',
-      marginBottom: '10px'
+      marginBottom: '5px'
     },
     cakeIcon: {
-      width: '80px',
-      height: '80px',
+      width: '60px',
+      height: '60px',
       backgroundColor: '#f8fafc',
-      borderRadius: '24px',
+      borderRadius: '20px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       color: '#0B1E3F',
-      marginBottom: '10px'
-    },
-    title: {
-      fontSize: winWidth < 768 ? '24px' : '32px',
-      fontWeight: '1000',
-      color: '#0B1E3F',
       marginBottom: '5px'
     },
+    title: {
+      fontSize: winWidth < 768 ? '22px' : '28px',
+      fontWeight: '1000',
+      color: '#0B1E3F',
+      marginBottom: '2px'
+    },
     subtitle: {
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '1000',
       color: '#3b82f6',
       textTransform: 'uppercase',
@@ -232,17 +231,17 @@ const BirthdayScreen = ({ onBack }) => {
     list: {
       display: 'flex',
       flexDirection: 'column',
-      gap: '15px'
+      gap: '12px'
     },
     itemCard: (status) => ({
       backgroundColor: 'white',
       borderRadius: '25px',
-      padding: winWidth < 768 ? '18px' : '24px 35px',
+      padding: winWidth < 768 ? '18px' : '20px 35px',
       display: 'flex',
       flexDirection: winWidth < 768 ? 'column' : 'row',
       alignItems: winWidth < 768 ? 'flex-start' : 'center',
       justifyContent: 'space-between',
-      gap: winWidth < 768 ? '12px' : '20px',
+      gap: winWidth < 768 ? '12px' : '15px',
       border: status === 'Today' ? '2.5px solid #e11d48' : status === 'Upcoming' ? '2.5px solid #3b82f6' : '1px solid #f1f5f9',
       backgroundColor: status === 'Today' ? '#fff1f2' : 'white',
       boxShadow: status === 'Today' ? '0 10px 30px rgba(225, 29, 72, 0.08)' : status === 'Upcoming' ? '0 10px 30px rgba(59, 130, 246, 0.08)' : '0 4px 15px rgba(0,0,0,0.01)',
@@ -290,52 +289,47 @@ const BirthdayScreen = ({ onBack }) => {
 
   return (
     <div style={s.container}>
-      <button
-        onClick={onBack}
-        style={{ width: 'fit-content', border: 'none', background: 'white', padding: '12px 20px', borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '1000', color: '#0B1E3F', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}
-      >
-        <ChevronLeft size={16} /> Back to Dashboard
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+        <button
+          onClick={onBack}
+          style={{ 
+            border: 'none', 
+            background: 'white', 
+            width: '40px', 
+            height: '40px', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            cursor: 'pointer', 
+            color: '#0B1E3F', 
+            boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-3px)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}
+        >
+          <ChevronLeft size={24} strokeWidth={3} />
+        </button>
+        <span style={{ marginLeft: '12px', fontSize: '13px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Dashboard</span>
+      </div>
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
         <div style={s.syncStatus}>
           <RefreshCcw size={14} /> Data Synced With NBT Hub Profiles
         </div>
         <div style={s.cakeIcon}>
-          <Cake size={40} strokeWidth={1.5} />
+          <Cake size={32} strokeWidth={1.5} />
         </div>
         <h1 style={s.title}>NBT Birthdays 🎂</h1>
         <div style={s.subtitle}>Passed & Upcoming Celebrations</div>
 
-        <div style={{ width: '100%', marginTop: '30px', position: 'relative' }}>
-          <div style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-            <Search size={18} />
-          </div>
-          <input 
-            type="text"
-            placeholder="Search employee birthday..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ 
-              width: '100%', 
-              padding: '18px 20px 18px 55px', 
-              borderRadius: '20px', 
-              border: '1.5px solid #f1f5f9', 
-              fontSize: '14px', 
-              fontWeight: '800', 
-              outline: 'none', 
-              boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
-              backgroundColor: '#fcfcfd'
-            }}
-          />
-        </div>
-
-        <div style={{ ...s.list, width: '100%', marginTop: '30px' }}>
+        <div style={{ ...s.list, width: '100%', marginTop: '20px' }}>
           {(loading && birthdays.length === 0) ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>Syncing Celebration Data...</div>
-          ) : birthdays.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>No matching celebrations found.</div>
-          ) : birthdays.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((person, idx) => {
+          ) : birthdays.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>No celebrations found.</div>
+          ) : birthdays.map((person, idx) => {
             const status = getStatus(person.date);
             return (
               <motion.div

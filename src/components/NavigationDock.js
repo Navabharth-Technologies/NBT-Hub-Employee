@@ -20,21 +20,17 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
     };
   }, []); 
 
-  useEffect(() => {
-    if (activeTab === 'THREAD') {
-      clearNotifications();
-    }
-  }, [activeTab, clearNotifications]);
+  // Removed automatic clear on render so badge shows even if on the tab until clicked
 
   // (Removed Auto-show effect since it is now permanently visible)
 
   const navItems = [
-    { id: 'HOME', icon: <Home className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'HOME' },
-    { id: 'COURSES', icon: <BookOpen className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'COURSES' },
-    { id: 'THREAD', icon: <MessageSquare className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'THREAD' },
-    { id: 'FUN', icon: <Gamepad2 className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'FUN' },
-    { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'LEAVES' },
-    { id: 'PROFILE', icon: <User className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'PROFILE' },
+    { id: 'HOME', icon: <Home className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Home' },
+    { id: 'COURSES', icon: <BookOpen className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Courses' },
+    { id: 'THREAD', icon: <MessageSquare className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Thread' },
+    { id: 'FUN', icon: <Gamepad2 className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Fun' },
+    { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Leaves' },
+    { id: 'PROFILE', icon: <User className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Profile' },
   ].filter(item => isNewJoinee ? (item.id === 'HOME' || item.id === 'PROFILE' || item.id === 'FUN') : true);
 
   return (
@@ -77,16 +73,32 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                 key={item.id}
                 whileTap={{ scale: 0.9 }}
                 className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                onClick={() => onTabChange(item.id)}
-                style={{ color: activeTab === item.id ? theme.color : '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flex: 1, transition: 'all 0.2s ease' }}
+                onClick={() => {
+                  onTabChange(item.id);
+                  if (item.id === 'THREAD') {
+                    clearNotifications();
+                  }
+                }}
+                style={{ 
+                  color: '#000', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  cursor: 'pointer', 
+                  flex: 1, 
+                  transition: 'all 0.2s ease',
+                  borderBottom: activeTab === item.id ? '3px solid #EAB308' : '3px solid transparent',
+                  paddingBottom: '2px',
+                  borderRadius: '2px'
+                }}
               >
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2px' }}>
                   {React.cloneElement(item.icon, { 
                     style: { 
                       ...item.icon.props.style, 
-                      stroke: activeTab === item.id ? theme.color : '#475569',
-                      width: winWidth < 768 ? '15px' : '17px',
-                      height: winWidth < 768 ? '15px' : '17px'
+                      stroke: '#000',
+                      width: winWidth < 768 ? '18px' : '20px',
+                      height: winWidth < 768 ? '18px' : '20px'
                     } 
                   })}
                   {item.id === 'THREAD' && unreadCount > 0 && (
@@ -114,11 +126,12 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                   )}
                 </div>
                 <span className="nav-label" style={{ 
-                  fontWeight: '700', 
-                  fontSize: winWidth < 768 ? '7px' : '8px', 
-                  color: activeTab === item.id ? theme.color : '#475569', 
+                  fontWeight: '800', 
+                  fontSize: winWidth < 768 ? '11px' : '13px', 
+                  color: '#000', 
                   fontFamily: "'Outfit', sans-serif",
-                  letterSpacing: '0.1px'
+                  letterSpacing: '0.1px',
+                  textTransform: 'none'
                 }}>
                   {item.label}
                 </span>

@@ -62,11 +62,12 @@ const Dashboard = ({ setActiveTab }) => {
 
     try {
       const token = localStorage.getItem('token');
-      if (!token || token === 'undefined') return;
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+      if (!cleanToken) return;
 
       const headers = { 
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`
+        'Authorization': `Bearer ${cleanToken}`
       };
       const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
       if (res.ok) {
@@ -90,11 +91,12 @@ const Dashboard = ({ setActiveTab }) => {
     if (!sid) return;
     try {
       const token = localStorage.getItem('token');
-      if (!token || token === 'undefined') return;
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+      if (!cleanToken) return;
 
       const headers = { 
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`
+        'Authorization': `Bearer ${cleanToken}`
       };
       const res = await fetch(API_ENDPOINTS.SINGLE_TASK_DETAIL(sid), { headers });
       if (res.ok) {
@@ -244,9 +246,10 @@ const Dashboard = ({ setActiveTab }) => {
   const fetchSecondaryData = async () => {
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       // Integrated Birthdays API Suite (Strictly following user endpoints)
@@ -321,7 +324,7 @@ const Dashboard = ({ setActiveTab }) => {
       // Fetch Suggestions
       try {
         const response = await fetch(API_ENDPOINTS.SUGGESTIONS, {
-          headers: { 'Authorization': `Bearer ${token?.trim()}` }
+          headers: { 'Authorization': `Bearer ${cleanToken}` }
         });
         
         if (response.ok) {
@@ -341,9 +344,10 @@ const Dashboard = ({ setActiveTab }) => {
   const fetchCoursesAndProgress = async () => {
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       const res = await fetch(API_ENDPOINTS.COURSES, { headers });
@@ -390,11 +394,12 @@ const Dashboard = ({ setActiveTab }) => {
 
     try {
       const token = localStorage.getItem('token');
-      if (!token || token === 'undefined') return;
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+      if (!cleanToken) return;
 
       const headers = { 
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token.trim()}`
+        'Authorization': `Bearer ${cleanToken}`
       };
 
       // Parallel fetching of core data streams with silent resilience
@@ -403,7 +408,7 @@ const Dashboard = ({ setActiveTab }) => {
         const results = await Promise.all([
           fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }).catch(() => null),
           fetch(API_ENDPOINTS.TASK_UPDATES_USER(uid), { headers }).catch(() => null),
-          (!user?.manager_id && user?.email) ? fetch(API_ENDPOINTS.PROFILE(user.email), { headers }).catch(() => null) : Promise.resolve(null)
+          user?.email ? fetch(API_ENDPOINTS.PROFILE(user.email), { headers }).catch(() => null) : Promise.resolve(null)
         ]);
         [assignedResp, logsResp, profileResp] = results;
       } catch (err) {
@@ -442,28 +447,36 @@ const Dashboard = ({ setActiveTab }) => {
       }
 
       // 2. Process Manager / Team Projects
-      let mId = user?.manager_id || user?.tl_id || user?.team_leader_id || user?.reporting_manager_id || user?.managerId || user?.reportingManagerId;
-      if (!mId && profileResp && profileResp.ok) {
-        const mData = await profileResp.json();
-        mId = mData?.id || mData?.manager_id || mData?.userId || mData?.managerId || mData?.reporting_manager_id;
+      // We need the TL's ID to fetch projects assigned TO them by the PM
+      let mId = user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || user?.tl_id || user?.team_leader_id || user?.teamLeaderId || user?.representative_tl || user?.manager_email || user?.manager;
+      
+      if (profileResp && profileResp.ok) {
+        try {
+          // Use clone() to allow multiple reads if necessary
+          const mData = await profileResp.clone().json();
+          mId = mData?.reporting_manager_id || mData?.reportingManagerId || mData?.manager_id || mData?.managerId || mData?.tl_id || mData?.team_leader_id || mData?.id || mId;
+        } catch {}
       }
 
-      if (mId && String(mId) !== String(uid) && String(mId) !== 'undefined') {
-        const sid = sanitizeId(mId);
-        if (sid && sid !== 'undefined') {
-          const teamResp = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(sid), { headers }).catch(() => null);
-          if (teamResp && teamResp.ok) {
-            const tList = await teamResp.json().catch(() => []);
-            const tData = Array.isArray(tList) ? tList : (tList.value || tList.data || []);
-            const validT = tData.filter(t => {
-              if (!t) return false;
-              const nameRaw = t.projectName || t.project_name || t.project || t.task_name || t.taskName || t.title || t.taskTitle || '';
-              const pName = String(nameRaw).toLowerCase();
-              return pName !== '' && !pName.includes('individual');
+      if (mId) {
+        const mgrIdStr = String(sanitizeId(mId));
+        try {
+          const allResp = await fetch(API_ENDPOINTS.ALL_ASSIGNED_TASKS, { headers }).catch(() => null);
+          if (allResp && allResp.ok) {
+            const allData = await allResp.json().catch(() => []);
+            const allList = Array.isArray(allData) ? allData : (allData.value || allData.data || []);
+            const validT = allList.filter(p => {
+              if (!p) return false;
+              // API uses assignee_id for the person a task is assigned TO
+              const assigneeId = String(sanitizeId(p.assignee_id || p.assigned_to || p.assignedTo || p.assigneeId || ''));
+              const nameRaw = p.task_name || p.taskName || p.projectName || p.project_name || p.project || p.title || p.taskTitle || '';
+              return assigneeId === mgrIdStr && String(nameRaw).trim() !== '';
             });
             setTeamProjects(validT);
             safeSetItem(`team_projects_${user.id}`, JSON.stringify(validT));
           }
+        } catch (err) {
+          console.error("[Dashboard] Team Projects Fetch Error:", err);
         }
       }
 
@@ -812,7 +825,13 @@ const Dashboard = ({ setActiveTab }) => {
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} style={{ ...s.mainCard, minHeight: 'fit-content', padding: winWidth < 768 ? '25px' : '35px' }}>
-              <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '18px', marginBottom: winWidth < 768 ? '15px' : '25px' }}>Team Command Center</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: winWidth < 768 ? '15px' : '25px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '18px', marginBottom: 0 }}>Team Command Center</div>
+                <div style={{ backgroundColor: '#eff6ff', color: '#3B5998', padding: '6px 14px', borderRadius: '12px', fontSize: '11px', fontWeight: '900', border: '1.5px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Users size={14} />
+                  {teamProjects.length} Active Team Projects
+                </div>
+              </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '35px' }}>
                 <div 
@@ -844,7 +863,8 @@ const Dashboard = ({ setActiveTab }) => {
                 </div>
               </div>
 
-              <div style={s.taskGrid}>
+
+        <div style={s.taskGrid}>
                 <div 
                   onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
                   style={{ ...s.yesterdayBox, cursor: 'pointer', position: 'relative' }}

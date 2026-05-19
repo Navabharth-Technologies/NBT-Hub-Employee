@@ -38,9 +38,6 @@ function App() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('nbt_active_tab');
-      // If it's a sub-profile page, default to PROFILE to avoid broken back buttons
-      const profileSubPages = ['PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE'];
-      if (saved && profileSubPages.includes(saved)) return 'PROFILE';
       return saved || 'HOME';
     } catch { return 'HOME'; }
   });
@@ -77,6 +74,8 @@ function App() {
               const inputEmail = String(user.email).toLowerCase();
               return (jEmail && (jEmail === inputEmail || jEmail.startsWith(inputEmail.split('@')[0])));
             });
+            const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
+            if (!uid) return;
             setIsNewJoinee(isListed || user.role === 'Trainee' || user.isNewJoinee);
           } else {
             setIsNewJoinee(user.role === 'Trainee' || user.isNewJoinee);
@@ -90,22 +89,22 @@ function App() {
     checkJoineeStatus();
   }, [user]);
 
-  const showNav = () => {
+  const showNav = React.useCallback(() => {
     setIsNavVisible(true);
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-  };
+  }, []);
 
-  const hideNavTemporarily = () => {
+  const hideNavTemporarily = React.useCallback(() => {
     setIsNavVisible(false);
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = setTimeout(() => {
       setIsNavVisible(true);
     }, 3000);
-  };
+  }, []);
 
-  const handleScroll = () => {
+  const handleScroll = React.useCallback(() => {
     showNav();
-  };
+  }, [showNav]);
 
   useEffect(() => {
     const mainEl = scrollRef.current;
@@ -116,7 +115,24 @@ function App() {
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       };
     }
-  }, []);
+  }, [handleScroll]);
+
+  // ✅ Proper Navigation: Sync URL and Title with Active Tab
+  useEffect(() => {
+    if (!user) return;
+    const tabToPath = (t) => t.toLowerCase().replace(/_/g, '-');
+    const path = tabToPath(activeTab);
+    const displayPath = path === 'home' ? '/' : `/${path}`;
+    
+    // Update Browser History without full page reload
+    if (window.location.pathname !== displayPath) {
+      window.history.replaceState(null, '', displayPath);
+    }
+
+    // Update Document Title
+    const title = activeTab.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    document.title = `NBT Hub | ${title === 'Home' ? 'Dashboard' : title}`;
+  }, [activeTab, user]);
 
   if (loading) return null;
   if (!user) return <LoginScreen />;
@@ -125,7 +141,6 @@ function App() {
     setActiveTab(tab);
     setActiveTabState(state);
     
-    // Reset scroll position to top when changing tabs to prevent "merging" with header
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
@@ -176,7 +191,7 @@ function App() {
     <ThreadProvider>
       <div className="App" style={{ overflowX: 'hidden' }} onClick={hideNavTemporarily}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
-        <main key={activeTab} ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '40px' }}>
+        <main key={activeTab} ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '110px' }}>
           {renderTab()}
         </main>
         <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} isVisible={isNavVisible} />

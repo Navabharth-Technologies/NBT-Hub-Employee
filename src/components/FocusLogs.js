@@ -217,8 +217,8 @@ export default function FocusLogs({ onBack }) {
       flexDirection: winWidth < 768 ? 'column' : 'row',
       backgroundColor: 'white',
       borderRadius: '24px',
-      border: '1px solid #f1f5f9',
-      boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+      border: '1.5px solid #cbd5e1',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
       transition: 'all 0.3s ease'
     },
     dateBox: { 

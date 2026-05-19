@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane, ArrowLeft, Calendar, Info, Clock, CheckCircle, XCircle, X, Plus, Filter, Search, Users, Activity, Umbrella, CreditCard } from 'lucide-react';
+import { Plane, ArrowLeft, Calendar, Info, Clock, CheckCircle, XCircle, X, Plus, Filter, Search, Users, Activity, Umbrella, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
@@ -9,8 +9,9 @@ import { API_ENDPOINTS } from '../config';
 const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   const { user } = useAuth();
   const theme = getTheme(user?.role);
-  const [activeTab, setActiveTab] = useState('MY_HISTORY'); // MY_HISTORY, TEAM_REQUESTS, HOLIDAYS
+  const [activeTab, setActiveTab] = useState('MY_HISTORY'); // MY_HISTORY, TEAM_REQUESTS, HOLIDAYS, MONTHLY_CALENDAR
   const [showForm, setShowForm] = useState(startWithForm || false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [myLeaves, setMyLeaves] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -21,6 +22,8 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   const [monthFilter, setMonthFilter] = useState('ALL');
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedCalEvent, setSelectedCalEvent] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
@@ -36,7 +39,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   };
 
   const [formData, setFormData] = useState({
-    type: 'Annual Leave',
+    type: 'Earned Leaves',
     to: '',
     cc: '',
     reason: '',
@@ -72,9 +75,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     if (!uid) return;
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
       
       console.log(`[Leave] Fetching stats for UID: ${uid} from ${API_ENDPOINTS.LEAVE_STATS(uid)}`);
@@ -107,9 +111,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     if (!uid) return;
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined' && !token.startsWith('joinee-')) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken && !cleanToken.startsWith('joinee-')) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       const response = await axios.get(API_ENDPOINTS.LEAVE_BALANCE(uid), { headers });
@@ -128,9 +133,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   const fetchHolidays = async () => {
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined' && !token.startsWith('joinee-')) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken && !cleanToken.startsWith('joinee-')) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       const response = await axios.get(API_ENDPOINTS.HOLIDAYS, { headers }).catch(() => null);
@@ -146,9 +152,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     if (!user) return;
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined' && !token.startsWith('joinee-')) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken && !cleanToken.startsWith('joinee-')) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       const response = await axios.get(API_ENDPOINTS.USERS, { headers }).catch(() => null);
@@ -181,26 +188,24 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
       const headers = {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       };
 
-      if (token && token !== 'undefined' && !token.startsWith('joinee-')) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken && !cleanToken.startsWith('joinee-')) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
-      // Use the requested endpoint for fetching leave history
-      const myUrl = `${API_ENDPOINTS.LEAVE_REQUEST}?userId=${uid}&user_id=${uid}&employee_id=${uid}`;
+      // Use the correct GET endpoint for fetching leave history
+      const myUrl = API_ENDPOINTS.MY_LEAVES_GET(uid);
 
       const response = await fetch(myUrl, { headers }).catch(() => null);
 
       if (!response || !response.ok) {
-        console.warn("[Leave] Backend fetch failed, using local fallback.");
-        setMyLeaves([
-          { id: 'm1', leave_type: 'Annual Leave', start_date: '2026-05-10', end_date: '2026-05-12', no_of_days: 3, reason: 'Vacation', status: 'Approved' },
-          { id: 'm2', leave_type: 'Casual Leave', start_date: '2026-04-28', end_date: '2026-04-28', no_of_days: 1, reason: 'Sick day', status: 'Pending' }
-        ]);
+        console.warn("[Leave] Backend fetch failed.");
+        setMyLeaves([]);
       } else {
         const rawData = await response.json().catch(() => []);
         const data = Array.isArray(rawData) ? rawData : (rawData.data || rawData.leaves || []);
@@ -218,9 +223,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         }
       }
     } catch (error) {
-      setMyLeaves([
-        { id: 'm1', leave_type: 'Annual Leave', start_date: '2026-05-10', end_date: '2026-05-12', no_of_days: 3, reason: 'Vacation', status: 'Approved' }
-      ]);
+      setMyLeaves([]);
     } finally {
       setLoading(false);
     }
@@ -229,12 +232,13 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
   const handleAction = async (id, status) => {
     const token = localStorage.getItem('token');
+    const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
     try {
       const res = await fetch(API_ENDPOINTS.UPDATE_LEAVE_STATUS(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${cleanToken}`
         },
         body: JSON.stringify({ status })
       });
@@ -254,7 +258,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const token = localStorage.getItem('token');
+    const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
     const uid = user?.id || user?.empId || user?.employee_id || user?.userId;
 
     try {
@@ -282,6 +289,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         userId: Number(uid),
         employee_id: Number(uid),
         emp_id: Number(uid),
+        
+        name: user?.name || 'Employee',
+        employee_name: user?.name || 'Employee',
+        email: user?.email || '',
 
         manager_id: mId,
         managerId: mId,
@@ -315,11 +326,17 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
       console.log("[Leave] Submitting REDUNDANT payload:", payload);
 
+      if (!cleanToken || cleanToken === 'undefined' || cleanToken === 'null') {
+         setModalConfig({ show: true, message: "Authentication Error: Please log out and log back in.", type: 'error' });
+         setIsSubmitting(false);
+         return;
+      }
+
       const res = await fetch(API_ENDPOINTS.LEAVE_REQUEST, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${cleanToken}`
         },
         body: JSON.stringify(payload)
       });
@@ -331,10 +348,12 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         fetchUserBalance();
       } else {
         const err = await res.json().catch(() => ({}));
-        setModalConfig({ show: true, message: err.message || "Failed to submit request.", type: 'error' });
+        setModalConfig({ show: true, message: `Error ${res.status}: ${err.message || err.error || "Failed to submit request."}`, type: 'error' });
       }
     } catch (error) {
       setModalConfig({ show: true, message: "Error submitting request: " + error.message, type: 'error' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -437,6 +456,144 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       if (b.year !== a.year) return b.year - a.year;
       return new Date(`${b.month} 1, 2000`) - new Date(`${a.month} 1, 2000`);
     });
+  };
+
+  const renderMonthlyCalendar = () => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const cells = [];
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      cells.push({ date: new Date(year, month - 1, daysInPrevMonth - i), isCurrent: false });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      cells.push({ date: new Date(year, month, i), isCurrent: true });
+    }
+    const total = cells.length <= 35 ? 35 : 42;
+    const remaining = total - cells.length;
+    for (let i = 1; i <= remaining; i++) {
+      cells.push({ date: new Date(year, month + 1, i), isCurrent: false });
+    }
+
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', padding: '20px 30px', borderRadius: '25px', border: '1.5px solid #f1f5f9', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <button 
+              onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+              style={{ width: '40px', height: '40px', borderRadius: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0B1E3F' }}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '20px' : '26px', fontWeight: '1000', color: '#0B1E3F' }}>
+              {monthNames[month]} {year}
+            </h2>
+            <button 
+              onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+              style={{ width: '40px', height: '40px', borderRadius: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0B1E3F' }}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+          <button 
+            onClick={() => setCalendarDate(new Date())}
+            style={{ padding: '10px 20px', borderRadius: '14px', backgroundColor: '#eff6ff', color: '#1e40af', border: 'none', fontWeight: '900', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.1)' }}
+          >
+            Today
+          </button>
+        </div>
+
+        <div style={{ backgroundColor: 'white', borderRadius: '30px', overflow: 'hidden', border: '1.5px solid #f1f5f9', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+            {weekdays.map((wd, idx) => (
+              <div key={idx} style={{ padding: '15px 10px', textAlign: 'center', fontSize: '12px', fontWeight: '900', color: idx === 0 || idx === 6 ? '#ef4444' : '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                {wd}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+            {cells.map((cell, idx) => {
+              const dStr = `${cell.date.getFullYear()}-${String(cell.date.getMonth() + 1).padStart(2, '0')}-${String(cell.date.getDate()).padStart(2, '0')}`;
+              const isToday = new Date().toDateString() === cell.date.toDateString();
+              
+              const dayHols = holidays.filter(h => h.date === dStr);
+              const dayLeaves = myLeaves.filter(l => {
+                if (!l.start_date) return false;
+                const start = new Date(l.start_date.split('T')[0]);
+                const end = new Date((l.end_date || l.start_date).split('T')[0]);
+                start.setHours(0,0,0,0);
+                end.setHours(23,59,59,999);
+                const cur = new Date(cell.date);
+                cur.setHours(12,0,0,0);
+                return cur >= start && cur <= end;
+              });
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => (dayHols.length || dayLeaves.length) ? setSelectedCalEvent({ date: cell.date, holidays: dayHols, leaves: dayLeaves }) : null}
+                  style={{
+                    minHeight: winWidth < 768 ? '85px' : '120px',
+                    padding: '10px',
+                    borderRight: (idx + 1) % 7 === 0 ? 'none' : '1px solid #f1f5f9',
+                    borderBottom: idx >= cells.length - 7 ? 'none' : '1px solid #f1f5f9',
+                    backgroundColor: isToday ? '#fafafa' : 'white',
+                    cursor: (dayHols.length || dayLeaves.length) ? 'pointer' : 'default',
+                    opacity: cell.isCurrent ? 1 : 0.4,
+                    transition: 'all 0.2s',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}
+                  onMouseEnter={e => { if (dayHols.length || dayLeaves.length) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = isToday ? '#fafafa' : 'white'; }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ 
+                      width: '26px', height: '26px', borderRadius: '50%', 
+                      backgroundColor: isToday ? '#0B1E3F' : 'transparent', 
+                      color: isToday ? 'white' : (cell.date.getDay() === 0 || cell.date.getDay() === 6 ? '#ef4444' : '#1e293b'),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '12px', fontWeight: '900'
+                    }}>
+                      {cell.date.getDate()}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    {dayHols.map((h, hidx) => (
+                      <div key={`h-${hidx}`} style={{ padding: '4px 8px', borderRadius: '6px', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: 'white', fontSize: winWidth < 768 ? '9px' : '10px', fontWeight: '900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 2px 6px rgba(239,68,68,0.2)' }}>
+                        🌴 {h.occasion || h.name || h.holiday_name}
+                      </div>
+                    ))}
+                    {dayLeaves.map((l, lidx) => {
+                      const st = String(l.rm_status || l.status || '').toUpperCase();
+                      const isApp = st === 'APPROVED';
+                      const isRej = st === 'REJECTED';
+                      const bg = isApp ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : (isRej ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)');
+                      const shadow = isApp ? 'rgba(16,185,129,0.2)' : (isRej ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)');
+                      return (
+                        <div key={`l-${lidx}`} style={{ padding: '4px 8px', borderRadius: '6px', background: bg, color: 'white', fontSize: winWidth < 768 ? '9px' : '10px', fontWeight: '900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: `0 2px 6px ${shadow}` }}>
+                          {isApp ? '🟢' : (isRej ? '🔴' : '🟡')} {l.leave_type || 'Leave'}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const s = {
@@ -605,6 +762,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         {isLeader && <div style={s.tab(activeTab === 'TEAM_REQUESTS')} onClick={() => setActiveTab('TEAM_REQUESTS')}>Team Requests</div>}
         <div style={s.tab(activeTab === 'MY_HISTORY')} onClick={() => setActiveTab('MY_HISTORY')}>My History</div>
         <div style={s.tab(activeTab === 'MONTHLY_STATS')} onClick={() => setActiveTab('MONTHLY_STATS')}>Monthly Stats</div>
+        <div style={s.tab(activeTab === 'MONTHLY_CALENDAR')} onClick={() => setActiveTab('MONTHLY_CALENDAR')}>Monthly Calendar</div>
       </div>
 
       <div style={s.card}>
@@ -794,7 +952,78 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             )) : <p style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>No holidays listed.</p>}
           </div>
         )}
+
+        {activeTab === 'MONTHLY_CALENDAR' && renderMonthlyCalendar()}
       </div>
+
+      {/* Selected Calendar Event Modal */}
+      <AnimatePresence>
+        {selectedCalEvent && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
+            onClick={() => setSelectedCalEvent(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              style={{ backgroundColor: 'white', width: '90%', maxWidth: '500px', borderRadius: '35px', padding: '40px', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '1000', color: '#0B1E3F' }}>
+                    {selectedCalEvent.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '800' }}>Calendar Events</p>
+                </div>
+                <button onClick={() => setSelectedCalEvent(null)} style={{ background: '#f8fafc', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '400px', overflowY: 'auto' }}>
+                {selectedCalEvent.holidays.map((h, i) => (
+                  <div key={`h-${i}`} style={{ padding: '20px', borderRadius: '20px', background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ width: '45px', height: '45px', borderRadius: '15px', background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                      🌴
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#991b1b' }}>{h.occasion || h.name || h.holiday_name}</h4>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#dc2626', fontWeight: '800' }}>Official Public Holiday</p>
+                    </div>
+                  </div>
+                ))}
+                {selectedCalEvent.leaves.map((l, i) => {
+                  const st = String(l.rm_status || l.status || '').toUpperCase();
+                  const isApp = st === 'APPROVED';
+                  const isRej = st === 'REJECTED';
+                  const bg = isApp ? '#f0fdf4' : (isRej ? '#fef2f2' : '#fffbeb');
+                  const border = isApp ? '#bbf7d0' : (isRej ? '#fecaca' : '#fef3c7');
+                  const textColor = isApp ? '#16a34a' : (isRej ? '#dc2626' : '#d97706');
+                  return (
+                    <div key={`l-${i}`} onClick={() => { setSelectedCalEvent(null); setSelectedLeave(l); }} style={{ padding: '20px', borderRadius: '20px', backgroundColor: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <div style={{ width: '45px', height: '45px', borderRadius: '15px', backgroundColor: textColor, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '900' }}>
+                          {isApp ? '✓' : (isRej ? '✕' : '⏳')}
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: textColor }}>{l.leave_type || 'Leave Request'}</h4>
+                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: textColor, fontWeight: '800', opacity: 0.8 }}>{l.reason || l.remark || 'Time off'}</p>
+                        </div>
+                      </div>
+                      <div style={{ padding: '6px 14px', borderRadius: '12px', backgroundColor: 'white', color: textColor, fontSize: '11px', fontWeight: '1000', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                        {st}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Request Modal */}
       <AnimatePresence>
@@ -830,10 +1059,9 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                         onChange={e => setFormData({ ...formData, type: e.target.value })}
                         style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '14px', fontWeight: '700', appearance: 'none', backgroundColor: '#eff6ff', color: '#1e40af' }}
                       >
-                        <option>Annual Leave</option>
+                        <option>Earned Leaves</option>
                         <option>Casual Leave</option>
                         <option>LOP</option>
-                        <option>Sick Leave</option>
                       </select>
                       <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                         <ArrowLeft size={16} color="#1e40af" style={{ transform: 'rotate(-90deg)' }} />
@@ -914,7 +1142,9 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
                   <div style={{ display: 'flex', gap: '15px' }}>
                     <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, padding: '18px', borderRadius: '18px', border: '1.5px solid #f1f5f9', background: 'white', fontWeight: '900', cursor: 'pointer', color: '#64748b' }}>Cancel</button>
-                    <button type="submit" style={{ flex: 2, padding: '18px', borderRadius: '18px', border: 'none', background: '#0B1E3F', color: 'white', fontWeight: '900', cursor: 'pointer', boxShadow: '0 10px 30px rgba(11, 30, 63, 0.2)' }}>Submit official request</button>
+                    <button type="submit" disabled={isSubmitting} style={{ flex: 2, padding: '18px', borderRadius: '18px', border: 'none', background: isSubmitting ? '#94a3b8' : '#0B1E3F', color: 'white', fontWeight: '900', cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: isSubmitting ? 'none' : '0 10px 30px rgba(11, 30, 63, 0.2)' }}>
+                      {isSubmitting ? 'Submitting...' : 'Submit official request'}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -941,7 +1171,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
               <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: modalConfig.type === 'success' ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px' }}>
                 {modalConfig.type === 'success' ? <CheckCircle size={30} color="#22c55e" /> : <Info size={30} color="#ef4444" />}
               </div>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>{modalConfig.type === 'success' ? 'Brilliant!' : 'Attention Needed'}</h3>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>{modalConfig.type === 'success' ? 'Submitted!' : 'Attention Needed'}</h3>
               <p style={{ margin: 0, fontSize: '15px', color: '#64748b', fontWeight: '800', lineHeight: '1.6' }}>{modalConfig.message}</p>
               <button
                 onClick={() => setModalConfig({ ...modalConfig, show: false })}

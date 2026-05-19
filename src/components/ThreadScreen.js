@@ -27,6 +27,7 @@ export default function ThreadScreen({ onBack }) {
     const fileInputRef = useRef(null);
 
     const [activeEmojiPicker, setActiveEmojiPicker] = useState(null);
+    const [emojiPickerPos, setEmojiPickerPos] = useState({ top: 0, left: 0 });
     const [activeCommentPost, setActiveCommentPost] = useState(null);
     const [flyingEmoji, setFlyingEmoji] = useState(null);
     const [userProfiles, setUserProfiles] = useState({});
@@ -201,7 +202,7 @@ export default function ThreadScreen({ onBack }) {
         threadCard: { backgroundColor: 'white', borderRadius: isMobile ? '25px' : '40px', padding: isMobile ? '20px' : '24px 30px', border: '1px solid #f1f5f9', position: 'relative', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '20px', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
         taglineBadge: { display: 'inline-block', padding: '4px 10px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '8px' : '9px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', border: '1px solid #e0f2fe' },
         postMedia: { marginTop: '20px', borderRadius: '25px', overflow: 'hidden', border: '1.5px solid #f8fafc', maxHeight: isMobile ? '300px' : '380px', maxWidth: '100%', width: 'fit-content', backgroundColor: '#fdfdfd', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' },
-        footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '18px', marginTop: '20px', gap: isMobile ? '4px' : '10px', flexWrap: 'nowrap', overflowX: 'hidden' },
+        footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '18px', marginTop: '20px', gap: isMobile ? '4px' : '10px', flexWrap: 'nowrap', overflow: 'visible', position: 'relative', zIndex: 10 },
         action: (active, color) => ({ 
             display: 'flex', 
             alignItems: 'center', 
@@ -220,18 +221,15 @@ export default function ThreadScreen({ onBack }) {
             justifyContent: 'center'
         }),
         emojiPicker: {
-            position: 'absolute',
-            bottom: '100%',
-            left: '0',
+            position: 'fixed',
             backgroundColor: 'white',
             borderRadius: '20px',
-            padding: '8px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+            padding: '12px 16px',
+            boxShadow: '0 15px 50px rgba(0,0,0,0.2)',
             display: 'flex',
-            gap: '8px',
-            marginBottom: '10px',
+            gap: '10px',
             border: '1px solid #eef2f6',
-            zIndex: 100
+            zIndex: 99999
         },
         reactionBadge: {
             display: 'flex',
@@ -499,12 +497,21 @@ export default function ThreadScreen({ onBack }) {
 
                         <div style={styles.footer}>
                             <div 
-                                onClick={() => onToggleLike(post.id)} 
-                                onMouseEnter={() => setActiveEmojiPicker(post.id)}
-                                onMouseLeave={() => setActiveEmojiPicker(null)}
                                 style={styles.action(pLiked, '#ef4444')}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div 
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (activeEmojiPicker === post.id) {
+                                            setActiveEmojiPicker(null);
+                                        } else {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setEmojiPickerPos({ top: rect.top - 60, left: rect.left });
+                                            setActiveEmojiPicker(post.id);
+                                        }
+                                    }}
+                                >
                                     <Heart size={18} fill={pLiked ? "white" : "none"} stroke={pLiked ? "white" : "#ef4444"} strokeWidth={2.5} /> 
                                     {pLiked ? 'LIKED' : 'LIKE'} 
                                     <span 
@@ -517,32 +524,6 @@ export default function ThreadScreen({ onBack }) {
                                         ({likeCount})
                                     </span>
                                 </div>
-
-                                <AnimatePresence>
-                                    {activeEmojiPicker === post.id && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, y: 10, scale: 0.8 }} 
-                                            animate={{ opacity: 1, y: 0, scale: 1 }} 
-                                            exit={{ opacity: 0, y: 10, scale: 0.8 }}
-                                            style={styles.emojiPicker}
-                                        >
-                                            {EMOJI_LIST.map(emoji => (
-                                                <div 
-                                                    key={emoji} 
-                                                    style={{ fontSize: '24px', cursor: 'pointer', transition: 'transform 0.1s' }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onReact(post.id, emoji, e);
-                                                    }}
-                                                    onMouseOver={e => e.currentTarget.style.transform = 'scale(1.3)'}
-                                                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-                                                >
-                                                    {emoji}
-                                                </div>
-                                            ))}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
                             </div>
                             <div onClick={() => handleOpenComments(post.id)} style={styles.action(activeCommentPost === post.id, '#315A9E')}>
                                 <MessageSquare size={18} strokeWidth={2.5} /> 
@@ -637,7 +618,51 @@ export default function ThreadScreen({ onBack }) {
                 {flyingEmoji && (
                     <motion.div initial={{ left: flyingEmoji.x, top: flyingEmoji.y, opacity: 0 }} animate={{ y: [0, -100, -200], x: [0, 50, -50], opacity: [0, 1, 0], scale: [1, 2, 1] }} transition={{ duration: 2 }} style={{ position: 'fixed', fontSize: '50px', zIndex: 999 }}>{flyingEmoji.emoji}</motion.div>
                 )}
+            </AnimatePresence>
 
+            {/* Global fixed-position emoji picker - renders outside all scroll/overflow containers */}
+            <AnimatePresence>
+                {activeEmojiPicker && (
+                    <>
+                        {/* invisible backdrop to close on outside click */}
+                        <div
+                            style={{ position: 'fixed', inset: 0, zIndex: 99998 }}
+                            onClick={() => setActiveEmojiPicker(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                            style={{
+                                ...styles.emojiPicker,
+                                top: emojiPickerPos.top,
+                                left: emojiPickerPos.left,
+                            }}
+                        >
+                            {EMOJI_LIST.map(emoji => (
+                                <div
+                                    key={emoji}
+                                    style={{ fontSize: '28px', cursor: 'pointer', transition: 'transform 0.1s' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // find the active post and react
+                                        const postId = activeEmojiPicker;
+                                        setActiveEmojiPicker(null);
+                                        const fakeEvent = { clientX: emojiPickerPos.left, clientY: emojiPickerPos.top };
+                                        onReact(postId, emoji, fakeEvent);
+                                    }}
+                                    onMouseOver={e => e.currentTarget.style.transform = 'scale(1.3)'}
+                                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                                >
+                                    {emoji}
+                                </div>
+                            ))}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
                 {reactorModal && (
                     <motion.div 
                         initial={{ opacity: 0 }} 

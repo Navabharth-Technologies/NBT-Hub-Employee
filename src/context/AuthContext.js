@@ -76,6 +76,15 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const savedUser = safeGetItem('user');
     const token = safeGetItem('token');
+    
+    if (token) {
+        // Global Token Sanitization: Fix 401 errors caused by extra quotes in stored token
+        const cleanToken = token.replace(/['"]+/g, '').trim();
+        if (cleanToken !== token) {
+            safeSetItem('token', cleanToken);
+        }
+    }
+
     if (savedUser && token) {
       const u = JSON.parse(savedUser);
       

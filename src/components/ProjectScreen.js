@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, safeSetItem } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { 
   User, Users, Briefcase, Clock, CheckCircle2, 
-  Download, PlayCircle, Shield, ChevronRight,
-  TrendingUp, Target, ArrowLeft
+  Shield, ArrowLeft
 } from 'lucide-react';
 
 const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
@@ -17,10 +16,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const [teamProjects, setTeamProjects] = useState([]);
   const [sprintProgressMap, setSprintProgressMap] = useState({});
   const [sprintStatusMap, setSprintStatusMap] = useState({});
-  const [taskReviews, setTaskReviews] = useState({});
-  const [loading, setLoading] = useState(true);
   const [notificationFeedback, setNotificationFeedback] = useState(null);
-  const [reviewData, setReviewData] = useState({}); // taskId -> { review, verified }
+  const [reviewData] = useState({}); // taskId -> { review, verified }
   const [taskDetailMap, setTaskDetailMap] = useState({}); // Stores explicit task metadata
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [pendingStatusData, setPendingStatusData] = useState(null);
@@ -28,28 +25,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   // Helper to strip legacy ":1" suffixes from IDs
   const sanitizeId = (id) => String(id || '').split(':')[0];
 
-  useEffect(() => {
-    const handleResize = () => setWinWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    
-    // Fast Hydration
-    if (user) {
-      try {
-        const cachedInd = localStorage.getItem(`ind_projects_${user.id}`);
-        const cachedTeam = localStorage.getItem(`team_projects_${user.id}`);
-        if (cachedInd) setIndividualProjects(JSON.parse(cachedInd));
-        if (cachedTeam) setTeamProjects(JSON.parse(cachedTeam));
-      } catch (e) {}
-      fetchProjectData();
-    }
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, [user]);
-
-  const fetchProjectData = async () => {
-    const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
-    if (!uid) return;
-    setLoading(true);
+  const fetchSprintStatus = useCallback(async (targetId, currentProjectName) => {
+    const sid = sanitizeId(targetId);
     try {
       const token = localStorage.getItem('token');
       if (!token || token === 'undefined') return;
@@ -58,64 +35,28 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token.trim()}`
       };
-
-      // Parallelize Initial Fetching
-      const [indResp, profileResp] = await Promise.all([
-        fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }),
-        (!user?.manager_id && user?.email) ? fetch(API_ENDPOINTS.PROFILE(user.email), { headers }) : Promise.resolve(null)
-      ]);
-
-      // 1. Process Individual Projects
-      if (indResp.ok) {
-        const list = await indResp.json();
-        const data = Array.isArray(list) ? list : (list.value || list.data || []);
-        const valid = data.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle)));
-        setIndividualProjects(valid);
-        safeSetItem(`ind_projects_${user.id}`, JSON.stringify(valid));
-        
-        valid.forEach(p => {
-          const pName = p.projectName || p.project_name || p.project || p.task_name;
-          fetchSprintStatus(uid, pName);
-        });
-      }
-
-      // 2. Process Team Projects
-      let managerId = user?.manager_id || user?.tl_id || user?.team_leader_id || user?.reporting_manager_id || user?.managerId || user?.reportingManagerId;
-      if (!managerId && profileResp && profileResp.ok) {
-        const mData = await profileResp.json();
-        managerId = mData?.id || mData?.manager_id || mData?.userId || mData?.managerId || mData?.reporting_manager_id;
-      }
-
-      if (managerId && String(managerId) !== String(uid)) {
-        const teamResp = await fetch(API_ENDPOINTS.TASKS_ASSIGNED(managerId), { headers });
-        if (teamResp.ok) {
-          const tResp = await teamResp.json();
-          const tData = Array.isArray(tResp) ? tResp : (tResp.value || tResp.data || []);
-          const validT = tData.filter(p => {
-            if (!p) return false;
-            const nameRaw = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle || '';
-            const pName = String(nameRaw).toLowerCase();
-            return pName !== '' && !pName.includes('individual');
-          });
-          setTeamProjects(validT);
-          safeSetItem(`team_projects_${user.id}`, JSON.stringify(validT));
+      const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const respName = data.project_name || data.projectName;
+        if (!respName || respName === currentProjectName) {
+          const newStatus = data.sprint_status || data.sprintStatus;
+          const newProg = data.progress_percentage || data.progressPercentage || data.progress;
           
-          validT.forEach(p => {
-             const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
-             if(pName) fetchSprintStatus(managerId, pName);
-             const tid = p.id || p.assigned_id || p.task_id;
-             if (tid) fetchTaskDetail(tid);
-          });
+          if (newStatus) setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: newStatus }));
+          if (newProg !== undefined && newProg !== null) {
+            setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: newProg }));
+            localStorage.setItem(`sprint_progress_${targetId}_${currentProjectName}`, JSON.stringify({ 
+              status: newStatus || 'Pending', 
+              progress: newProg 
+            }));
+          }
         }
-      } 
-    } catch (err) {
-      console.error("Project Fetch Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      }
+    } catch (e) { }
+  }, []);
 
-  const fetchTaskDetail = async (taskId) => {
+  const fetchTaskDetail = useCallback(async (taskId) => {
     try {
       const token = localStorage.getItem('token');
       if (!token || token === 'undefined') return;
@@ -129,11 +70,12 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         const data = await res.json();
         setTaskDetailMap(prev => ({ ...prev, [taskId]: data }));
       }
-    } catch {}
-  };
+    } catch (e) {}
+  }, []);
 
-  const fetchSprintStatus = async (targetId, currentProjectName) => {
-    const sid = sanitizeId(targetId);
+  const fetchProjectData = useCallback(async () => {
+    const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
+    if (!uid) return;
     try {
       const token = localStorage.getItem('token');
       if (!token || token === 'undefined') return;
@@ -142,24 +84,86 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token.trim()}`
       };
-      const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        // If names match, use it. If no name in response, assume it's the latest relevant update.
-        const respName = data.project_name || data.projectName;
-        if (!respName || respName === currentProjectName) {
-          setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: data.sprint_status || data.sprintStatus || 'Pending' }));
-          setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: data.progress_percentage || data.progressPercentage || data.progress || 0 }));
-          localStorage.setItem(`sprint_progress_${targetId}_${currentProjectName}`, JSON.stringify({ 
-            status: data.sprint_status || data.sprintStatus || 'Pending', 
-            progress: data.progress_percentage || data.progressPercentage || data.progress || 0 
-          }));
-        }
-      }
-    } catch { }
-  };
 
-  // Consolidated Task Persistence
+      const [indResp, empProfileResp] = await Promise.all([
+        fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }),
+        user?.email ? fetch(API_ENDPOINTS.PROFILE(user.email), { headers }).catch(() => null) : Promise.resolve(null)
+      ]);
+
+      if (indResp.ok) {
+        const list = await indResp.json();
+        const data = Array.isArray(list) ? list : (list.value || list.data || []);
+        const valid = data.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle)));
+        setIndividualProjects(valid);
+        safeSetItem(`ind_projects_${user.id}`, JSON.stringify(valid));
+        
+        valid.forEach(p => {
+          const pName = p.projectName || p.project_name || p.project || p.task_name;
+          fetchSprintStatus(uid, pName);
+          const tid = p.id || p.assigned_id || p.task_id;
+          if (tid) fetchTaskDetail(tid);
+        });
+      }
+
+      let managerId = user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || user?.tl_id || user?.team_leader_id || user?.teamLeaderId || user?.representative_tl || null;
+
+      if (!managerId && empProfileResp && empProfileResp.ok) {
+        try {
+          const empData = await empProfileResp.json();
+          managerId = empData?.reporting_manager_id || empData?.reportingManagerId || empData?.manager_id || empData?.managerId || empData?.tl_id || empData?.team_leader_id || empData?.teamLeaderId || null;
+        } catch (e) {}
+      }
+
+      let teamTasksFound = [];
+      if (managerId) {
+        try {
+          const mgrIdStr = String(sanitizeId(managerId));
+          const allResp = await fetch(API_ENDPOINTS.ALL_ASSIGNED_TASKS, { headers }).catch(() => null);
+          if (allResp && allResp.ok) {
+            const allData = await allResp.json().catch(() => []);
+            const allList = Array.isArray(allData) ? allData : (allData.value || allData.data || []);
+            teamTasksFound = allList.filter(p => {
+              if (!p) return false;
+              const assigneeId = String(sanitizeId(p.assignee_id || p.assigned_to || p.assignedTo || p.assigneeId || ''));
+              const nameRaw = p.task_name || p.taskName || p.projectName || p.project_name || p.project || p.title || p.taskTitle || '';
+              return assigneeId === mgrIdStr && String(nameRaw).trim() !== '';
+            });
+          }
+        } catch (e) {}
+      }
+
+      if (teamTasksFound.length > 0) {
+        setTeamProjects(teamTasksFound);
+        safeSetItem(`team_projects_${user.id}`, JSON.stringify(teamTasksFound));
+        teamTasksFound.forEach(p => {
+          const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
+          if (pName) fetchSprintStatus(managerId || uid, pName);
+          const tid = p.id || p.assigned_id || p.task_id;
+          if (tid) fetchTaskDetail(tid);
+        });
+      }
+    } catch (err) {
+      console.error("Project Fetch Error:", err);
+    }
+  }, [user, fetchSprintStatus, fetchTaskDetail]);
+
+  useEffect(() => {
+    const handleResize = () => setWinWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    
+    if (user) {
+      try {
+        const cachedInd = localStorage.getItem(`ind_projects_${user.id}`);
+        const cachedTeam = localStorage.getItem(`team_projects_${user.id}`);
+        if (cachedInd) setIndividualProjects(JSON.parse(cachedInd));
+        if (cachedTeam) setTeamProjects(JSON.parse(cachedTeam));
+      } catch (e) {}
+      fetchProjectData();
+    }
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, [user, fetchProjectData]);
+
   const handleStatusUpdate = (pName, st, taskId) => {
     const curStatus = sprintStatusMap[pName] || 'Pending';
     if (curStatus === 'Completed') return;
@@ -168,14 +172,14 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       setPendingStatusData({ pName, st, taskId });
       setShowFinalizeModal(true);
     } else {
-      const curProg = sprintProgressMap[pName] || 0;
+      const td = taskDetailMap[taskId] || {};
+      const curProg = td.progress !== undefined && td.progress !== null ? td.progress : (sprintProgressMap[pName] !== undefined ? sprintProgressMap[pName] : 0);
       let newProgress = curProg;
 
       if (st === 'Pending') {
-        newProgress = 5;
+        newProgress = curProg;
       } else if (st === 'In Progress') {
-        newProgress = Math.min(95, curProg + 5);
-        if (newProgress < 10) newProgress = 10;
+        newProgress = Math.min(95, Number(curProg) + 5);
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
@@ -185,7 +189,6 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
       setSprintProgressMap(prev => ({ ...prev, [pName]: newProgress }));
 
-      // Inline sync for immediate updates
       const sid = sanitizeId(ownerId);
       fetch(`${BASE_URL}/api/sprint-updates`, {
         method: 'POST',
@@ -383,21 +386,60 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           
           const td = taskDetailMap[proj.id] || {};
           const rd = reviewData[proj.id];
-          const verified = rd?.verified !== undefined ? rd.verified : (proj.verified ?? proj.is_verified ?? proj.approval_status ?? null);
-          const isRejected = verified !== null && String(verified).toLowerCase() === 'rejected';
-
-          // Priority Swap: Local state (sprintStatusMap) must come FIRST
-          // If rejected, override status to 'In Progress' as requested
-          let pStatus = sprintStatusMap[pName] || proj.status || td.status || proj.sprint_status || proj.overallStatus || 'Pending';
-          if (isRejected && pStatus !== 'Completed') pStatus = 'In Progress';
-
-          const pProg = (sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
-                        (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
-                        (td.progress !== undefined && td.progress !== null ? td.progress : 
-                        (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0))));
-          const pVerify = verified;
-          const pReview = proj.task_review || td.task_review || proj.taskReview || proj.review || proj.feedback || null;
           
+          // Priority Fix: Use task_status and task_review from master_tasks table (from main list or detail fetch)
+          const finalReview = proj.task_review || td.task_review || '';
+          const finalStatus = proj.task_status || td.task_status || proj.status || '';
+
+          let vRaw = finalStatus || finalReview || null;
+          
+          const reviewText = String(finalReview).toLowerCase();
+          if (!vRaw && (reviewText.includes('approved') || reviewText === 'app' || reviewText.includes('verified'))) {
+            vRaw = 'APPROVED';
+          } else if (!vRaw && reviewText.includes('rejected')) {
+            vRaw = 'REJECTED';
+          }
+
+          const isApproved = vRaw !== null && (
+            String(vRaw).toUpperCase() === 'APPROVED' || 
+            String(vRaw).toUpperCase() === 'APP' || 
+            String(vRaw).toUpperCase() === 'VERIFIED'
+          );
+          const isRejected = vRaw !== null && String(vRaw).toUpperCase() === 'REJECTED';
+
+          // Overall status for buttons/progress
+          let pStatus = finalStatus || proj.overall_status || proj.overallStatus || 
+                        sprintStatusMap[pName] || 'Pending';
+          
+          if (isApproved) pStatus = 'Completed';
+          else if (isRejected) {
+            // Manager rejected — force back to In Progress at 75%
+            pStatus = 'In Progress';
+          }
+          
+          // Ensure 'In-Progress' is handled as 'In Progress'
+          if (pStatus === 'In-Progress') pStatus = 'In Progress';
+
+          const pProg = isRejected ? 75 :
+                        ((td.progress !== undefined && td.progress !== null) ? td.progress :
+                        ((sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
+                        (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
+                        (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0)))));
+
+          const deadlineDate = proj.deadline || td.deadline || proj.sprint_deadline || proj.end_date || proj.target_date || td.sprint_deadline || null;
+          
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dDate = deadlineDate ? new Date(deadlineDate) : null;
+          if (dDate) dDate.setHours(0, 0, 0, 0);
+          
+          const isToday = dDate && dDate.getTime() === today.getTime();
+          const isDeadlinePast = dDate && dDate.getTime() < today.getTime();
+          const isCompleted = pStatus === 'Completed';
+          
+          const compDateRaw = proj.completed_at || proj.completion_date || proj.updated_at || td.updated_at || null;
+          const compDate = compDateRaw ? new Date(compDateRaw).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Today';
+
           return (
             <motion.div 
               initial={{ opacity: 0, y: 20 }} 
@@ -405,101 +447,172 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
               key={idx} 
               style={{
                 ...s.projectCard,
-                borderColor: isRejected ? '#ef4444' : '#f1f5f9',
-                boxShadow: isRejected ? '0 10px 30px rgba(239, 68, 68, 0.05)' : '0 15px 45px rgba(0,0,0,0.02)'
+                backgroundColor: 'white',
+                borderRadius: '35px',
+                padding: winWidth < 768 ? '20px' : '30px 40px',
+                border: '1.5px solid #0B1E3F',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.03)',
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
-              <div style={{ display: 'flex', flexDirection: winWidth < 768 ? 'column' : 'row', gap: '30px' }}>
+              <div style={{ display: 'flex', flexDirection: winWidth < 1024 ? 'column' : 'row', justifyContent: 'space-between', gap: '20px' }}>
+                {/* Left Side: Title & Description */}
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                    <div style={{ backgroundColor: '#eff6ff', color: '#3B5998', padding: '5px 12px', borderRadius: '10px', fontSize: '10px', fontWeight: '800' }}>{activeView === 'INDIVIDUAL' ? 'Individual' : 'Team'}</div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}><Clock size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> {proj.deadline ? new Date(proj.deadline).toLocaleDateString() : 'No deadline'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                    <h2 style={{ fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '900', color: '#0B1E3F', margin: 0 }}>{pName}</h2>
+                    { (deadlineDate || isCompleted) && (
+                      <div style={{ 
+                        backgroundColor: isCompleted ? '#f0fdf4' : (isToday ? '#fff7ed' : (isDeadlinePast ? '#fff1f2' : '#f8fafc')), 
+                        color: isCompleted ? '#16a34a' : (isToday ? '#ea580c' : (isDeadlinePast ? '#e11d48' : '#64748b')), 
+                        padding: '6px 14px', 
+                        borderRadius: '12px', 
+                        fontSize: '10px', 
+                        fontWeight: '800',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        border: '1px solid',
+                        borderColor: isCompleted ? '#dcfce7' : (isToday ? '#ffedd5' : (isDeadlinePast ? '#ffe4e6' : '#e2e8f0')),
+                        boxShadow: (isToday || isDeadlinePast) && !isCompleted ? '0 0 10px rgba(234, 88, 12, 0.1)' : 'none'
+                      }}>
+                        <Clock size={12} />
+                        {isCompleted ? (
+                          <>
+                            DEADLINE: {new Date(deadlineDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} | 
+                            COMPLETED ON {compDate} ✅
+                          </>
+                        ) : (
+                          <>
+                            {new Date(deadlineDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} | 
+                            {isToday ? ' DEADLINE TODAY ⚠️' : (isDeadlinePast ? ' DEADLINE COMPLETED' : ' DEADLINE')}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <h2 style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F', margin: '0 0 8px 0' }}>{pName}</h2>
-                  <p style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.6', margin: 0 }}>{pDesc}</p>
+                  <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.6', margin: '0 0 20px 0', maxWidth: '600px' }}>{pDesc}</p>
+                  
+                  {isApproved && (
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      padding: '6px 14px', 
+                      borderRadius: '12px', 
+                      backgroundColor: '#f0fdf4', 
+                      color: '#16a34a', 
+                      fontSize: '11px', 
+                      fontWeight: '800', 
+                      border: '1.5px solid #dcfce7',
+                      width: 'fit-content'
+                    }}>
+                      ✓ VERIFIED
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ minWidth: winWidth < 768 ? '100%' : '300px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '15px', borderLeft: winWidth < 768 ? 'none' : '1.5px solid #f1f5f9', paddingLeft: winWidth < 768 ? '0' : '30px', paddingTop: winWidth < 768 ? '20px' : '0', borderTop: winWidth < 768 ? '1.5px solid #f1f5f9' : 'none' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#0B1E3F' }}>Sprint progress</span>
-                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#0B1E3F' }}>{pProg}%</span>
-                  </div>
-                  <div style={{ height: '10px', backgroundColor: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${pProg}%` }} style={{ height: '100%', backgroundColor: pStatus === 'Completed' ? '#16a34a' : '#FDB913', borderRadius: '10px' }} />
+                {/* Right Side: Progress & Buttons */}
+                <div style={{ width: winWidth < 1024 ? '100%' : '320px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sprint Progress</span>
+                    <span style={{ fontSize: '16px', fontWeight: '900', color: '#1e3a8a' }}>{pProg}%</span>
                   </div>
                   
+                  <div style={{ height: '8px', backgroundColor: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '10px' }}>
+                    <motion.div 
+                      initial={{ width: 0 }} 
+                      animate={{ width: `${pProg}%` }} 
+                      style={{ height: '100%', backgroundColor: '#3B5998', borderRadius: '10px' }} 
+                    />
+                  </div>
+
                   {activeView === 'INDIVIDUAL' && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                      {['Pending', 'In Progress', 'Completed'].map(st => (
-                        <motion.button 
-                          key={st}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleStatusUpdate(pName, st, proj.id)}
-                          style={{ 
-                            flex: 1, padding: '10px', borderRadius: '12px', border: '1.5px solid',
-                            borderColor: pStatus === st ? (st === 'Completed' ? '#16a34a' : '#3B5998') : '#e2e8f0',
-                            backgroundColor: pStatus === st ? (st === 'Completed' ? '#16a34a' : '#3B5998') : 'white',
-                            color: pStatus === st ? 'white' : '#64748b',
-                            fontSize: '9px', fontWeight: '800', cursor: pStatus === 'Completed' ? 'not-allowed' : 'pointer',
-                            transition: '0.2s',
-                            pointerEvents: 'auto',
-                            zIndex: 10
-                          }}
-                        >
-                          {st}
-                        </motion.button>
-                      ))}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {['Pending', 'In Progress', 'Completed'].map(st => {
+                        const isActive = pStatus.toLowerCase() === st.toLowerCase();
+                        // Lock all buttons if already Completed OR if manager has approved/rejected
+                        const isLocked = isCompleted || isApproved || isRejected;
+                        return (
+                          <button 
+                            key={st}
+                            onClick={() => !isLocked && handleStatusUpdate(pName, st, proj.id)}
+                            disabled={isLocked}
+                            title={isLocked ? (isApproved ? 'Approved by manager' : isRejected ? 'Rejected – awaiting resubmission' : 'Task is completed') : ''}
+                            style={{ 
+                              flex: 1, 
+                              padding: '10px 5px', 
+                              borderRadius: '12px', 
+                              border: '1.5px solid',
+                              borderColor: isActive ? '#3B5998' : '#e2e8f0',
+                              backgroundColor: isActive ? '#3B5998' : (isLocked ? '#f8fafc' : 'white'),
+                              color: isActive ? 'white' : (isLocked ? '#cbd5e1' : '#64748b'),
+                              fontSize: '9px', 
+                              fontWeight: '1000', 
+                              cursor: isLocked ? 'not-allowed' : 'pointer',
+                              textTransform: 'uppercase',
+                              transition: 'all 0.2s ease',
+                              opacity: isLocked && !isActive ? 0.5 : 1
+                            }}
+                          >
+                            {st}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Review & Verification Section — always visible */}
-              {(() => {
-                const rd = reviewData[proj.id];
-                // Read directly from proj first (already in TASKS_ASSIGNED response), then from fetched review data
-                const review = rd?.review || proj.task_review || proj.brief_review || proj.review || proj.taskReview || proj.feedback || proj.managerReview || null;
-                const verified = rd?.verified !== undefined ? rd.verified : (proj.verified ?? proj.is_verified ?? proj.approval_status ?? null);
-                const isApproved = verified !== null && (String(verified).toLowerCase() === 'approved' || verified === true || verified === 1);
-                const isRejected = verified !== null && String(verified).toLowerCase() === 'rejected';
-
-                return (
-                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1.5px solid #f1f5f9' }}>
-                    {/* Manager Review */}
-                    <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', letterSpacing: '0.3px', marginBottom: '8px' }}>
-                        Manager review
-                      </div>
-                      <div style={{ fontSize: '12px', color: review ? '#334155' : '#cbd5e1', lineHeight: '1.6', backgroundColor: '#f8fafc', borderRadius: '12px', padding: '10px 14px', border: '1px solid #e2e8f0', fontStyle: review ? 'italic' : 'normal' }}>
-                        {review ? `"${review}"` : 'No review submitted yet.'}
-                      </div>
+              {/* Highlighted Manager Review & Status Section */}
+              <div style={{ 
+                marginTop: '15px', 
+                padding: '10px 18px', 
+                borderRadius: '16px', 
+                backgroundColor: '#0B1E3F',
+                boxShadow: '0 6px 20px rgba(11, 30, 63, 0.12)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ padding: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                      <Shield size={16} color="white" />
                     </div>
-
-                    {/* Verification Badges */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', letterSpacing: '0.3px' }}>
-                        Verification status
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-                        <div style={{
-                          padding: '5px 14px', borderRadius: '10px', fontSize: '10px', fontWeight: '800',
-                          backgroundColor: isApproved ? '#dcfce7' : '#f8fafc',
-                          color: isApproved ? '#16a34a' : '#94a3b8',
-                          border: `1.5px solid ${isApproved ? '#86efac' : '#e2e8f0'}`,
-                          letterSpacing: '0.3px'
-                        }}>✓ Approved</div>
-                        <div style={{
-                          padding: '5px 14px', borderRadius: '10px', fontSize: '10px', fontWeight: '800',
-                          backgroundColor: isRejected ? '#fee2e2' : '#f8fafc',
-                          color: isRejected ? '#dc2626' : '#94a3b8',
-                          border: `1.5px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}`,
-                          letterSpacing: '0.3px'
-                        }}>✗ Rejected</div>
-                      </div>
-                    </div>
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: 'white', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Managerial Review</span>
                   </div>
-                );
-              })()}
+                  
+                  {/* Status Badge */}
+                  <div style={{ 
+                    padding: '6px 14px', 
+                    borderRadius: '10px', 
+                    fontSize: '10px', 
+                    fontWeight: '900',
+                    backgroundColor: isApproved ? '#16a34a' : (isRejected ? '#e11d48' : 'rgba(255,255,255,0.15)'),
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                  }}>
+                    {isApproved ? 'APPROVED' : (isRejected ? 'REJECTED' : 'PENDING REVIEW')}
+                  </div>
+                </div>
+
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: 'rgba(255,255,255,0.85)', 
+                  lineHeight: '1.4',
+                  fontWeight: '500',
+                  fontStyle: 'italic',
+                  paddingLeft: '10px',
+                  borderLeft: '2px solid rgba(255,255,255,0.2)'
+                }}>
+                  { finalReview 
+                    ? `"${finalReview}"`
+                    : "Your manager hasn't provided feedback yet. It will appear here once reviewed."
+                  }
+                </div>
+              </div>
             </motion.div>
           );
         }) : (

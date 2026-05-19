@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
   Calendar,
   Clock,
   ShieldCheck,
-  Search,
   RefreshCw,
   AlertCircle,
   Clock3,
   MapPin,
   Activity,
   ArrowLeft,
-  ChevronRight,
-  Download
+  Download,
+  FileText,
+  ChevronDown,
+  FileSpreadsheet
 } from 'lucide-react';
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import useGeolocation from '../hooks/useGeolocation';
@@ -27,7 +30,6 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   const { user } = useAuth();
   const { coords, address: currentLocation, loading: geoLoading, error: geoError } = useGeolocation();
   const [logs, setLogs] = useState([]);
-  const [stats, setStats] = useState({ present: 0, leaves: 0, halfDays: 0, totalLogs: 0 });
   const [loading, setLoading] = useState(true);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
@@ -61,10 +63,10 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [punchLoading, setPunchLoading] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Responsive Effect
   useEffect(() => {
@@ -106,10 +108,6 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     }
   }, []);
 
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedSearchUser, setSelectedSearchUser] = useState(null);
-
   // Auto-fetch attendance on component mount
   useEffect(() => {
     if (user && (user.id || user.empId || user.userId || user.employee_id)) {
@@ -117,57 +115,27 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (searchQuery.trim().length > 1) {
-      const delayDebounceFn = setTimeout(() => {
-        performUserSearch();
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery]);
-
-  const performUserSearch = async () => {
-    setIsSearching(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(API_ENDPOINTS.USER_SEARCH(searchQuery), {
-        headers: { 'Authorization': `Bearer ${token?.trim()}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(Array.isArray(data) ? data : []);
-      }
-    } catch (err) {
-      console.error("Search failed:", err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleSelectSearchedUser = (u) => {
-    setSelectedSearchUser(u);
-    setSearchQuery(u.name || u.employee_name || u.employee_id);
-    setSearchResults([]);
-    fetchAttendance(u.id || u.employee_id || u.userId);
-  };
-
   const fetchAttendance = async (targetUserId = null) => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error("Authentication token not found. Please log in again.");
+      
+      const cleanToken = token.replace(/['"]+/g, '').trim();
 
       const rawUid = targetUserId || user?.id || user?.empId || user?.userId || user?.employee_id;
       const uid = String(rawUid || '').split(':')[0].trim();
 
-      const url = `${BASE_URL}/api/attendance_logs?userId=${uid}&limit=1000`;
+      const queryParams = new URLSearchParams({ userId: uid, limit: 1000 });
+      if (startDate) queryParams.append('startDate', startDate);
+      if (endDate) queryParams.append('endDate', endDate);
+
+      const url = `${API_ENDPOINTS.ATTENDANCE_LOGS_GET}?${queryParams.toString()}`;
 
       const attendanceRes = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token.trim()}`,
+          'Authorization': `Bearer ${cleanToken}`,
           'Accept': 'application/json'
         }
       });
@@ -184,36 +152,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       const data = await attendanceRes.json();
       const logsArray = Array.isArray(data) ? data : (data.value || data.data || data.logs || []);
 
-      // --- Pending Leaves Calculation (Policy starts Feb 1, 2026) ---
-      const policyYear = 2026;
-      const policyStartMonth = 1; // 0-indexed Feb is 1
-      const today = new Date();
-      
-      const absencesSincePolicy = logsArray.filter(l => {
-        const dStr = l.punch_date || l.date || l.created_at;
-        if (!dStr) return false;
-        const logDate = new Date(dStr);
-        if (isNaN(logDate.getTime())) return false;
-        const isAbsent = (l.status || '').toUpperCase().includes('A');
-        const isAfterPolicy = logDate.getFullYear() > policyYear || 
-                             (logDate.getFullYear() === policyYear && logDate.getMonth() >= policyStartMonth);
-        return isAbsent && isAfterPolicy && logDate <= today;
-      }).length;
-
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth();
-      const monthsSincePolicy = Math.max(1, (currentYear - policyYear) * 12 + (currentMonth - policyStartMonth) + 1);
-      const pendingLeaves = Math.max(0, absencesSincePolicy - monthsSincePolicy);
-
-      // Update stats
-      setStats({
-        present: data.presentCount || data.present || logsArray.filter(l => (l.status || '').toUpperCase().includes('P')).length,
-        leaves: pendingLeaves,
-        halfDays: data.halfDayCount || data.halfDays || logsArray.filter(l => (l.status || '').toUpperCase().includes('HD')).length,
-        totalLogs: data.totalCount || data.total || logsArray.length
-      });
-
-      // Removed gaps fetch logic as it is not supported by the backend
+      // Removed static stats calculation as it's now handled by dynamic useMemo based on filteredLogs
 
       // Sort logs newest first
       const sortedLogs = [...logsArray].sort((a, b) => {
@@ -242,13 +181,14 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   };
 
   const handlePunch = async () => {
-    const uid = selectedSearchUser?.id || selectedSearchUser?.employee_id || user?.employee_id || user?.empId || user?.id || user?.userId;
+    const uid = user?.employee_id || user?.empId || user?.id || user?.userId;
     if (!uid) return;
 
     setPunchLoading(true);
     // If outside while checked in, force a checkout. If inside, follow toggle.
     const action = (!isAtOffice && isCheckedIn) ? 'checkout' : (isCheckedIn ? 'checkout' : 'checkin');
     const token = localStorage.getItem('token');
+    const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
 
     try {
       let status = 'PRESENT';
@@ -268,11 +208,11 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         }
       }
 
-      const res = await fetch(`${BASE_URL}/api/attendance_logs/punch`, {
+      const res = await fetch(API_ENDPOINTS.ATTENDANCE_PUNCH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token?.trim()}`,
+          'Authorization': `Bearer ${cleanToken}`,
           'Accept': 'application/json'
         },
         body: JSON.stringify({
@@ -298,6 +238,78 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     } finally {
       setPunchLoading(false);
     }
+  };
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+      
+      doc.setFontSize(18);
+      doc.setTextColor(11, 30, 63); // #0B1E3F
+      doc.text("Attendance Report", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // #64748b
+      doc.text(`Employee: ${user?.name || 'N/A'} (ID: ${user?.id || user?.empId || 'N/A'})`, 14, 28);
+      doc.text(`Date Range: ${startDate || 'All'} to ${endDate || 'All'}`, 14, 34);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
+
+      const tableColumn = ["Date", "Punch In", "Punch Out", "Work Hrs", "Status", "Audit Location"];
+      const tableRows = filteredLogs.map(log => [
+        formatDate(log.punch_date || log.date),
+        log.in_time || '--:--',
+        log.out_time || '--:--',
+        log.work_time || '--:--',
+        getStatusConfig(log).label,
+        log.location || 'Office Zone'
+      ]);
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 45,
+        theme: 'grid',
+        headStyles: { fillColor: [11, 30, 63], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 3 },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      doc.save(`Attendance_Report_${user?.name?.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+      setShowExportMenu(false);
+    } catch (err) {
+      console.error("PDF Export failed:", err);
+      alert("PDF Export failed. Please try again.");
+    }
+  };
+
+  const exportToExcel = () => {
+    // Generate CSV as a fallback for Excel if xlsx is not available
+    const headers = ["Employee", "Date", "Punch In", "Punch Out", "Work Hrs", "Status", "Audit Location"];
+    const rows = filteredLogs.map(log => [
+      user?.name || 'N/A',
+      formatDate(log.punch_date || log.date),
+      log.in_time || '--:--',
+      log.out_time || '--:--',
+      log.work_time || '--:--',
+      getStatusConfig(log).label,
+      log.location || 'Office Zone'
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Attendance_Report_${user?.name?.replace(/\s+/g, '_')}_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setShowExportMenu(false);
   };
 
   const formatDate = (dateStr) => {
@@ -379,12 +391,27 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     }
 
     const matchesFilter = filterStatus === 'ALL' || log.status === filterStatus;
-    const matchesSearch = !searchQuery ||
-      String(log.user_id || log.employee_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(log.user_name || log.userName || log.employee_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesFilter && matchesSearch;
+    return matchesFilter;
   });
+
+  const stats = useMemo(() => {
+    const s = { present: 0, leaves: 0, halfDays: 0, totalLogs: filteredLogs.length };
+    
+    filteredLogs.forEach(log => {
+      const config = getStatusConfig(log);
+      const label = config.label.toUpperCase();
+      
+      if (label === 'PRESENT') {
+        s.present++;
+      } else if (label === 'HALF DAY') {
+        s.halfDays++;
+      } else if (label === 'ABSENT' || label === 'LEAVE' || label === 'L') {
+        s.leaves++;
+      }
+    });
+    
+    return s;
+  }, [filteredLogs]);
 
   const s = {
     container: { minHeight: '100vh', backgroundColor: '#f4f7fa', padding: '30px', fontFamily: "'Outfit', sans-serif" },
@@ -412,58 +439,6 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }} className="attendance-controls">
-          <div style={{ position: 'relative' }}>
-            <div style={s.searchBox} className="attendance-search">
-              <Search size={18} color="#94a3b8" />
-              <input
-                type="text"
-                placeholder="Search Employee ID or Name..."
-                style={s.searchInput}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {isSearching && <RefreshCw size={14} color="#3B5998" className="animate-spin" />}
-            </div>
-
-            {/* Search Results Dropdown */}
-            <AnimatePresence>
-              {searchResults.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-                    backgroundColor: 'white', borderRadius: '16px', marginTop: '8px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0',
-                    maxHeight: '300px', overflowY: 'auto'
-                  }}
-                >
-                  {searchResults.map((u, i) => (
-                    <div
-                      key={u.id || i}
-                      onClick={() => handleSelectSearchedUser(u)}
-                      style={{
-                        padding: '12px 20px', cursor: 'pointer', borderBottom: i === searchResults.length - 1 ? 'none' : '1px solid #f1f5f9',
-                        display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f8fafc'}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                    >
-                      <div style={{ width: '32px', height: '32px', borderRadius: '80%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900', color: '#3B5998' }}>
-                        {(u.name || u.employee_name || 'U').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>{u.name || u.employee_name}</div>
-                        <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8' }}>{u.designation || 'Team Member'} • ID: {u.employee_id}</div>
-                      </div>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
           <div style={{ ...s.searchBox, width: 'auto', gap: '8px' }}>
             <Calendar size={16} color="#94a3b8" />
             <input
@@ -486,9 +461,105 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           <button onClick={() => fetchAttendance()} style={{ ...s.btnPrimary, backgroundColor: 'white', color: '#0B1E3F', border: '1px solid #e2e8f0' }}>
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button style={s.btnPrimary}>
-            <Download size={18} /> Export CSV
-          </button>
+          
+          {/* Export Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              style={{ 
+                ...s.btnPrimary, 
+                width: isMobile ? '100%' : 'auto', 
+                justifyContent: 'center',
+                backgroundColor: '#0B1E3F',
+                color: 'white',
+                border: 'none',
+                gap: '10px',
+                padding: '0 20px',
+                height: '42px',
+                display: 'flex',
+                alignItems: 'center',
+                borderRadius: '12px'
+              }}
+              className="attendance-search"
+              onClick={() => setShowExportMenu(!showExportMenu)}
+            >
+              <Download size={18} /> 
+              <span style={{ position: 'relative', top: '-1px' }}>Export Data</span>
+              <ChevronDown size={14} />
+            </button>
+
+            <AnimatePresence>
+              {showExportMenu && (
+                <>
+                  <div 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }} 
+                    onClick={() => setShowExportMenu(false)} 
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 8px)',
+                      right: 0,
+                      width: '200px',
+                      backgroundColor: 'white',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                      padding: '8px',
+                      zIndex: 1001,
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <button
+                      onClick={exportToPDF}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        color: '#1e293b',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <FileText size={18} color="#ef4444" /> Export as PDF
+                    </button>
+                    <button
+                      onClick={exportToExcel}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        color: '#1e293b',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <FileSpreadsheet size={18} color="#22c55e" /> Export as Excel
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </header>
 
@@ -542,6 +613,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
             borderRadius: '16px',
             border: 'none',
             backgroundColor: isCheckedIn ? '#ef4444' : '#22c55e',
+            transition: 'all 0.3s ease',
             color: 'white',
             fontWeight: '900',
             fontSize: '14px',
@@ -549,8 +621,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
             boxShadow: `0 10px 20px ${isCheckedIn ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'}`,
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            transition: 'all 0.2s'
+            gap: '10px'
           }}
           className="attendance-punch-btn"
         >
@@ -573,7 +644,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><Activity size={18} color="#ef4444" /></div>
           <div>
-            <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PENDING LEAVES</div>
+            <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LEAVES</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>
               {stats.leaves}
             </div>

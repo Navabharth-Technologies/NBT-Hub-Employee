@@ -54,12 +54,13 @@ const SaturdayRequirementsPopover = () => {
 
         try {
             const token = localStorage.getItem('token');
+            const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
 
             const response = await fetch(API_ENDPOINTS.SUGGESTIONS, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token?.trim()}`
+                    'Authorization': `Bearer ${cleanToken}`
                 },
                 body: JSON.stringify({
                     employee_id: uid,

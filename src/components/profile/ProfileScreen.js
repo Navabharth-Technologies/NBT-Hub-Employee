@@ -6,7 +6,7 @@ import { API_ENDPOINTS } from '../../config';
 import {
   MapPin, Building2, Clock, Globe, Mail, User,
   ChevronRight, Calendar, Bell, Shield, LogOut,
-  History, Users, FileText, Briefcase, Heart, Edit3, Fingerprint, Camera, Phone, Check, X, Palmtree, AlertCircle, CheckCircle2, Laptop, ShieldCheck
+  History, Users, FileText, Briefcase, Heart, Edit3, Fingerprint, Camera, Phone, Check, X, Palmtree, AlertCircle, CheckCircle2, Laptop, ShieldCheck, Eye, EyeOff
 } from 'lucide-react';
 
 import { getTheme } from '../../constants/Theme';
@@ -141,6 +141,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
   const [teamReports, setTeamReports] = useState([]);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passData, setPassData] = useState({ old: '', new: '', confirm: '', otp: '' });
+  const [showPass, setShowPass] = useState({ old: false, new: false, confirm: false });
   const [passwordMode, setPasswordMode] = useState('change'); // 'change' or 'reset'
   const [otpRequested, setOtpRequested] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -557,8 +558,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
       border: '1px solid #f1f5f9'
     },
     sectionTitle: { fontSize: isMobile ? '14px' : '16px', fontWeight: '700', color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-    aboutContent: { textAlign: 'center', padding: '10px 0' },
-    aboutPlaceholder: { fontSize: '14px', color: '#94a3b8', fontWeight: '500', marginTop: '10px' },
+    aboutContent: { textAlign: 'left', padding: '10px 0' },
+    aboutPlaceholder: { fontSize: '14px', color: 'black', fontWeight: '500', marginTop: '10px' },
     editButton: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 'none' }
   };
 
@@ -659,8 +660,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                   <Phone size={14} />
-                  <span onClick={() => setIsEditingPhone(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {phone} <Edit3 size={11} opacity={0.6} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {phone}
                   </span>
                 </div>
 
@@ -668,8 +669,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                   <Calendar size={14} />
-                  <span onClick={() => setIsEditingDob(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {dob} <Edit3 size={11} opacity={0.6} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {dob}
                   </span>
                 </div>
 
@@ -685,9 +686,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                   </div>
                 </div>
               </div>
-            </div>
           </div>
         </div>
+      </div>
 
         <div style={styles.infoGrid}>
           {/* TEAM CARD */}
@@ -752,13 +753,15 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           {/* TENURITY CARD */}
           <motion.div
             whileHover={{ y: -5 }}
-            style={{ ...styles.infoCard, borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
+            style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
+            onClick={() => onNavigate?.('RESIGNATION_LETTER')}
           >
             <div style={{ ...styles.iconCircle, backgroundColor: '#dcfce7' }}><Clock size={18} color="#15803d" /></div>
             <div style={{ flex: 1 }}>
               <div style={{ ...styles.managerLabel, color: '#15803d' }}>Total Tenurity</div>
               <div style={styles.infoValue}>{calculateTenure(joiningDate)} Experience</div>
             </div>
+            <ChevronRight size={16} color="#15803d" />
           </motion.div>
 
         </div>
@@ -801,16 +804,22 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                   {passwordMode === 'change' ? (
                     <>
                       {[{ label: 'Old Password', key: 'old' }, { label: 'New Password', key: 'new' }, { label: 'Confirm Password', key: 'confirm' }].map(f => (
-                        <div key={f.key}>
+                        <div key={f.key} style={{ position: 'relative' }}>
                           <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block', paddingLeft: '4px' }}>{f.label} <span style={{ color: '#ef4444' }}>*</span></label>
                           <input
-                            type="password"
-                            style={{ width: '100%', padding: '16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s' }}
+                            type={showPass[f.key] ? "text" : "password"}
+                            style={{ width: '100%', padding: '16px 50px 16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s', boxSizing: 'border-box' }}
                             onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
                             onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
                             value={passData[f.key]}
                             onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
                           />
+                          <div
+                            onClick={() => setShowPass(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                            style={{ position: 'absolute', right: '18px', bottom: '16px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+                          >
+                            {showPass[f.key] ? <Eye size={20} /> : <EyeOff size={20} />}
+                          </div>
                         </div>
                       ))}
                     </>
@@ -856,14 +865,22 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
                             ✓ AUTHORIZATION GRANTED
                           </div>
                           {[{ label: 'Vault Signature (New Password)', key: 'new' }, { label: 'Confirm Signature', key: 'confirm' }].map(f => (
-                            <div key={f.key} style={{ marginBottom: '15px' }}>
+                            <div key={f.key} style={{ position: 'relative', marginBottom: '15px' }}>
                               <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block', paddingLeft: '4px' }}>{f.label} <span style={{ color: '#ef4444' }}>*</span></label>
                               <input
-                                type="password"
-                                style={{ width: '100%', padding: '16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc' }}
+                                type={showPass[f.key] ? "text" : "password"}
+                                style={{ width: '100%', padding: '16px 50px 16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s', boxSizing: 'border-box' }}
+                                onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
+                                onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
                                 value={passData[f.key]}
                                 onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
                               />
+                              <div
+                                onClick={() => setShowPass(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                                style={{ position: 'absolute', right: '18px', bottom: '16px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+                              >
+                                {showPass[f.key] ? <Eye size={20} /> : <EyeOff size={20} />}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -925,8 +942,27 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             <button
               onClick={async () => {
                 if (isEditingAbout) {
-                  const result = await updateProfile('about_me', aboutMe);
-                  if (!result.success) alert('Update Failed: ' + result.error);
+                  try {
+                    const token = localStorage.getItem('token');
+                    // Send directly to the dedicated about-me backend route
+                    const res = await fetch(API_ENDPOINTS.UPDATE_ABOUT || API_ENDPOINTS.UPDATE_PROFILE, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ about_me: aboutMe, email: user?.email, employee_id: user?.employee_id || user?.id || user?.userId })
+                    });
+                    
+                    if (res.ok) {
+                      updateProfile('about_me', aboutMe); // keep context in sync
+                    } else {
+                      const err = await res.json();
+                      alert('Update Failed: ' + (err.message || 'Server error'));
+                    }
+                  } catch (e) {
+                    alert('Network Error: Could not save about me text to database.');
+                  }
                 }
                 setIsEditingAbout(!isEditingAbout);
               }}
@@ -945,10 +981,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               />
             ) : (
               <>
-                <div style={{ backgroundColor: '#f1f5f9', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                  <Edit3 size={18} color="#cbd5e1" />
-                </div>
-                <div style={styles.aboutPlaceholder}>{aboutMe}</div>
+                <div style={styles.aboutPlaceholder}>{aboutMe || "Write a few words about yourself..."}</div>
               </>
             )}
           </div>

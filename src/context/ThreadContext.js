@@ -34,9 +34,10 @@ export const ThreadProvider = ({ children }) => {
   const fetchThreads = async (uId, isPolling = false) => {
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
-      if (token && token !== 'undefined') {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       const sid = sanitizeId(uId);
@@ -89,24 +90,29 @@ export const ThreadProvider = ({ children }) => {
             return dateB - dateA;
         });
 
-        // Standardized Activity Tracking: sum of all posts + all comments
-        const currentActivitySum = sorted.reduce((acc, t) => {
-          const cCount = t.commentCount || 0;
-          return acc + 1 + cCount;
-        }, 0);
-        
         setTotalThreads(sorted.length);
         
-        const cachedSum = parseInt(localStorage.getItem('nbt_thread_activity_watermark'), 10);
+        const cachedTime = localStorage.getItem('nbt_thread_watermark_time');
+        let unread = 0;
         
-        // If local storage is empty, pretend storedSum is 0 so the user sees all current activity as unread.
-        // It should ONLY update when they click the Thread tab.
-        const storedSum = isNaN(cachedSum) ? 0 : cachedSum;
-        const diff = currentActivitySum - storedSum;
+        if (cachedTime) {
+            const lastTime = new Date(cachedTime).getTime();
+            sorted.forEach(t => {
+                const tTime = new Date(t.createdAt || t.created_at).getTime();
+                const isMine = String(t.userId || t.user_id) === String(user?.id || user?.empId || user?.employee_id);
+                if (tTime > lastTime && !isMine) {
+                    unread++;
+                }
+            });
+        } else {
+            // Save initial watermark if not present
+            if (sorted.length > 0) {
+                localStorage.setItem('nbt_thread_watermark_time', new Date(sorted[0].createdAt || sorted[0].created_at).toISOString());
+            }
+        }
         
-        setUnreadCount(diff > 0 ? diff : 0);
+        setUnreadCount(unread);
         setThreads(sorted);
-        setLastEventSum(currentActivitySum);
         setLoading(false);
     } catch (e) {
       setLoading(false);
@@ -115,14 +121,8 @@ export const ThreadProvider = ({ children }) => {
 
   const clearNotifications = () => {
     setUnreadCount(0);
-    // Calculate current total activity sum
-    const currentActivitySum = threads.reduce((acc, t) => {
-      const cCount = t.commentCount || 0;
-      return acc + 1 + cCount;
-    }, 0);
-
-    if (currentActivitySum > 0) {
-      localStorage.setItem('nbt_thread_activity_watermark', currentActivitySum.toString());
+    if (threads.length > 0) {
+      localStorage.setItem('nbt_thread_watermark_time', new Date(threads[0].createdAt || threads[0].created_at).toISOString());
     }
   };
 

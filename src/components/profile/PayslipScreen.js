@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Download, Printer, Calendar, ChevronRight, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { BASE_URL, API_ENDPOINTS } from '../../config';
+import { BASE_URL, API_ENDPOINTS, COMPANY_INFO } from '../../config';
 import logo from '../../assets/image.png';
 
 // Helper: format a month label like "April 2026" from a date string or {month, year} object
@@ -40,14 +40,6 @@ export default function PayslipScreen({ onBack }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // ── Fallback demo data (used when backend returns empty) ──
-  const DEMO_PAYSLIPS = [
-    { id: 'demo-apr', month: 4, year: 2026, month_label: 'April 2026',   net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 31, total_wo: 4, total_holidays: 0, total_leave: 1, total_absent: 1, total_work_ot: 1, total_ot: 1, bs_reference_amt: 5000 },
-    { id: 'demo-mar', month: 3, year: 2026, month_label: 'March 2026',   net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 30, total_wo: 4, total_holidays: 0, total_leave: 0, total_absent: 0, total_work_ot: 1, total_ot: 0, bs_reference_amt: 5000 },
-    { id: 'demo-feb', month: 2, year: 2026, month_label: 'February 2026',net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 28, total_wo: 4, total_holidays: 0, total_leave: 0, total_absent: 0, total_work_ot: 1, total_ot: 0, bs_reference_amt: 5000 },
-    { id: 'demo-jan', month: 1, year: 2026, month_label: 'January 2026', net_pay: 28400, status: 'Paid', basic: 25000, hra: 0, conveyance: 0, special_allowance: 0, total_earning: 30000, performance_incentive: 0, yearly_incentive: 0, total_incentive: 0, pf: 1000, esi: 500, pt: 100, lwf: 0, income_tax: 0, total_deduction: 1600, total_present: 31, total_wo: 4, total_holidays: 0, total_leave: 0, total_absent: 0, total_work_ot: 1, total_ot: 0, bs_reference_amt: 5000 },
-  ];
-
   // ── Fetch payslips from backend ──
   useEffect(() => {
     const fetchPayslips = async () => {
@@ -67,23 +59,21 @@ export default function PayslipScreen({ onBack }) {
 
         if (res.ok) {
           const data = await res.json();
-          // Log raw response so we can see exact field names from backend
           console.log('[PayslipScreen] Raw API response:', JSON.stringify(data, null, 2));
           const list = Array.isArray(data)
             ? data
             : (data.value || data.data || data.payslips || data.result || data.results || data.records || data.items || []);
           console.log('[PayslipScreen] Parsed list:', list);
-          // If backend returns data use it, otherwise fall back to demo data
-          setPayslips(list.length > 0 ? list : DEMO_PAYSLIPS);
+          setPayslips(list);
         } else {
-          // API not ready yet — show demo data so UI is functional
-          console.warn('[PayslipScreen] API not ready, showing demo data');
-          setPayslips(DEMO_PAYSLIPS);
+          console.warn('[PayslipScreen] API returned error:', res.status);
+          setError(`Failed to load payslips (${res.status}). Please try again later.`);
+          setPayslips([]);
         }
       } catch (err) {
         console.error('[PayslipScreen] Fetch error:', err);
-        // Network error — still show demo data
-        setPayslips(DEMO_PAYSLIPS);
+        setError('Could not connect to server. Please check your connection.');
+        setPayslips([]);
       } finally {
         setLoading(false);
       }
@@ -93,6 +83,52 @@ export default function PayslipScreen({ onBack }) {
   }, [user]);
 
   const handlePrint = () => window.print();
+
+  const handleDownload = async () => {
+    if (!selectedPayslip) return;
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const { default: jsPDF } = await import('jspdf');
+      const el = document.querySelector('.printable-payslip');
+      if (!el) return;
+
+      const canvas = await html2canvas(el, { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      let imgW = pageW;
+      let imgH = (canvas.height * imgW) / canvas.width;
+
+      if (imgH > pageH) {
+        const ratio = pageH / imgH;
+        imgH = pageH;
+        imgW = imgW * ratio;
+      }
+
+      const x = (pageW - imgW) / 2;
+      const y = (pageH - imgH) / 2;
+
+      pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH);
+      const label = formatMonthLabel(selectedPayslip).replace(/\s+/g, '_');
+      
+      // Save directly as standard PDF file
+      pdf.save(`Payslip_${label}.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      window.print();
+    }
+  };
 
   // ── Shared helpers ──
   const parseAmt = (val) => {
@@ -292,7 +328,7 @@ export default function PayslipScreen({ onBack }) {
           <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
             <Printer size={18} /> Print
           </button>
-          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
+          <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
             <Download size={18} /> Download
           </button>
         </div>
@@ -314,8 +350,12 @@ export default function PayslipScreen({ onBack }) {
         {/* Header */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px', position: 'relative', zIndex: 10 }}>
           <img src={logo} alt="NBT Logo" style={{ height: '80px', marginBottom: '20px' }} />
-          <div style={{ fontSize: '22px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '0.5px', textAlign: 'center' }}>Navabharath Technologies</div>
-          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '4px', textAlign: 'center' }}>Smarter Solutions for Better Future</div>
+          <div style={{ fontSize: '22px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '0.5px', textAlign: 'center' }}>
+            {ps.company_name || ps.companyName || ps.organisation || ps.organization || COMPANY_INFO.name}
+          </div>
+          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '4px', textAlign: 'center' }}>
+            {ps.company_tagline || ps.companyTagline || ps.tagline || COMPANY_INFO.tagline}
+          </div>
           <div style={{ marginTop: '25px', padding: '8px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', width: '100%', textAlign: 'center', fontSize: '12px', fontWeight: '800', color: '#1e293b', letterSpacing: '0.5px' }}>
             Pay Slip for the Month of {monthLabel}
           </div>
@@ -327,15 +367,15 @@ export default function PayslipScreen({ onBack }) {
             <tbody>
               <tr>
                 <td style={labelCell({ width: '20%' })}>Emp Code</td>
-                <td style={valueCell({ width: '30%' })}>{ps.employee_id || ps.emp_code || ps.empCode || user?.employee_id || '2059'}</td>
+                <td style={valueCell({ width: '30%' })}>{ps.employee_id || ps.emp_code || ps.empCode || user?.employee_id || user?.empId || user?.emp_id || '--'}</td>
                 <td style={labelCell({ width: '20%' })}>Department</td>
-                <td style={valueCell({ width: '30%' })}>{ps.department || user?.department || 'Information Technology'}</td>
+                <td style={valueCell({ width: '30%' })}>{ps.department || ps.dept || user?.department || user?.dept || '--'}</td>
               </tr>
               <tr>
                 <td style={labelCell()}>Emp. Name</td>
-                <td style={valueCell()}>{ps.emp_name || ps.employee_name || ps.name || user?.name || '--'}</td>
+                <td style={valueCell()}>{ps.emp_name || ps.employee_name || ps.name || user?.name || user?.employee_name || user?.emp_name || '--'}</td>
                 <td style={labelCell()}>Designation</td>
-                <td style={valueCell()}>{ps.designation || user?.designation || 'Junior Software Engineer'}</td>
+                <td style={valueCell()}>{ps.designation || ps.role || ps.position || user?.designation || user?.role || user?.position || '--'}</td>
               </tr>
             </tbody>
           </table>
@@ -405,9 +445,9 @@ export default function PayslipScreen({ onBack }) {
         {/* Footer */}
         <div style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', position: 'relative', zIndex: 10 }}>
           <div style={{ textAlign: 'right', fontSize: '11px', color: '#1e3a8a', fontWeight: '700', lineHeight: '1.6' }}>
-            Phone: 0821-3128831<br />
-            www.navabharathtechnologies.com<br />
-            contact@navabharathtechnologies.com
+            {(ps.company_phone || ps.phone || COMPANY_INFO.phone) && <>{ps.company_phone || ps.phone || COMPANY_INFO.phone}<br /></>}
+            {(ps.company_website || ps.website || COMPANY_INFO.website) && <>{ps.company_website || ps.website || COMPANY_INFO.website}<br /></>}
+            {(ps.company_email || ps.email || COMPANY_INFO.email) && <>{ps.company_email || ps.email || COMPANY_INFO.email}</>}
           </div>
         </div>
 
