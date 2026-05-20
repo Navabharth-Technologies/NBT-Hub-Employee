@@ -79,18 +79,34 @@ const FunQuizScreen = ({ onBack }) => {
   const fetchQuestions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${BASE_URL}/api/fun-quizzes`, {
-        headers: { 'Authorization': `Bearer ${token?.trim()}` }
-      });
+      const [res, compRes] = await Promise.all([
+        fetch(`${BASE_URL}/api/fun-quizzes`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }),
+        fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
+      ]);
+
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.data || []);
         const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
 
+        let completions = [];
+        if (compRes && compRes.ok) {
+          const compData = await compRes.json();
+          completions = Array.isArray(compData) ? compData : (compData.data || []);
+        }
+
         const mapped = list.filter(i => i !== null).map(item => {
           let userSelected = item.selected_ans || item.selected_answer || item.user_selected_letter || item.user_answer || item.selected_option || item.user_selected || item.user_choice || item.selectedOption || item.userChoice || null;
+          
           if (!userSelected && storedAnswers[item.id]) {
             userSelected = storedAnswers[item.id];
+          }
+
+          if (!userSelected) {
+            const comp = completions.find(c => c.quiz_id === item.id || c.question_id === item.id || c.id === item.id);
+            if (comp) {
+              userSelected = comp.selected_ans || comp.selected_option || comp.user_answer || comp.user_selected_letter || comp.answer || null;
+            }
           }
 
           const correctAns = item.correct_answer || item.correct_option || item.correct || item.answer || item.correct_letter || item.correct_choice || item.option_correct || item.correctOption || item.correctAnswer || null;
