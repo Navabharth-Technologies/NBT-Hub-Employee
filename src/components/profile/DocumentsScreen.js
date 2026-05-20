@@ -499,6 +499,9 @@ export default function DocumentsScreen({ onBack }) {
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
       if (/[^a-zA-Z\s]/.test(value)) error = 'Special characters are not allowed';
+    } else if (key === 'department') {
+      if (/[0-9]/.test(value)) error = 'Numeric values are not allowed in Department';
+      if (/[^a-zA-Z\s\&\-\/\.]/.test(value)) error = 'Only alphabetic and valid special characters allowed';
     } else if (key === 'blood_group') {
       const clean = String(value).toUpperCase().trim();
       if (!/^(A|B|AB|O)[+-]$/.test(clean)) {
@@ -508,6 +511,7 @@ export default function DocumentsScreen({ onBack }) {
       if (value && String(value).length > 2) error = 'Maximum 2 digits allowed';
     } else if (['contact_no', 'emergency_contact_no'].includes(key)) {
       if (/[a-zA-Z]/.test(value)) error = 'Numbers only';
+      else if (value && !/^[6-9]/.test(value)) error = 'Mobile number must start with 6, 7, 8, or 9';
       else if (value.length !== 10) error = 'Must be exactly 10 digits';
     } else if (key === 'aadhar_number') {
       const clean = String(value).replace(/\s/g, '');
@@ -533,7 +537,16 @@ export default function DocumentsScreen({ onBack }) {
     } else if (key === 'edu_completion_year') {
       if (value && value.length !== 4) error = 'Year must be exactly 4 digits';
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      if (value && parseFloat(value) > 100) error = 'Maximum 100% allowed';
+      const num = parseFloat(value);
+      if (isNaN(num)) error = 'Enter a valid percentage';
+      else if (num > 100) error = 'Maximum 100% allowed';
+      else {
+        const parts = String(value).split('.');
+        if (parts[1] && parts[1].length > 2) error = 'Maximum 2 decimal places allowed';
+      }
+    } else if (key === 'bank_branch') {
+      if (/^[0-9]+$/.test(value.trim())) error = 'Branch name cannot be numeric only';
+      if (/[^a-zA-Z0-9\s\-\/\.,&()]/.test(value)) error = 'Invalid characters in branch name';
     } else if (key.toLowerCase().includes('email')) {
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(value)) error = 'Format: abc@gmail.com';
@@ -570,6 +583,9 @@ export default function DocumentsScreen({ onBack }) {
     let cleanValue = value;
     if (['emp_name', 'father_husband_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
+    } else if (key === 'department') {
+      cleanValue = value.replace(/[^a-zA-Z\s\&\-\/\.]/g, ''); // Block numbers, allow basic special chars
+
     } else if (key === 'blood_group') {
       const clean = value.replace(/[^a-zA-Z\+\-]/g, '').toUpperCase();
       if (clean.length > 3) return;
@@ -577,12 +593,18 @@ export default function DocumentsScreen({ onBack }) {
       if (clean.length >= 2 && !/^[A-Z][A-Z+-]/.test(clean)) return;
       if (clean.length >= 3 && !/^[A-Z][A-Z+-][+-]$/.test(clean)) return;
       cleanValue = clean;
-    } else if (['contact_no', 'emergency_contact_no', 'aadhar_number', 'bank_account_no', 'age', 'edu_completion_year'].includes(key)) {
+    } else if (['contact_no', 'emergency_contact_no'].includes(key)) {
+      cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
+      cleanValue = cleanValue.replace(/^[^6-9]+/, ''); // Remove invalid starting digits
+    } else if (['aadhar_number', 'bank_account_no', 'age', 'edu_completion_year'].includes(key)) {
       cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
       cleanValue = value.replace(/[^0-9.]/g, ''); // Block characters, allow dots for decimals
       const parts = cleanValue.split('.');
       if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join(''); // Prevent multiple dots
+      if (parts[1] && parts[1].length > 2) cleanValue = parts[0] + '.' + parts[1].slice(0, 2); // Max 2 decimal places
+    } else if (key === 'bank_branch') {
+      cleanValue = value.replace(/[^a-zA-Z0-9\s\-\/\.,&()]/g, ''); // Allow standard branch name characters, block invalid ones
     } else if (['pan_number', 'voter_id', 'ifsc_code'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); // Alphanumeric only
     } else if (key.toLowerCase().includes('email')) {
@@ -1099,7 +1121,7 @@ export default function DocumentsScreen({ onBack }) {
                   );
                 }
                 const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
-                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole || field.key === 'age';
+                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
 
                 return (
                   <div key={field.key} style={{
@@ -1232,19 +1254,43 @@ export default function DocumentsScreen({ onBack }) {
                         }} onClick={() => {
                           if (isEditing) {
                             document.getElementById(`upload-${field.key}`).click();
-                          } else if (form[field.key]) {
-                            setViewImage(form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`);
+                          } else if (form[field.key] && form[field.key] !== 'Not Provided') {
+                            const rawVal = form[field.key];
+                            const url = rawVal.startsWith('http') || rawVal.startsWith('data:') ? rawVal : `${BASE_URL}${rawVal.startsWith('/') ? rawVal : '/' + rawVal}`;
+                            const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
+                            if (isPdf) {
+                              if (url.startsWith('data:application/pdf')) {
+                                try {
+                                  const parts = url.split(',');
+                                  const contentType = parts[0].split(':')[1].split(';')[0];
+                                  const byteCharacters = atob(parts[1]);
+                                  const byteNumbers = new Array(byteCharacters.length);
+                                  for (let i = 0; i < byteCharacters.length; i++) {
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                  }
+                                  const byteArray = new Uint8Array(byteNumbers);
+                                  const blob = new Blob([byteArray], { type: contentType });
+                                  window.open(URL.createObjectURL(blob), '_blank');
+                                } catch (e) {
+                                  window.open(url, '_blank');
+                                }
+                              } else {
+                                window.open(url, '_blank');
+                              }
+                            } else {
+                              setViewImage(url);
+                            }
                           }
                         }}>
-                          {form[field.key] && (form[field.key].length > 100 || !form[field.key].startsWith('data:')) ? (
+                          {form[field.key] && form[field.key] !== 'Not Provided' && String(form[field.key]).trim() !== '' ? (
                             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                              {String(form[field.key]).toLowerCase().endsWith('.pdf') || String(form[field.key]).startsWith('data:application/pdf') ? (
+                              {String(form[field.key]).toLowerCase().includes('.pdf') || String(form[field.key]).startsWith('data:application/pdf') ? (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
                                   <FileText size={48} color="#ef4444" />
                                   <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', marginTop: '8px' }}>PDF DOCUMENT</span>
                                 </div>
                               ) : (
-                                <img src={form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`} alt={field.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key].startsWith('/') ? form[field.key] : '/' + form[field.key]}`} alt={field.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               )}
                               <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, hover: { opacity: 1 }, transition: '0.2s' }}>
                                 <Eye size={24} color="white" />
@@ -1279,17 +1325,29 @@ export default function DocumentsScreen({ onBack }) {
                               <RefreshCw size={12} /> Update File
                             </button>
                           )}
-                          {form[field.key] && (
+                          {form[field.key] && form[field.key] !== 'Not Provided' && String(form[field.key]).trim() !== '' && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const url = form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`;
-                                if (url.toLowerCase().endsWith('.pdf') || url.startsWith('data:application/pdf')) {
+                                const rawVal = form[field.key];
+                                const url = rawVal.startsWith('http') || rawVal.startsWith('data:') ? rawVal : `${BASE_URL}${rawVal.startsWith('/') ? rawVal : '/' + rawVal}`;
+                                const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
+                                if (isPdf) {
                                   if (url.startsWith('data:application/pdf')) {
-                                    fetch(url).then(res => res.blob()).then(blob => {
-                                      const blobUrl = URL.createObjectURL(blob);
-                                      window.open(blobUrl, '_blank');
-                                    });
+                                    try {
+                                      const parts = url.split(',');
+                                      const contentType = parts[0].split(':')[1].split(';')[0];
+                                      const byteCharacters = atob(parts[1]);
+                                      const byteNumbers = new Array(byteCharacters.length);
+                                      for (let i = 0; i < byteCharacters.length; i++) {
+                                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                      }
+                                      const byteArray = new Uint8Array(byteNumbers);
+                                      const blob = new Blob([byteArray], { type: contentType });
+                                      window.open(URL.createObjectURL(blob), '_blank');
+                                    } catch (err) {
+                                      window.open(url, '_blank');
+                                    }
                                   } else {
                                     window.open(url, '_blank');
                                   }
@@ -1325,6 +1383,12 @@ export default function DocumentsScreen({ onBack }) {
                           value={(form[field.key] && typeof form[field.key] === 'string' && form[field.key].includes('T') && form[field.key].length > 15) ? form[field.key].split('T')[0] : (form[field.key] || '')}
                           readOnly={isDisabled}
                           onChange={e => handleChange(field.key, e.target.value)}
+                          onKeyDown={e => {
+                            // Block numeric keys for department field
+                            if (field.key === 'department' && /^[0-9]$/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
                           placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
                           style={{
                             width: '100%', padding: isMobile ? '12px' : '16px 20px',
@@ -1348,6 +1412,50 @@ export default function DocumentsScreen({ onBack }) {
               })}
             </div>
           </motion.div>
+
+          {/* Save All + Next floating action bar */}
+          {isEditing && (
+            <div style={{
+              display: 'flex', justifyContent: 'flex-end', gap: '12px',
+              marginTop: '24px', paddingBottom: '20px'
+            }}>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  padding: isMobile ? '10px 20px' : '14px 32px',
+                  backgroundColor: '#315A9E', color: 'white',
+                  border: 'none', borderRadius: '14px', fontWeight: '900',
+                  fontSize: isMobile ? '13px' : '15px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  boxShadow: '0 8px 20px rgba(49,90,158,0.25)'
+                }}
+              >
+                {saving ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
+                Save All
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  const currentIdx = SECTIONS.findIndex(s => s.id === activeSection);
+                  const nextSection = SECTIONS[currentIdx + 1];
+                  if (nextSection) setActiveSection(nextSection.id);
+                }}
+                disabled={SECTIONS.findIndex(s => s.id === activeSection) === SECTIONS.length - 1}
+                style={{
+                  padding: isMobile ? '10px 20px' : '14px 32px',
+                  backgroundColor: 'white', color: '#315A9E',
+                  border: '2px solid #315A9E', borderRadius: '14px', fontWeight: '900',
+                  fontSize: isMobile ? '13px' : '15px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  opacity: SECTIONS.findIndex(s => s.id === activeSection) === SECTIONS.length - 1 ? 0.4 : 1
+                }}
+              >
+                Next <ChevronRight size={14} />
+              </motion.button>
+            </div>
+          )}
         </div>
       </div>
 

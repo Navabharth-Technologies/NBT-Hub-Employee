@@ -187,6 +187,16 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
+      // 3. Fetch Teams API to perfectly map RM based on Team Leader
+      let teamsData = [];
+      try {
+        const tResp = await fetch(API_ENDPOINTS.TEAMS, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (tResp.ok) {
+          const tJson = await tResp.json();
+          teamsData = Array.isArray(tJson) ? tJson : (tJson.data || tJson.teams || []);
+        }
+      } catch (e) { console.error('Failed to fetch teams in profile', e); }
+
       let mName = '';
       let mId = '';
 
@@ -247,14 +257,38 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
             const mgr = usersList.find(u => String(u.id || u.employee_id) === String(targetRmId));
             if (mgr) mName = mgr.name || mgr.emp_name;
           }
+
+          // Fallback to Team Leader dynamically if no explicit reporting manager is set
+          if (!mName && fetchedTeam) {
+            // Check the TEAMS API
+            const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
+            const matchingTeam = teamsData.find(t => 
+              String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
+            );
+            if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
+              mName = matchingTeam.leader || matchingTeam.lead;
+            } else {
+              // Fallback to user list
+              const teamLeader = usersList.find(u => 
+                (String(u.role || '').toLowerCase().includes('teamleader') || 
+                 String(u.role || '').toLowerCase() === 'team_leader' || 
+                 String(u.designation || '').toLowerCase().includes('team leader')) && 
+                (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
+              );
+              if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
+                mName = teamLeader.name || teamLeader.emp_name;
+                mId = teamLeader.id || teamLeader.employee_id;
+              }
+            }
+          }
         }
       }
 
-      setReportingManager({ name: mName || 'Sahana NV', id: mId });
+      setReportingManager({ name: mName || 'Not Assigned', id: mId });
 
     } catch (err) {
       console.error('Fetch Profile Error:', err);
-      setReportingManager({ name: 'Sahana NV', id: '' });
+      setReportingManager({ name: 'Not Assigned', id: '' });
     }
   }, [user]);
 

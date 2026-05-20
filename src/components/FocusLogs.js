@@ -25,8 +25,17 @@ export default function FocusLogs({ onBack }) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const lastDay = now.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState(firstDay);
-  const [endDate, setEndDate] = useState(lastDay);
+  const [startDate, setStartDate] = useState(() => {
+    const stored = localStorage.getItem('focusLogsStartDate');
+    if (stored) return stored;
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const stored = localStorage.getItem('focusLogsEndDate');
+    if (stored) return stored;
+    return new Date().toISOString().split('T')[0];
+  });
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -40,6 +49,8 @@ export default function FocusLogs({ onBack }) {
   }, [user]);
 
   useEffect(() => {
+    localStorage.setItem('focusLogsStartDate', startDate);
+    localStorage.setItem('focusLogsEndDate', endDate);
     filterData();
   }, [startDate, endDate, logs]);
 
@@ -78,10 +89,6 @@ export default function FocusLogs({ onBack }) {
     setFilteredLogs(filtered);
   };
 
-  const handleClear = () => {
-    setStartDate(firstDay);
-    setEndDate(lastDay);
-  };
 
   const downloadSpreadsheet = () => {
     if (filteredLogs.length === 0) return alert("No logs to download");
@@ -153,7 +160,7 @@ export default function FocusLogs({ onBack }) {
     main: { maxWidth: '100%', margin: '0 auto', padding: winWidth < 768 ? '5px' : '20px' },
     
     header: { marginBottom: winWidth < 768 ? '20px' : '40px', padding: winWidth < 768 ? '0 15px' : '0' },
-    title: { fontSize: winWidth < 768 ? '24px' : '32px', fontWeight: '900', color: '#0B1E3F', marginBottom: '8px' },
+    title: { fontSize: winWidth < 768 ? '20px' : '24px', fontWeight: '900', color: '#0B1E3F', marginBottom: '8px' },
     subtitle: { fontSize: winWidth < 768 ? '13px' : '15px', color: '#64748b', fontWeight: '600' },
 
     /* Filter Bar */
@@ -273,12 +280,11 @@ export default function FocusLogs({ onBack }) {
           onMouseEnter={e => e.currentTarget.style.color = '#3B5998'}
           onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
         >
-          <ChevronLeft size={20} strokeWidth={3} /> BACK TO DASHBOARD
+          <ChevronLeft size={20} strokeWidth={3} /> Back to Dashboard
         </button>
 
         <header style={s.header}>
           <h1 style={s.title}>Your Focus Logs</h1>
-          <p style={s.subtitle}>Personal visibility for task reporting.</p>
         </header>
 
         {/* Filter Bar */}
@@ -297,7 +303,6 @@ export default function FocusLogs({ onBack }) {
             <input type="date" style={s.input} value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
 
-          <button style={s.clearBtn} onClick={handleClear}>Clear</button>
           
           <div style={{ position: 'relative' }}>
             <button style={s.downloadBtn} onClick={() => setShowDownloadMenu(!showDownloadMenu)}>
@@ -388,7 +393,6 @@ export default function FocusLogs({ onBack }) {
               <div style={s.emptyState}>
                 <ShieldCheck size={48} color="#f1f5f9" style={{marginBottom: '20px'}} />
                 <div style={s.emptyTitle}>No logs found for this date range.</div>
-                <button onClick={handleClear} style={s.viewHistory}>View All History</button>
               </div>
             )}
           </div>

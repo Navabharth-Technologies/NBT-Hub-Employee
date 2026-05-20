@@ -98,7 +98,6 @@ export default function ResignationScreen({ onBack }) {
     };
     
     setPreviewLetter(entry);
-    setActiveTab('letter');
 
     setLoading(true);
     try {
@@ -222,7 +221,6 @@ export default function ResignationScreen({ onBack }) {
 
         <div style={s.tabBar}>
           <button style={s.tab(activeTab === 'main')} onClick={() => setActiveTab('main')}><Send size={16} /> Submit Notice</button>
-          {previewLetter && <button style={s.tab(activeTab === 'letter')} onClick={() => setActiveTab('letter')}><FileText size={16} /> Viewed Letter</button>}
           {(user?.role === 'Manager' || user?.role === 'Admin') && (
             <button style={s.tab(activeTab === 'team')} onClick={() => setActiveTab('team')}><Users size={16} /> Team notice</button>
           )}
@@ -292,92 +290,6 @@ export default function ResignationScreen({ onBack }) {
             </motion.div>
           )}
 
-          {activeTab === 'letter' && previewLetter && (
-             <motion.div key="letter" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
-                <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', justifyContent: 'flex-end' }}>
-                   <button style={{ ...s.backBtn, padding: '12px 20px', background: '#0B1E3F', color: 'white' }} onClick={() => window.print()}><Printer size={18} /> Print</button>
-                   <button style={{ ...s.backBtn, padding: '12px 20px' }} onClick={() => window.print()}><Download size={18} /> Download PDF</button>
-                </div>
-                <div style={s.letterContainer} className="printable-area">
-                    <div style={s.topShape}></div>
-                    <div style={s.topShapePrimary}></div>
-                    <div style={s.topShapeSecondary}></div>
-
-                    <img src={logo} alt="Watermark" style={s.watermark} />
-
-                    <div style={s.letterHeader}>
-                      <img src={logo} alt="Logo" style={s.logo} />
-                      <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e3a8a', letterSpacing: '2px' }}>NAVABHARATH TECHNOLOGIES</div>
-                    </div>
-
-                    <div style={{ position: 'relative', zIndex: 10 }}>
-                        <div style={{ fontSize: '28px', fontWeight: '1000', color: '#1e3a8a', textAlign: 'center', textDecoration: 'underline', textUnderlineOffset: '8px', margin: '40px 0 60px', textTransform: 'uppercase' }}>
-                            Resignation Letter
-                        </div>
-
-                        <div style={{ fontWeight: '800', marginBottom: '40px' }}>Date: {new Date(previewLetter.resignationDate || previewLetter.resignation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-
-                        <div style={{ fontWeight: '1000', color: '#1e3a8a', marginBottom: '50px', fontSize: '17px' }}>TO WHOMSOEVER IT MAY CONCERN</div>
-
-                        <div style={{ marginBottom: '25px', textAlign: 'justify' }}>
-                          This is to formally notify you of my resignation from the position of <strong>{user?.designation || user?.role || 'Engineer'}</strong> at Navabharath Technologies. My last working day will be <strong>{new Date(previewLetter.lastWorkingDay || previewLetter.last_working_day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.
-                        </div>
-
-                        <div style={{ marginBottom: '25px', textAlign: 'justify' }}>
-                          I have decided to move on for <strong>{previewLetter.reason}</strong>. {previewLetter.detailedReason || previewLetter.detailed_reason}
-                        </div>
-
-                        <div style={{ marginBottom: '25px', textAlign: 'justify' }}>
-                          I want to thank you for the opportunities for professional and personal development that I have provided me during my tenure. I have enjoyed working for Navabharath Technologies and appreciate the support provided during my time with the company.
-                        </div>
-
-                        <div style={{ marginBottom: '60px', textAlign: 'justify' }}>
-                          I will ensure a smooth handover of my responsibilities before my departure.
-                        </div>
-
-                        <div style={{ marginTop: '40px' }}>
-                          <div style={{ fontWeight: '1000', marginBottom: '10px' }}>For Navabharath Technologies.</div>
-                          <div style={{ marginTop: '50px' }}>
-                            <div style={{ fontWeight: '1000', fontSize: '18px', color: '#1e3a8a' }}>Dinesh JK</div>
-                            <div style={{ fontWeight: '1000', fontSize: '14px', marginTop: '5px' }}>CEO & FOUNDER</div>
-                            <div style={{ fontWeight: '1000', fontSize: '14px' }}>NAVABHARATH TECHNOLOGIES</div>
-                          </div>
-                        </div>
-                    </div>
-
-                    <div style={s.footerInfo}>
-                      <div style={s.footerItem}>
-                        <span>Phone: 0821-3128831</span>
-                        <div style={s.footerBar('#3b82f6')}></div>
-                      </div>
-                      <div style={s.footerItem}>
-                        <span>www.navabharathtechnologies.com</span>
-                        <div style={s.footerBar('#1d4ed8')}></div>
-                      </div>
-                      <div style={s.footerItem}>
-                        <span>contact@navabharathtechnologies.com</span>
-                        <div style={s.footerBar('#1e3a8a')}></div>
-                      </div>
-                    </div>
-
-                    <div style={s.bottomShape}></div>
-                    <div style={s.bottomShapePrimary}></div>
-                    <div style={s.bottomShapeSecondary}></div>
-
-                    <style>{`
-                      @media print {
-                        body * { visibility: hidden; }
-                        .printable-area, .printable-area * { visibility: visible; }
-                        .printable-area { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 1000px; margin: 0; padding: 100px 80px; box-shadow: none; border: none; }
-                        button { display: none; }
-                      }
-                    `}</style>
-                </div>
-                <button onClick={() => setActiveTab('main')} style={{ ...s.submitBtn, marginTop: '30px', backgroundColor: '#64748b' }}>
-                    <ArrowLeft size={18} /> Back to Management
-                </button>
-             </motion.div>
-          )}
 
           {activeTab === 'team' && (
             <motion.div key="team" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>

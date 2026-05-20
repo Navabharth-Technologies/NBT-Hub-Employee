@@ -15,7 +15,7 @@ const Dashboard = ({ setActiveTab }) => {
   // Real Data State
   const [yesterdayTasks, setYesterdayTasks] = useState([]);
   const [yesterdayStatus, setYesterdayStatus] = useState('Pending');
-  const [yesterdayCompletion, setYesterdayCompletion] = useState(100);
+  const [yesterdayCompletion, setYesterdayCompletion] = useState(0);
   const [todayTasks, setTodayTasks] = useState([]);
   const [todayStatus, setTodayStatus] = useState('Pending');
   const [isEditing, setIsEditing] = useState(false);
@@ -232,8 +232,8 @@ const Dashboard = ({ setActiveTab }) => {
         if (cachedInd) setIndividualProjects(JSON.parse(cachedInd));
         if (cachedTeam) setTeamProjects(JSON.parse(cachedTeam));
         if (cachedReviews) setTaskReviews(JSON.parse(cachedReviews));
-        // Optimistic hydration: if 0 or missing, assume 100 per user request
-        setYesterdayCompletion(cachedCompletion ? (Number(cachedCompletion) || 100) : 100);
+        // Optimistic hydration: load exactly what is in cache, or 0 if missing.
+        setYesterdayCompletion(cachedCompletion !== null ? Number(cachedCompletion) : 0);
       } catch (e) {}
 
       fetchTaskHistory();
@@ -591,27 +591,11 @@ const Dashboard = ({ setActiveTab }) => {
         let percentage = 0;
         if (yStatus === 'Completed') {
           percentage = 100;
+        } else if (yStatus === 'In Progress') {
+          percentage = 50;
         } else {
-          // Calculate based on the actual progress of assigned projects
-          // This ensures the % is tied to the "tasks which we have assigned"
-          const currentProjects = individualProjects.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name)));
-          
-          if (currentProjects.length > 0) {
-            const totalProg = currentProjects.reduce((acc, p) => {
-              // Try to get real-time progress from the sprint map or the task itself
-              const pName = p.projectName || p.project_name || p.task_name;
-              const pProg = sprintProgressMap[pName] || p.progress_percentage || p.progressPercentage || p.progress || 0;
-              return acc + Number(pProg);
-            }, 0);
-            percentage = Math.round(totalProg / currentProjects.length);
-          } else {
-            // Default mappings if no specific project progress is available
-            percentage = (yStatus === 'In Progress') ? 70 : 30;
-          }
+          percentage = 0;
         }
-        
-        // Final sanity check: if status is In Progress, don't show 100
-        if (yStatus !== 'Completed' && percentage >= 100) percentage = 95;
 
         setYesterdayCompletion(percentage);
         localStorage.setItem(`yesterday_completion_${user.id}`, String(percentage));

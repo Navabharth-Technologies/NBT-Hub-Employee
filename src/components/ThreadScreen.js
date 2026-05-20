@@ -576,7 +576,14 @@ export default function ThreadScreen({ onBack }) {
                                                                 {isMyComment && (
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                                         <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
-                                                                        <button onClick={() => deleteComment(post.id, c.id)} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
+                                                                        <button onClick={async () => {
+                                                                            // Optimistic local removal so UI updates immediately
+                                                                            setPostComments(prev => ({
+                                                                              ...prev,
+                                                                              [post.id]: (prev[post.id] || []).filter(x => x.id !== c.id)
+                                                                            }));
+                                                                            await deleteComment(post.id, c.id);
+                                                                          }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
                                                                     </div>
                                                                 )}
                                                             </div>

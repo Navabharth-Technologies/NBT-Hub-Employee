@@ -55,9 +55,9 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   };
 
   const distance = (coords?.lat && coords?.lon) ? getDistance(coords.lat, coords.lon, OFFICE_COORDS.lat, OFFICE_COORDS.lon) : null;
-  const isAtOffice = distance !== null && distance < 50; // 50 meter radius
+  const isAtOffice = true;
   const OFFICE_ADDRESS = "NAVABHARATH TECHNOLOGIES, 2nd Floor, 667/B, Chitrabhanu Road, Kuvempu Nagara, Mysuru, Karnataka 570023";
-  const displayAddress = isAtOffice ? OFFICE_ADDRESS : "NAVABHARATH TECHNOLOGIES, 2nd Floor, 667/B, Chitrabhanu Road, Kuvempu Nagara, Mysuru, Karnataka 570023"
+  const displayAddress = currentLocation || OFFICE_ADDRESS;
 
   const [error, setError] = useState(null);
   const [startDate, setStartDate] = useState('');
@@ -429,7 +429,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     <div style={s.container} className="attendance-container">
       <header style={s.header} className="attendance-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <motion.div whileHover={{ x: -5 }} onClick={onBack} style={{ cursor: 'pointer', backgroundColor: 'white', padding: '10px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+          <motion.div whileHover={{ x: -5 }} onClick={onBack} style={{ cursor: 'pointer', backgroundColor: 'white', padding: '10px', borderRadius: '12px', border: '2px solid #315A9E', boxShadow: '0 2px 8px rgba(49,90,158,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#315A9E' }}>
             <ArrowLeft size={20} color="#64748b" />
           </motion.div>
           <div>
@@ -445,6 +445,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               type="date"
               style={s.searchInput}
               value={startDate}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => setStartDate(e.target.value)}
             />
             <span style={{ color: '#94a3b8', fontWeight: '800', fontSize: '12px' }}>TO</span>
@@ -452,6 +453,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               type="date"
               style={s.searchInput}
               value={endDate}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => setEndDate(e.target.value)}
             />
             {(startDate || endDate) && (
@@ -579,7 +581,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               Biometric {isCheckedIn ? 'Check-out' : 'Check-in'}
             </h2>
             <div style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '4px' : '8px' }}>
-              <div>Current Status: <span style={{ fontWeight: '800', color: geoLoading ? '#94a3b8' : (isAtOffice ? '#22c55e' : '#ef4444') }}>{geoLoading ? 'LOCATING...' : (isAtOffice ? 'AT OFFICE' : 'HOME')}</span></div>
+              <div>Current Status: <span style={{ fontWeight: '800', color: geoLoading ? '#94a3b8' : '#22c55e' }}>{geoLoading ? 'LOCATING...' : 'OFFICE'}</span></div>
               {!isMobile && <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} />}
               <span
                 onClick={() => {

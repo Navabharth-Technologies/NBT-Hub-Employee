@@ -24,7 +24,10 @@ export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [startDate, setStartDate] = useState('2026-02-01');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
@@ -118,7 +121,7 @@ export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
     main: { padding: winWidth < 768 ? '20px' : '40px', maxWidth: '1400px', margin: '0 auto' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' },
     profileSection: { display: 'flex', alignItems: 'center', gap: '16px' },
-    backBtn: { width: '32px', height: '32px', borderRadius: '8px', background: 'white', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#1e293b' },
+    backBtn: { width: '36px', height: '36px', borderRadius: '10px', background: 'white', border: '2px solid #315A9E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#315A9E', boxShadow: '0 2px 8px rgba(49,90,158,0.12)' },
     empName: { fontSize: '22px', fontWeight: '900', color: '#0F172A', margin: 0 },
     empMeta: { fontSize: '11px', color: '#64748B', fontWeight: '700', marginTop: '2px' },
     statsRow: { display: 'flex', gap: '16px', marginBottom: '32px' },
@@ -147,9 +150,9 @@ export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
           
           <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
             <div style={{display:'flex', background:'white', borderRadius:'10px', border:'1px solid #E2E8F0', padding:'2px 8px'}}>
-               <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} style={{border:'none', fontSize:'11px', fontWeight:'700', padding:'8px'}} />
+             <input type="date" value={startDate} max={new Date().toISOString().split('T')[0]} onChange={e => setStartDate(e.target.value)} style={{border:'none', fontSize:'11px', fontWeight:'700', padding:'8px'}} />
                <span style={{margin:'auto 4px', color:'#CBD5E1', fontSize:'10px'}}>to</span>
-               <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} style={{border:'none', fontSize:'11px', fontWeight:'700', padding:'8px'}} />
+               <input type="date" value={endDate} max={new Date().toISOString().split('T')[0]} onChange={e => setEndDate(e.target.value)} style={{border:'none', fontSize:'11px', fontWeight:'700', padding:'8px'}} />
             </div>
             <button style={{background:'#0F172A', color:'white', border:'none', padding:'10px 20px', borderRadius:'10px', fontWeight:'800', fontSize:'12px', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px'}}>
               <Download size={14} /> Export

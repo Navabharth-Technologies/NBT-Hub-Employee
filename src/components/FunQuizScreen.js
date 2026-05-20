@@ -316,25 +316,42 @@ const FunQuizScreen = ({ onBack }) => {
         status: 'completed'
       };
 
-      const response = await fetch(API_ENDPOINTS.QUIZ_SUBMIT_SESSION, {
+      let response = await fetch(API_ENDPOINTS.QUIZ_SUBMIT_SESSION, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token?.trim()}`
         },
         body: JSON.stringify(payload)
+      }).catch(err => {
+        console.error("Quiz Submit Session failed:", err);
+        return null;
       });
 
-      if (response.ok) {
-        // Refresh EVERYTHING to reflect on dashboard
-        await Promise.all([fetchScores(), fetchQuestions()]);
-
-        // Brief visual confirmation then redirect
-        showSuccessState(totalPoints);
-        setTimeout(() => setQuizActive(false), 1500);
+      if (!response || !response.ok) {
+        response = await fetch(API_ENDPOINTS.QUIZ_SUBMIT_TOTAL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token?.trim()}`
+          },
+          body: JSON.stringify(payload)
+        }).catch(err => {
+          console.error("Quiz Submit Total failed:", err);
+          return null;
+        });
       }
+
+      if (response && response.ok) {
+        await Promise.all([fetchScores(), fetchQuestions()]).catch(() => null);
+      }
+
+      showSuccessState(totalPoints);
+      setTimeout(() => setQuizActive(false), 1500);
     } catch (err) {
       console.error("Batch submit failed:", err);
+      showSuccessState(0);
+      setTimeout(() => setQuizActive(false), 1500);
     } finally {
       setIsSubmitting(false);
     }
@@ -363,26 +380,39 @@ const FunQuizScreen = ({ onBack }) => {
       const isUserChoice = (optObj.letter === currentQ?.user_selected_letter || optObj.letter === selectedOption);
       const isActuallyCorrect = checkIfCorrect(optObj, currentQ);
 
-      let border = '1.5px solid #eef2f3';
+      let border = '2px solid #eef2f3';
       let bg = 'white';
-      let color = '#64748b';
+      let color = '#1e293b';
       let status = 'default';
 
       if (isAnswered) {
         if (isActuallyCorrect) {
-          border = '2.5px solid #22c55e'; bg = '#f0fdf4'; color = '#15803d'; status = 'correct';
+          border = '2px solid #22c55e'; bg = '#f0fdf4'; color = '#15803d'; status = 'correct';
         } else if (isUserChoice) {
-          border = '2.5px solid #ef4444'; bg = '#fef2f2'; color = '#b91c1c'; status = 'wrong';
+          border = '2px solid #ef4444'; bg = '#fef2f2'; color = '#b91c1c'; status = 'wrong';
         }
       } else if (isUserChoice) {
-        border = '2.5px solid #0d676c'; bg = '#f0f9fa'; color = '#0d676c'; status = 'selected';
+        border = '2px solid #0d676c'; bg = '#f0f9fa'; color = '#0d676c'; status = 'selected';
       }
 
       return {
-        padding: '16px 20px', borderRadius: '14px', border: border, backgroundColor: bg,
-        color: color, fontSize: '14px', fontWeight: '800', cursor: isAnswered ? 'default' : 'pointer',
-        display: 'flex', alignItems: 'center', gap: '15px', transition: 'all 0.2s',
-        status: status
+        padding: '16px 20px',
+        borderRadius: '16px',
+        border: border,
+        backgroundColor: bg,
+        color: color,
+        fontSize: '15px',
+        fontWeight: '800',
+        cursor: isAnswered ? 'default' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '15px',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        status: status,
+        boxSizing: 'border-box',
+        minHeight: '68px',
+        width: '100%',
+        position: 'relative'
       };
     }
   };
@@ -726,21 +756,56 @@ const FunQuizScreen = ({ onBack }) => {
                           }}
                         >
                           <div style={{
-                            width: '28px', height: '28px', borderRadius: '8px',
-                            backgroundColor: st.status === 'correct' ? '#22c55e' : (st.status === 'wrong' ? '#ef4444' : '#0d676c'),
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: '900'
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '10px',
+                            backgroundColor: st.status === 'correct' ? '#22c55e' : (st.status === 'wrong' ? '#ef4444' : (st.status === 'selected' ? '#0d676c' : '#f1f5f9')),
+                            color: (st.status === 'correct' || st.status === 'wrong' || st.status === 'selected') ? 'white' : '#475569',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '13px',
+                            fontWeight: '900',
+                            flexShrink: 0,
+                            transition: 'all 0.2s'
                           }}>
                             {optObj.letter}
                           </div>
-                          {optObj.text}
+                          <span style={{ flex: 1, textAlign: 'left', lineHeight: '1.4', color: st.status === 'correct' ? '#15803d' : (st.status === 'wrong' ? '#b91c1c' : '#0B1E3F'), transition: 'color 0.2s' }}>
+                            {optObj.text}
+                          </span>
 
                           {st.status === 'correct' && (
-                            <div style={{ marginLeft: 'auto', backgroundColor: '#22c55e', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900' }}>
-                              {(currentQ?.user_selected_letter === optObj.letter || selectedOption === optObj.letter) ? 'CORRECT (YOUR CHOICE)' : 'CORRECT'}
+                            <div style={{
+                              marginLeft: '15px',
+                              backgroundColor: '#22c55e',
+                              color: 'white',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              fontWeight: '900',
+                              flexShrink: 0,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {(currentQ?.user_selected_letter === optObj.letter || selectedOption === optObj.letter) ? 'CORRECT' : 'CORRECT'}
                             </div>
                           )}
                           {st.status === 'wrong' && (
-                            <div style={{ marginLeft: 'auto', backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900' }}>YOUR CHOICE</div>
+                            <div style={{
+                              marginLeft: '15px',
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              fontWeight: '900',
+                              flexShrink: 0,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              YOUR CHOICE
+                            </div>
                           )}
                         </div>
                       );
