@@ -88,7 +88,7 @@ const FunQuizScreen = ({ onBack }) => {
         const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
 
         const mapped = list.filter(i => i !== null).map(item => {
-          let userSelected = item.user_selected_letter || item.user_answer || item.selected_option || item.user_selected || item.user_choice || item.selectedOption || item.userChoice || null;
+          let userSelected = item.selected_ans || item.selected_answer || item.user_selected_letter || item.user_answer || item.selected_option || item.user_selected || item.user_choice || item.selectedOption || item.userChoice || null;
           if (!userSelected && storedAnswers[item.id]) {
             userSelected = storedAnswers[item.id];
           }
@@ -264,7 +264,8 @@ const FunQuizScreen = ({ onBack }) => {
           selectedOption: selectedOption,
           user_answer: selectedOption,
           user_selected_letter: selectedOption,
-          answer: selectedOption
+          answer: selectedOption,
+          selected_ans: selectedOption
         })
       });
 
