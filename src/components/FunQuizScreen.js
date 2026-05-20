@@ -79,30 +79,77 @@ const FunQuizScreen = ({ onBack }) => {
   const fetchQuestions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${BASE_URL}/api/fun-quizzes`, {
-        headers: { 'Authorization': `Bearer ${token?.trim()}` }
-      });
+      const [res, compRes] = await Promise.all([
+        fetch(`${BASE_URL}/api/fun-quizzes`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }),
+        fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
+      ]);
+
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.data || []);
+        const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
 
-        const mapped = list.filter(i => i !== null).map(item => ({
-          id: item.id,
-          question: item.question,
-          options: [
-            { letter: 'A', text: item.option_a },
-            { letter: 'B', text: item.option_b },
-            { letter: 'C', text: item.option_c },
-            { letter: 'D', text: item.option_d }
-          ],
-          points_reward: item.points_reward,
-          has_answered: item.has_answered || false,
-          already_answered: item.has_answered || false,
-          previous_result: item.previous_result ? (item.previous_result === true || item.previous_result === 'correct' ? 'correct' : 'wrong') : null,
-          correct_answer: item.correct_answer || item.correct_option || item.correct || item.answer || item.correct_letter || item.correct_choice || item.option_correct || item.correctOption || item.correctAnswer || null,
-          user_selected_letter: item.user_selected_letter || item.user_answer || item.selected_option || item.user_selected || item.user_choice || item.selectedOption || item.userChoice || null,
-          quiz_id: item.quiz_id || item.id || 1
-        }));
+        let completions = [];
+        if (compRes && compRes.ok) {
+          const compData = await compRes.json();
+          completions = Array.isArray(compData) ? compData : (compData.data || []);
+        }
+
+        const mapped = list.filter(i => i !== null).map(item => {
+          let userSelected = item.selected_ans || item.selected_answer || item.user_selected_letter || item.user_answer || item.selected_option || item.user_selected || item.user_choice || item.selectedOption || item.userChoice || null;
+          
+          if (!userSelected && storedAnswers[item.id]) {
+            userSelected = storedAnswers[item.id];
+          }
+
+          if (!userSelected) {
+            const comp = completions.find(c => c.quiz_id === item.id || c.question_id === item.id || c.id === item.id);
+            if (comp) {
+              userSelected = comp.selected_ans || comp.selected_option || comp.user_answer || comp.user_selected_letter || comp.answer || null;
+            }
+          }
+
+          const correctAns = item.correct_answer || item.correct_option || item.correct || item.answer || item.correct_letter || item.correct_choice || item.option_correct || item.correctOption || item.correctAnswer || null;
+          const hasAnswered = item.has_answered || false;
+
+          let previousResult = null;
+          if (hasAnswered) {
+            if (userSelected && correctAns) {
+              const optObj = [
+                { letter: 'A', text: item.option_a },
+                { letter: 'B', text: item.option_b },
+                { letter: 'C', text: item.option_c },
+                { letter: 'D', text: item.option_d }
+              ].find(o => o.letter === String(userSelected).trim().toUpperCase());
+
+              if (optObj) {
+                previousResult = checkIfCorrect(optObj, { correct_answer: correctAns }) ? 'correct' : 'wrong';
+              } else {
+                previousResult = item.previous_result ? (item.previous_result === true || item.previous_result === 'correct' ? 'correct' : 'wrong') : 'wrong';
+              }
+            } else {
+              previousResult = item.previous_result ? (item.previous_result === true || item.previous_result === 'correct' ? 'correct' : 'wrong') : 'wrong';
+            }
+          }
+
+          return {
+            id: item.id,
+            question: item.question,
+            options: [
+              { letter: 'A', text: item.option_a },
+              { letter: 'B', text: item.option_b },
+              { letter: 'C', text: item.option_c },
+              { letter: 'D', text: item.option_d }
+            ],
+            points_reward: item.points_reward,
+            has_answered: hasAnswered,
+            already_answered: hasAnswered,
+            previous_result: previousResult,
+            correct_answer: correctAns,
+            user_selected_letter: userSelected,
+            quiz_id: item.quiz_id || item.id || 1
+          };
+        });
         setQuestions(mapped);
       }
     } catch (err) {
@@ -233,36 +280,36 @@ const FunQuizScreen = ({ onBack }) => {
           selectedOption: selectedOption,
           user_answer: selectedOption,
           user_selected_letter: selectedOption,
-          answer: selectedOption
+          answer: selectedOption,
+          selected_ans: selectedOption
         })
       });
 
-      let serverCorrect = null;
-      let serverIsCorrect = false;
+      let finalCorrectAnswer = currentQ.correct_answer;
 
       if (res.ok) {
         const resData = await res.json();
         console.log("Submit Quiz Answer response:", resData);
-        serverCorrect = resData.correct_answer || resData.correct_option || resData.correct || resData.correctAnswer || resData.correctOption || resData.answer || resData.correct_letter || null;
-        serverIsCorrect = resData.is_correct === true || resData.success === true || resData.isCorrect === true || resData.status === 'correct';
-        
-        if (serverIsCorrect && !serverCorrect) {
-          serverCorrect = selectedOption;
+        const returnedCorrect = resData.correct_answer || resData.correct_option || resData.correct || resData.correctAnswer || resData.correctOption || resData.answer || resData.correct_letter || null;
+        if (returnedCorrect) {
+          finalCorrectAnswer = returnedCorrect;
         }
       }
 
-      if (!serverCorrect) {
-        const optObj = currentQ.options.find(o => o.letter === selectedOption);
-        const isCorrect = checkIfCorrect(optObj, currentQ);
-        serverIsCorrect = isCorrect;
-      }
+      const optObj = currentQ.options.find(o => o.letter === selectedOption);
+      const isActuallyCorrect = checkIfCorrect(optObj, { correct_answer: finalCorrectAnswer, options: currentQ.options });
+
+      // Save user selected letter locally
+      const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+      storedAnswers[currentQ.id] = selectedOption;
+      localStorage.setItem('quiz_user_answers', JSON.stringify(storedAnswers));
 
       setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
         ...q,
         has_answered: true,
-        previous_result: serverIsCorrect ? 'correct' : 'wrong',
+        previous_result: isActuallyCorrect ? 'correct' : 'wrong',
         user_selected_letter: selectedOption,
-        correct_answer: serverCorrect || q.correct_answer
+        correct_answer: finalCorrectAnswer
       } : q));
 
       // Refresh scores to show progress in Hall of Fame immediately
