@@ -379,7 +379,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         setPassData({ old: '', new: '', confirm: '', otp: '' });
         setTimeout(() => {
           logout();
-          window.location.href = '/login';
+          window.location.href = './';
         }, 2500);
       } else {
         const err = await res.json();
@@ -410,7 +410,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
         setPassData({ old: '', new: '', confirm: '', otp: '' });
         setTimeout(() => {
           logout();
-          window.location.href = '/login';
+          window.location.href = './';
         }, 2500);
       } else {
         const err = await res.json();

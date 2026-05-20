@@ -37,6 +37,18 @@ function App() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState(() => {
     try {
+      // 1. Try to read from URL hash (e.g. #/leave)
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#/')) {
+        const path = hash.substring(2);
+        const pathToTab = (p) => p.toUpperCase().replace(/-/g, '_');
+        const tab = pathToTab(path);
+        const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
+        if (validTabs.includes(tab)) {
+          return tab;
+        }
+      }
+      // 2. Fallback to localStorage
       const saved = localStorage.getItem('nbt_active_tab');
       return saved || 'HOME';
     } catch { return 'HOME'; }
@@ -122,10 +134,10 @@ function App() {
     if (!user) return;
     const tabToPath = (t) => t.toLowerCase().replace(/_/g, '-');
     const path = tabToPath(activeTab);
-    const displayPath = path === 'home' ? '/' : `/${path}`;
+    const displayPath = path === 'home' ? '#/' : `#/${path}`;
     
     // Update Browser History without full page reload
-    if (window.location.pathname !== displayPath) {
+    if (window.location.hash !== displayPath && !(window.location.hash === '' && displayPath === '#/')) {
       window.history.replaceState(null, '', displayPath);
     }
 

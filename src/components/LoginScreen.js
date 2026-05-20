@@ -8,6 +8,7 @@ import logo from '../assets/image.png';
 export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -23,8 +24,16 @@ export default function LoginScreen() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setEmailError('');
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+
     setLoading(true);
-    const res = await login(email, password);
+    const res = await login(email.trim(), password);
     if (!res.success) {
       setError(res.error || 'Invalid email or password');
     }
@@ -101,7 +110,21 @@ export default function LoginScreen() {
         {error && <div style={s.error}>{error}</div>}
         <div style={s.inputGroup}>
           <label style={s.label}>Employee Identity (Email)</label>
-          <div style={s.inputWrapper}><Mail size={20} color="#3b82f6" /><input style={s.input} type="email" placeholder="employee@navshub.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+          <div style={{ ...s.inputWrapper, border: emailError ? '1.5px solid #ef4444' : '1.5px solid #e2e8f0' }}>
+            <Mail size={20} color={emailError ? "#ef4444" : "#3b82f6"} />
+            <input
+              style={s.input}
+              type="email"
+              placeholder="employee@navshub.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailError) setEmailError('');
+              }}
+              required
+            />
+          </div>
+          {emailError && <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: '600', marginTop: '5px' }}>{emailError}</div>}
         </div>
         <div style={s.inputGroup}>
           <label style={s.label}>Internal Passkey</label>
