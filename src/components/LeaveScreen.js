@@ -761,7 +761,6 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       <div style={s.tabs}>
         {isLeader && <div style={s.tab(activeTab === 'TEAM_REQUESTS')} onClick={() => setActiveTab('TEAM_REQUESTS')}>Team Requests</div>}
         <div style={s.tab(activeTab === 'MY_HISTORY')} onClick={() => setActiveTab('MY_HISTORY')}>My History</div>
-        <div style={s.tab(activeTab === 'MONTHLY_STATS')} onClick={() => setActiveTab('MONTHLY_STATS')}>Monthly Stats</div>
         <div style={s.tab(activeTab === 'MONTHLY_CALENDAR')} onClick={() => setActiveTab('MONTHLY_CALENDAR')}>Monthly Calendar</div>
       </div>
 
@@ -873,66 +872,6 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
               )}
             </div>
           )}
-
-        {activeTab === 'MONTHLY_STATS' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ overflowX: 'auto', backgroundColor: 'white', borderRadius: '25px', border: '1.5px solid #f1f5f9' }}>
-              <div style={{ minWidth: '700px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', padding: '20px 30px', borderBottom: '2px solid #f8fafc', backgroundColor: '#fcfdfe' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Reporting Month</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Year</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Leaves Taken</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Balance</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>LOP Days</span>
-                </div>
-                
-                {(leaveStats.length > 0 ? leaveStats : getMonthlyStats())
-                  .filter(stat => monthFilter === 'ALL' || String(stat.month) === String(monthFilter))
-                  .map((stat, idx) => {
-                    const mVal = parseInt(stat.month);
-                    const monthName = !isNaN(mVal) && mVal >= 1 && mVal <= 12 ? 
-                      ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][mVal - 1] : 
-                      (stat.month || "---");
-                    
-                    const taken = stat.leaves_taken ?? stat.leavesTaken ?? stat.taken ?? 0;
-                    const available = Math.max(0, stat.leaves_available ?? stat.leavesAvailable ?? stat.available ?? stat.balance ?? netBalance);
-                    const lop = stat.LOP ?? stat.lop ?? stat.loss_of_pay ?? 0;
-
-                    return (
-                      <motion.div
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        key={idx}
-                        style={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', 
-                          padding: '22px 30px', 
-                          borderBottom: '1px solid #f1f5f9', 
-                          alignItems: 'center',
-                          transition: 'background 0.2s ease'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <span style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>{monthName}</span>
-                        <span style={{ fontSize: '15px', fontWeight: '800', color: '#64748b' }}>{stat.year || '---'}</span>
-                        <span style={{ fontSize: '16px', fontWeight: '1000', color: '#ef4444', textAlign: 'center' }}>{taken}</span>
-                        <span style={{ fontSize: '16px', fontWeight: '1000', color: '#22c55e', textAlign: 'center' }}>{available}</span>
-                        <span style={{ fontSize: '16px', fontWeight: '1000', color: '#7c3aed', textAlign: 'center' }}>{lop}</span>
-                      </motion.div>
-                    );
-                  })}
-
-                {(leaveStats.length > 0 ? leaveStats : getMonthlyStats()).filter(stat => monthFilter === 'ALL' || String(stat.month) === String(monthFilter)).length === 0 && (
-                  <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontWeight: '800' }}>
-                    No records found for the selected month.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'HOLIDAYS' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
