@@ -303,31 +303,38 @@ export default function FocusLogs({ onBack }) {
             <input type="date" style={s.input} value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
 
-          
-          <div style={{ position: 'relative' }}>
-            <button style={s.downloadBtn} onClick={() => setShowDownloadMenu(!showDownloadMenu)}>
-              <Download size={18} /> Download Logs
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>
+            <button style={{...s.clearBtn, marginLeft: '0'}} onClick={() => {
+              setStartDate(firstDay);
+              setEndDate(lastDay);
+            }}>
+              Clear Filter
             </button>
-            {showDownloadMenu && (
-              <div style={s.dropdownMenu}>
-                <button 
-                  style={s.dropdownItem} 
-                  onMouseEnter={e => e.target.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={e => e.target.style.backgroundColor = 'white'}
-                  onClick={downloadSpreadsheet}
-                >
-                  <FileText size={16} color="#059669" /> Download Spreadsheet
-                </button>
-                <button 
-                  style={s.dropdownItem}
-                  onMouseEnter={e => e.target.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={e => e.target.style.backgroundColor = 'white'}
-                  onClick={downloadPDF}
-                >
-                  <FileText size={16} color="#e11d48" /> Download PDF
-                </button>
-              </div>
-            )}
+            <div style={{ position: 'relative', width: winWidth < 768 ? '100%' : 'auto' }}>
+              <button style={s.downloadBtn} onClick={() => setShowDownloadMenu(!showDownloadMenu)}>
+                <Download size={18} /> Download Logs
+              </button>
+              {showDownloadMenu && (
+                <div style={s.dropdownMenu}>
+                  <button 
+                    style={s.dropdownItem} 
+                    onMouseEnter={e => e.target.style.backgroundColor = '#f1f5f9'}
+                    onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                    onClick={downloadSpreadsheet}
+                  >
+                    <FileText size={16} color="#059669" /> Download Spreadsheet
+                  </button>
+                  <button 
+                    style={s.dropdownItem}
+                    onMouseEnter={e => e.target.style.backgroundColor = '#f1f5f9'}
+                    onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                    onClick={downloadPDF}
+                  >
+                    <FileText size={16} color="#e11d48" /> Download PDF
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -81,7 +81,7 @@ const FunQuizScreen = ({ onBack }) => {
       const token = localStorage.getItem('token');
       const [res, compRes] = await Promise.all([
         fetch(`${BASE_URL}/api/fun-quizzes`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }),
-        fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
+        Promise.resolve({ ok: false }) // fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
       ]);
 
       if (res.ok) {
@@ -502,6 +502,7 @@ const FunQuizScreen = ({ onBack }) => {
       <div style={{
         display: 'grid',
         gridTemplateColumns: '2fr 1fr 1fr',
+        gap: '10px',
         padding: '12px 10px',
         borderBottom: '2px solid #f1f5f9',
         fontSize: '10px',
@@ -552,28 +553,30 @@ const FunQuizScreen = ({ onBack }) => {
               <div key={i} style={{
                 display: 'grid',
                 gridTemplateColumns: '2fr 1fr 1fr',
+                gap: '10px',
                 alignItems: 'center',
                 padding: '14px 10px',
                 borderBottom: '1px solid #f8fafc',
                 backgroundColor: isMe ? '#f0f9fa' : 'transparent',
                 borderRadius: isMe ? '12px' : '0'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                   <div style={{
                     width: '28px', height: '28px', borderRadius: '8px',
                     backgroundColor: p.color, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: '900'
+                    justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: '900',
+                    flexShrink: 0
                   }}>
                     {p.initial}
                   </div>
-                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{p.name}</div>
                 </div>
 
-                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b' }}>
+                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                   {p.quiz_points || p.score || 0}
                 </div>
 
-                <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: '1000', color: '#0B1E3F' }}>
+                <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: '1000', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                   {p.score}
                 </div>
               </div>
