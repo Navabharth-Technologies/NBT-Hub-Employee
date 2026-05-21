@@ -53,6 +53,23 @@ export const safeGetItem = (key) => {
     }
 };
 
+// Check if JWT token is still valid (not expired) without making any HTTP request
+export const isTokenValid = () => {
+    try {
+        const token = safeGetItem('token');
+        if (!token || token === 'undefined' || token === 'null') return false;
+        const clean = token.replace(/['"]+/g, '').trim();
+        if (!clean) return false;
+        const parts = clean.split('.');
+        if (parts.length !== 3) return false;
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload.exp && (payload.exp * 1000 < Date.now())) return false;
+        return true;
+    } catch {
+        return false;
+    }
+};
+
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
@@ -100,26 +117,28 @@ export const AuthProvider = ({ children }) => {
       // FIX: Master Copy Synchronization
       // We load from LocalStorage first, then fetch from server.
       // If server returns empty fields for things we have locally (like Base64 images), we preserve the local ones.
-      fetch(API_ENDPOINTS.PROFILE(u.email), {
-        headers: { 'Authorization': `Bearer ${token.trim()}` }
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-            if (data) {
-                // Strategic Merge: Preserve local visual data if server is null/broken
-                const mergedUser = { ...u };
-                Object.keys(data).forEach(key => {
-                    const serverVal = data[key];
-                    // Only overwrite if server has a non-null, non-empty value
-                    if (serverVal !== null && serverVal !== '' && serverVal !== 'null') {
-                        mergedUser[key] = serverVal;
-                    }
-                });
-                
-                setUser(mergedUser);
-                safeSetItem('user', JSON.stringify(mergedUser));
-            }
-        }).catch(err => console.error("Profile Sync error:", err));
+      if (isTokenValid()) {
+        fetch(API_ENDPOINTS.PROFILE(u.email), {
+          headers: { 'Authorization': `Bearer ${token.trim()}` }
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+              if (data) {
+                  // Strategic Merge: Preserve local visual data if server is null/broken
+                  const mergedUser = { ...u };
+                  Object.keys(data).forEach(key => {
+                      const serverVal = data[key];
+                      // Only overwrite if server has a non-null, non-empty value
+                      if (serverVal !== null && serverVal !== '' && serverVal !== 'null') {
+                          mergedUser[key] = serverVal;
+                      }
+                  });
+                  
+                  setUser(mergedUser);
+                  safeSetItem('user', JSON.stringify(mergedUser));
+              }
+          }).catch(() => {});
+      }
     }
     setLoading(false);
   }, []);
