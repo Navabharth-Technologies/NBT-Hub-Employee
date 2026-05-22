@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, checkAuthOnce } from '../context/AuthContext';
 import { CheckCircle2, Edit3, TrendingUp, Clock, Gift, Calendar, Trash2, User, Users, ChevronRight, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -61,6 +61,8 @@ const Dashboard = ({ setActiveTab }) => {
     }
 
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
       const token = localStorage.getItem('token');
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
@@ -245,6 +247,8 @@ const Dashboard = ({ setActiveTab }) => {
 
   const fetchSecondaryData = async () => {
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
       const token = localStorage.getItem('token');
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
@@ -343,6 +347,8 @@ const Dashboard = ({ setActiveTab }) => {
 
   const fetchCoursesAndProgress = async () => {
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
       const token = localStorage.getItem('token');
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       const headers = { 'Accept': 'application/json' };
@@ -393,6 +399,8 @@ const Dashboard = ({ setActiveTab }) => {
     };
 
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
       const token = localStorage.getItem('token');
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;

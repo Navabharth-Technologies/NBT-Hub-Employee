@@ -81,8 +81,18 @@ export const checkAuthOnce = () => {
                 }
             } catch { _authResult = false; return false; }
 
-            // Single server-side validation request
-            const res = await fetch(`${API_ENDPOINTS.USERS}`, {
+            // Extract user ID to make a request to a strictly protected endpoint
+            const userDataStr = safeGetItem('user');
+            let userId = 1;
+            try {
+                if (userDataStr) {
+                    const u = JSON.parse(userDataStr);
+                    userId = u.id || u.empId || u.userId || u.employee_id || 1;
+                }
+            } catch (e) {}
+
+            // Single server-side validation request to an endpoint that enforces Auth
+            const res = await fetch(API_ENDPOINTS.MY_LEAVES_GET(userId), {
                 headers: { 'Authorization': `Bearer ${clean}` }
             });
             _authResult = res.ok;
@@ -147,7 +157,10 @@ export const AuthProvider = ({ children }) => {
       // We load from LocalStorage first, then fetch from server.
       // If server returns empty fields for things we have locally (like Base64 images), we preserve the local ones.
       checkAuthOnce().then(isValid => {
-        if (!isValid) return;
+        if (!isValid) {
+            logout();
+            return;
+        }
         fetch(API_ENDPOINTS.PROFILE(u.email), {
           headers: { 'Authorization': `Bearer ${token.trim()}` }
         })

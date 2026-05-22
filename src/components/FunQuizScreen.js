@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trophy, Zap, ArrowLeft, CheckCircle, Info, ChevronRight, Check as CheckIcon, X as XIcon, Loader2
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, checkAuthOnce } from '../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../config';
 
 const checkIfCorrect = (optObj, currentQ) => {
@@ -78,6 +78,11 @@ const FunQuizScreen = ({ onBack }) => {
 
   const fetchQuestions = async () => {
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) {
+        setIsQuestionsLoading(false);
+        return;
+      }
       const token = localStorage.getItem('token');
       const [res, compRes] = await Promise.all([
         fetch(`${BASE_URL}/api/fun-quizzes`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }),
@@ -182,6 +187,12 @@ const FunQuizScreen = ({ onBack }) => {
 
   const fetchScores = async () => {
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) {
+        setIsQuestionsLoading(false);
+        setIsLoading(false);
+        return;
+      }
       const token = localStorage.getItem('token');
 
       const headers = { 'Authorization': `Bearer ${token?.trim()}` };
@@ -268,6 +279,8 @@ const FunQuizScreen = ({ onBack }) => {
     if (currentQ.has_answered) return;
 
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
       const token = localStorage.getItem('token');
       const res = await fetch(API_ENDPOINTS.QUIZ_ANSWER(currentQ.id), {
         method: 'POST',
@@ -332,6 +345,11 @@ const FunQuizScreen = ({ onBack }) => {
   const handleSendTotalResults = async () => {
     setIsSubmitting(true);
     try {
+      const authOk = await checkAuthOnce();
+      if (!authOk) {
+        setIsSubmitting(false);
+        return;
+      }
       const token = localStorage.getItem('token');
 
       // Calculate final summary locally
@@ -573,11 +591,11 @@ const FunQuizScreen = ({ onBack }) => {
                 </div>
 
                 <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {p.quiz_points || p.score || 0}
+                  {String(p.quiz_points || p.score || 0)}
                 </div>
 
                 <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: '1000', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {p.score}
+                  {String(p.score || 0)}
                 </div>
               </div>
             );
