@@ -3,6 +3,8 @@ import { BookOpen, Clock, Star, PlayCircle, Award, CheckCircle, ChevronLeft, Loc
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 import logo from '../assets/image.png';
 import petal from '../assets/image.png';
@@ -30,6 +32,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
     // New: Video Progression states
     const [canShowMarkButton, setCanShowMarkButton] = useState(false);
     const videoRef = useRef(null);
+    const certificateRef = useRef(null);
 
     // Persistent storage for course progress
     const [courseProgressMap, setCourseProgressMap] = useState(() => {
@@ -182,6 +185,19 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             const percentage = (current / duration) * 100;
             updateProgress(selectedCourse.id, percentage);
             if (percentage >= 98 && !canShowMarkButton) setCanShowMarkButton(true);
+        }
+    };
+
+    const handleDownloadCertificate = async () => {
+        if (!certificateRef.current) return;
+        try {
+            const canvas = await html2canvas(certificateRef.current, { scale: 3, useCORS: true });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('landscape', 'px', [canvas.width, canvas.height]);
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.save(`${selectedCourse?.title.replace(/\s+/g, '_')}_Certificate.pdf`);
+        } catch (error) {
+            console.error("Error downloading certificate:", error);
         }
     };
 
@@ -354,15 +370,21 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5 }}
-                            style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}
+                            style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}
                         >
                             <div style={{ fontSize: '18px', fontWeight: '900', color: '#0B1E3F', textAlign: 'center' }}>Congratulations! Here is your Certificate</div>
-                            <div style={{ position: 'relative', width: '100%', maxWidth: '700px' }}>
+                            <div ref={certificateRef} style={{ position: 'relative', width: '100%', maxWidth: '700px', backgroundColor: 'white', padding: '10px' }}>
                                 <img src={certificateImg} alt="Certificate of Achievement" style={{ width: '100%', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', display: 'block' }} />
                                 <div style={{ position: 'absolute', top: '49%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', textAlign: 'center', color: '#0B1E3F', fontSize: 'clamp(14px, 3vw, 28px)', fontWeight: '900', fontFamily: 'serif', letterSpacing: '1px' }}>
                                     {user?.name || user?.userName || 'Employee Name'}
                                 </div>
                             </div>
+                            <button 
+                                onClick={handleDownloadCertificate}
+                                style={{ ...s.actionBtn, marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 28px' }}
+                            >
+                                <Download size={18} /> Download Certificate
+                            </button>
                         </motion.div>
                     )}
                 </div>
