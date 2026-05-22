@@ -212,28 +212,31 @@ const FunQuizScreen = ({ onBack }) => {
 
       // Process Quiz points
       qList.forEach(q => {
-        const id = String(q.employee_id || q.user_id || q.id || '');
-        if (!id) return;
+        const rawId = String(q.employee_id || q.user_id || q.id || '');
+        if (!rawId) return;
+        const id = rawId.split(':')[0].trim();
+        const pts = Number(q.total_score || q.quiz_score || q.total_quiz_points || q.points || 0);
         mergedMap.set(id, {
           id,
           name: q.name || q.employee_name || `Employee ${id}`,
-          quizPoints: Number(q.total_score || q.quiz_score || q.total_quiz_points || q.points || 0),
+          quizPoints: isNaN(pts) ? 0 : pts,
           rewardPoints: 0
         });
       });
 
       // Process Reward points
       rList.forEach(r => {
-        const id = String(r.employee_id || r.user_id || r.id || '');
-        if (!id) return;
+        const rawId = String(r.employee_id || r.user_id || r.id || '');
+        if (!rawId) return;
+        const id = rawId.split(':')[0].trim();
         const existing = mergedMap.get(id) || {
           id,
           name: r.name || r.employee_name || `Employee ${id}`,
           quizPoints: 0,
           rewardPoints: 0
         };
-        // In rewards leaderboard, points are usually in 'points' or 'total_points'
-        existing.rewardPoints = Number(r.points || r.total_points || r.reward_points || 0);
+        const pts = Number(r.points || r.total_points || r.reward_points || 0);
+        existing.rewardPoints = isNaN(pts) ? 0 : pts;
         mergedMap.set(id, existing);
       });
 
