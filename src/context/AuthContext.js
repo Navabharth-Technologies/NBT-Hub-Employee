@@ -53,22 +53,51 @@ export const safeGetItem = (key) => {
     }
 };
 
-// Check if JWT token is still valid (not expired) without making any HTTP request
-export const isTokenValid = () => {
-    try {
-        const token = safeGetItem('token');
-        if (!token || token === 'undefined' || token === 'null') return false;
-        const clean = token.replace(/['"]+/g, '').trim();
-        if (!clean) return false;
-        const parts = clean.split('.');
-        if (parts.length !== 3) return false;
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload.exp && (payload.exp * 1000 < Date.now())) return false;
-        return true;
-    } catch {
-        return false;
-    }
+// Centralized Auth Validation Singleton
+// Validates the token with at most ONE server request across the entire app.
+// All components await this single promise before making any API calls.
+let _authPromise = null;
+let _authResult = null;
+
+export const checkAuthOnce = () => {
+    // If we already know the answer, return immediately
+    if (_authResult !== null) return Promise.resolve(_authResult);
+    // If a check is already in flight, return the same promise
+    if (_authPromise) return _authPromise;
+
+    _authPromise = (async () => {
+        try {
+            const token = safeGetItem('token');
+            if (!token || token === 'undefined' || token === 'null') { _authResult = false; return false; }
+            const clean = token.replace(/['"]+/g, '').trim();
+            if (!clean) { _authResult = false; return false; }
+
+            // Client-side JWT expiry check first (zero network cost)
+            try {
+                const parts = clean.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1]));
+                    if (payload.exp && (payload.exp * 1000 < Date.now())) { _authResult = false; return false; }
+                }
+            } catch { _authResult = false; return false; }
+
+            // Single server-side validation request
+            const res = await fetch(`${API_ENDPOINTS.USERS}`, {
+                headers: { 'Authorization': `Bearer ${clean}` }
+            });
+            _authResult = res.ok;
+            return _authResult;
+        } catch {
+            _authResult = false;
+            return false;
+        }
+    })();
+
+    return _authPromise;
 };
+
+// Reset auth state (call on login/logout)
+export const resetAuthState = () => { _authPromise = null; _authResult = null; };
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -117,28 +146,26 @@ export const AuthProvider = ({ children }) => {
       // FIX: Master Copy Synchronization
       // We load from LocalStorage first, then fetch from server.
       // If server returns empty fields for things we have locally (like Base64 images), we preserve the local ones.
-      if (isTokenValid()) {
+      checkAuthOnce().then(isValid => {
+        if (!isValid) return;
         fetch(API_ENDPOINTS.PROFILE(u.email), {
           headers: { 'Authorization': `Bearer ${token.trim()}` }
         })
           .then(r => r.ok ? r.json() : null)
           .then(data => {
               if (data) {
-                  // Strategic Merge: Preserve local visual data if server is null/broken
                   const mergedUser = { ...u };
                   Object.keys(data).forEach(key => {
                       const serverVal = data[key];
-                      // Only overwrite if server has a non-null, non-empty value
                       if (serverVal !== null && serverVal !== '' && serverVal !== 'null') {
                           mergedUser[key] = serverVal;
                       }
                   });
-                  
                   setUser(mergedUser);
                   safeSetItem('user', JSON.stringify(mergedUser));
               }
           }).catch(() => {});
-      }
+      });
     }
     setLoading(false);
   }, []);
@@ -196,6 +223,7 @@ export const AuthProvider = ({ children }) => {
 
         safeSetItem('user', JSON.stringify(userData));
         safeSetItem('token', data.token);
+        resetAuthState();
         return { success: true };
       }
 
@@ -217,6 +245,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    resetAuthState();
   };
 
   const updateProfile = async (field, value) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth, safeSetItem, isTokenValid } from '../context/AuthContext';
+import { useAuth, safeSetItem, checkAuthOnce } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { 
   User, Users, Briefcase, Clock, CheckCircle2, 
@@ -29,7 +29,9 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     const sid = sanitizeId(targetId);
     try {
       const token = localStorage.getItem('token');
-      if (!token || token === 'undefined' || !isTokenValid()) return;
+      if (!token || token === 'undefined') return;
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
 
       const headers = { 
         'Accept': 'application/json',
@@ -59,7 +61,9 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const fetchTaskDetail = useCallback(async (taskId) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token || token === 'undefined' || !isTokenValid()) return;
+      if (!token || token === 'undefined') return;
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
 
       const headers = { 
         'Accept': 'application/json',
@@ -78,24 +82,18 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     if (!uid) return;
     try {
       const token = localStorage.getItem('token');
-      if (!token || token === 'undefined' || !isTokenValid()) return;
+      if (!token || token === 'undefined') return;
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
 
       const headers = { 
         'Accept': 'application/json',
         'Authorization': `Bearer ${token.trim()}`
       };
 
-      const safeFetch = async (url, opts) => {
-        try {
-          const res = await fetch(url, opts);
-          if (res.status === 401) return null;
-          return res;
-        } catch { return null; }
-      };
-
       const [indResp, empProfileResp] = await Promise.all([
-        safeFetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }),
-        user?.email ? safeFetch(API_ENDPOINTS.PROFILE(user.email), { headers }) : Promise.resolve(null)
+        fetch(API_ENDPOINTS.TASKS_ASSIGNED(uid), { headers }).catch(() => null),
+        user?.email ? fetch(API_ENDPOINTS.PROFILE(user.email), { headers }).catch(() => null) : Promise.resolve(null)
       ]);
 
       if (indResp && indResp.ok) {
@@ -126,7 +124,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       if (managerId) {
         try {
           const mgrIdStr = String(sanitizeId(managerId));
-          const allResp = await safeFetch(API_ENDPOINTS.ALL_ASSIGNED_TASKS, { headers });
+          const allResp = await fetch(API_ENDPOINTS.ALL_ASSIGNED_TASKS, { headers }).catch(() => null);
           if (allResp && allResp.ok) {
             const allData = await allResp.json().catch(() => []);
             const allList = Array.isArray(allData) ? allData : (allData.value || allData.data || []);

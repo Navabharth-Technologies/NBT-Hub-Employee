@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, Play, Clock } from 'lucide-react';
-import { useAuth, isTokenValid } from '../context/AuthContext';
+import { useAuth, checkAuthOnce } from '../context/AuthContext';
 import { API_ENDPOINTS } from '../config';
 
 const TaskNotification = ({ onOpenTask }) => {
@@ -68,7 +68,8 @@ const TaskNotification = ({ onOpenTask }) => {
 
   const fetchNotifications = async () => {
     if (!authValidRef.current) return;
-    if (!isTokenValid()) { authValidRef.current = false; return; }
+    const authOk = await checkAuthOnce();
+    if (!authOk) { authValidRef.current = false; return; }
     const rawUid = user?.id || user?.empId || user?.userId || user?.employee_id;
     const uid = sanitizeId(rawUid);
     if (!uid || uid === 'undefined') return;
@@ -80,20 +81,10 @@ const TaskNotification = ({ onOpenTask }) => {
       
       const headers = { 'Authorization': `Bearer ${cleanToken}` };
 
-      // Helper: make a fetch and bail on 401
-      const safeFetch = async (url, opts) => {
-        try {
-          const res = await fetch(url, opts);
-          if (res.status === 401) { authValidRef.current = false; return null; }
-          return res;
-        } catch { return null; }
-      };
-
       // 0. Fetch Users Map for Role/Name resolution
       let usersMap = {};
       try {
-        const userRes = await safeFetch(API_ENDPOINTS.USERS, { headers });
-        if (!authValidRef.current) return;
+        const userRes = await fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null);
         if (userRes && userRes.ok) {
           const uData = await userRes.json();
           const uList = Array.isArray(uData) ? uData : (uData.value || uData.data || []);
@@ -105,8 +96,7 @@ const TaskNotification = ({ onOpenTask }) => {
       } catch (e) { }
 
       // 1. Fetch Assigned Tasks
-      const taskRes = await safeFetch(`${API_ENDPOINTS.TASKS_ASSIGNED(uid)}?userId=${uid}&_t=${Date.now()}`, { headers });
-      if (!authValidRef.current) return;
+      const taskRes = await fetch(`${API_ENDPOINTS.TASKS_ASSIGNED(uid)}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
       let tasks = [];
       if (taskRes && taskRes.ok) {
         const data = await taskRes.json();
@@ -117,16 +107,14 @@ const TaskNotification = ({ onOpenTask }) => {
       let leaves = [];
       const isLeader = (user?.role || '').toLowerCase().includes('lead') || (user?.role || '').toLowerCase() === 'tl' || (user?.role || '').toLowerCase() === 'manager' || (user?.role || '').toLowerCase().includes('admin') || (user?.role || '').toLowerCase() === 'hr';
 
-      const myLeavesRes = await safeFetch(API_ENDPOINTS.MY_LEAVES_GET(uid), { headers });
-      if (!authValidRef.current) return;
+      const myLeavesRes = await fetch(API_ENDPOINTS.MY_LEAVES_GET(uid), { headers }).catch(() => null);
       if (myLeavesRes && myLeavesRes.ok) {
         const data = await myLeavesRes.json();
         leaves = [...(Array.isArray(data) ? data : (data.value || data.data || []))];
       }
 
       if (isLeader) {
-        const allLeavesRes = await safeFetch(API_ENDPOINTS.ALL_LEAVES, { headers });
-        if (!authValidRef.current) return;
+        const allLeavesRes = await fetch(API_ENDPOINTS.ALL_LEAVES, { headers }).catch(() => null);
         if (allLeavesRes && allLeavesRes.ok) {
           const data = await allLeavesRes.json();
           const allLeaves = Array.isArray(data) ? data : (data.value || data.data || []);
@@ -140,8 +128,7 @@ const TaskNotification = ({ onOpenTask }) => {
 
       // 4. Fetch Funny Quizzes for Engagement
       let quizzes = [];
-      const quizRes = await safeFetch(`${API_ENDPOINTS.QUIZZES_ALL}?userId=${uid}&_t=${Date.now()}`, { headers });
-      if (!authValidRef.current) return;
+      const quizRes = await fetch(`${API_ENDPOINTS.QUIZZES_ALL}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
       if (quizRes && quizRes.ok) {
         const data = await quizRes.json();
         quizzes = Array.isArray(data) ? data : (data.value || data.data || []);
@@ -149,8 +136,7 @@ const TaskNotification = ({ onOpenTask }) => {
 
       // 5. Fetch Global Notifications from Backend Table
       let globalNotifs = [];
-      const globalRes = await safeFetch(`${API_ENDPOINTS.NOTIFICATIONS}?userId=${uid}`, { headers });
-      if (!authValidRef.current) return;
+      const globalRes = await fetch(`${API_ENDPOINTS.NOTIFICATIONS}?userId=${uid}`, { headers }).catch(() => null);
       if (globalRes && globalRes.ok) {
         const data = await globalRes.json();
         globalNotifs = Array.isArray(data) ? data : (data.value || data.data || []);
