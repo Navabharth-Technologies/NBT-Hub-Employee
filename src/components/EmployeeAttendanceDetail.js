@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, TEAM_OFFICE_AUTH_TOKEN } from '../config';
+import BackButton from './BackButton';
 
 export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
   const { id: paramId } = useParams();
@@ -141,7 +142,7 @@ export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
       <main style={styles.main}>
         <div style={styles.header}>
           <div style={styles.profileSection}>
-            <button style={styles.backBtn} onClick={onBack}><ArrowLeft size={16} /></button>
+            <BackButton onClick={onBack} />
             <div>
               <h1 style={styles.empName}>{employee?.name || user?.name || 'Anish V N'} Dashboard</h1>
               <p style={styles.empMeta}>ID: {id} • Biometric Syncing: <span style={{color:'#10B981'}}>Operational</span></p>

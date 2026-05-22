@@ -4,8 +4,9 @@ import { useAuth, safeSetItem, checkAuthOnce } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { 
   User, Users, Briefcase, Clock, CheckCircle2, 
-  Shield, ArrowLeft
+  Shield
 } from 'lucide-react';
+import BackButton from './BackButton';
 
 const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const { user } = useAuth();
@@ -359,18 +360,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   return (
     <div style={s.container}>
       <header style={{ ...s.header, display: 'flex', alignItems: 'center', gap: '20px' }}>
-        {onBack && (
-          <button 
-            onClick={onBack}
-            style={{ 
-              width: '45px', height: '45px', borderRadius: '15px', backgroundColor: 'white', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9',
-              cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-            }}
-          >
-            <ArrowLeft size={20} color="#0B1E3F" />
-          </button>
-        )}
+        <BackButton onClick={onBack} />
         <div>
           <h1 style={s.title}>Project Center</h1>
           <div style={s.subtitle}>Mission oversight and technical brief manifest</div>

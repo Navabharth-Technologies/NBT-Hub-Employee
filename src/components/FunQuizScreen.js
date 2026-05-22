@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth, checkAuthOnce } from '../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../config';
+import BackButton from './BackButton';
 
 const checkIfCorrect = (optObj, currentQ) => {
   if (!currentQ || !currentQ.correct_answer || !optObj) return false;
@@ -644,8 +645,12 @@ const FunQuizScreen = ({ onBack }) => {
       </AnimatePresence>
 
       {!quizActive && (
-        <div style={s.layout}>
-          {/* LEFT COLUMN: HERO + PAST QUIZZES */}
+        <>
+          <div style={{ marginBottom: '20px' }}>
+            <BackButton onClick={onBack} />
+          </div>
+          <div style={s.layout}>
+            {/* LEFT COLUMN: HERO + PAST QUIZZES */}
           <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '25px' }}>
             {/* HERO SECTION */}
             <div style={{ ...s.hero, flex: 'none' }}>
@@ -701,6 +706,7 @@ const FunQuizScreen = ({ onBack }) => {
 
           {renderedLeaderboard}
         </div>
+        </>
       )}
 
       {/* BRAIN TEASER / QUIZ AREA (NEW SCREEN) */}
@@ -710,9 +716,7 @@ const FunQuizScreen = ({ onBack }) => {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'white', borderRadius: '24px', padding: isMobile ? '20px' : '30px', border: '1px solid #eef2f3' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <button onClick={() => setQuizActive(false)} style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'white', border: '1.5px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                  <ArrowLeft size={16} color="#0B1E3F" />
-                </button>
+                <BackButton onClick={() => setQuizActive(false)} />
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Zap size={20} color="#0d676c" fill="#0d676c" /> Daily Brain Teaser
                 </h3>

@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { API_ENDPOINTS, BASE_URL } from '../config';
+import BackButton from './BackButton';
 
 const EMOJI_LIST = ['❤️', '👍', '😮', '😂', '🔥', '👏', '🎂'];
 
@@ -308,12 +309,7 @@ export default function ThreadScreen({ onBack }) {
         <div style={styles.container}>
             {onBack && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <button 
-                        onClick={onBack} 
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 15px', borderRadius: '12px', border: '1.5px solid #eef2f6', background: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: '800', color: '#0B1E3F' }}
-                    >
-                        <ChevronLeft size={18} /> Back to Home
-                    </button>
+                    <BackButton onClick={onBack} />
                 </div>
             )}
             {/* CREATE THREAD */}

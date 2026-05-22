@@ -4,6 +4,7 @@ import { AlertTriangle, Send, History, ChevronLeft, ShieldCheck } from 'lucide-r
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { API_ENDPOINTS } from '../config';
+import BackButton from './BackButton';
 
 export default function TicketScreen({ onBack }) {
   const { user } = useAuth();
@@ -180,12 +181,7 @@ export default function TicketScreen({ onBack }) {
         
         {/* BACK BUTTON */}
         <div style={{ display: 'flex', marginBottom: '20px' }}>
-          <button 
-            onClick={() => onBack ? onBack() : navigate(-1)} 
-            style={{ ...s.backBtn, border: 'none', background: 'white', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '13px' }}
-          >
-            <ChevronLeft size={20} /> Back to Dashboard
-          </button>
+          <BackButton onClick={() => onBack ? onBack() : navigate(-1)} />
         </div>
 
         {/* ────── TICKET FORM ────── */}

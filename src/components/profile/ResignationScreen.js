@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getTheme } from '../../constants/Theme';
 import { API_ENDPOINTS } from '../../config';
 import logo from '../../assets/image.png';
+import BackButton from '../BackButton';
 
 export default function ResignationScreen({ onBack }) {
   const { user } = useAuth();
@@ -215,7 +216,7 @@ export default function ResignationScreen({ onBack }) {
     <div style={s.container}>
       <div style={s.main}>
         <div style={s.header}>
-          <button style={s.backBtn} onClick={onBack}><ChevronLeft size={20} /></button>
+          <BackButton onClick={onBack} />
           <h1 style={s.title}>Exit Management</h1>
         </div>
 

@@ -21,6 +21,7 @@ import autoTable from "jspdf-autotable";
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import useGeolocation from '../hooks/useGeolocation';
+import BackButton from './BackButton';
 
 /**
  * AttendanceDashboard Component
@@ -429,9 +430,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     <div style={s.container} className="attendance-container">
       <header style={s.header} className="attendance-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <motion.div whileHover={{ x: -5 }} onClick={onBack} style={{ cursor: 'pointer', backgroundColor: 'white', padding: '10px', borderRadius: '12px', border: '2px solid #315A9E', boxShadow: '0 2px 8px rgba(49,90,158,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#315A9E' }}>
-            <ArrowLeft size={20} color="#64748b" />
-          </motion.div>
+          <BackButton onClick={onBack} />
           <div>
             <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#0B1E3F', margin: 0 }}>Personal Attendance</h1>
             <p style={{ fontSize: '14px', color: '#64748b', margin: '4px 0 0 0' }}>Biometric Syncing: Operational</p>

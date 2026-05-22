@@ -4,6 +4,7 @@ import { Clock, ArrowLeft, CheckCircle, MapPin, Calendar, Fingerprint, ShieldChe
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { API_ENDPOINTS } from '../config';
+import BackButton from './BackButton';
 
 const AttendanceScreen = ({ onBack }) => {
   const { user } = useAuth();
@@ -132,7 +133,7 @@ const AttendanceScreen = ({ onBack }) => {
   return (
     <div style={s.container}>
       <header style={s.header}>
-        <div style={s.backBtn} onClick={onBack}><ArrowLeft size={20} color="#64748b" /></div>
+        <BackButton onClick={onBack} />
         <h1 style={{ fontSize: '24px', fontWeight: '1000', color: '#0B1E3F', margin: 0 }}>Attendance</h1>
       </header>
 

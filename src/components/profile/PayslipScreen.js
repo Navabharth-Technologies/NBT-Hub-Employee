@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Printer, Calendar, ChevronRight, FileText, Loader2
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS, COMPANY_INFO } from '../../config';
 import logo from '../../assets/image.png';
+import BackButton from '../BackButton';
 
 // Helper: format a month label like "April 2026" from a date string or {month, year} object
 function formatMonthLabel(payslip) {
@@ -166,9 +167,7 @@ export default function PayslipScreen({ onBack }) {
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
-            <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-              <ArrowLeft size={16} /> Back
-            </button>
+            <BackButton onClick={onBack} />
             <div>
               <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '900', color: '#0B1E3F' }}>Salary Statements</h2>
               <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Select a month to view your payslip</p>
@@ -321,9 +320,7 @@ export default function PayslipScreen({ onBack }) {
 
       {/* Action bar */}
       <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <button onClick={() => setSelectedPayslip(null)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-          <ArrowLeft size={18} /> Back to Statements
-        </button>
+        <BackButton onClick={() => setSelectedPayslip(null)} />
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
             <Printer size={18} /> Print

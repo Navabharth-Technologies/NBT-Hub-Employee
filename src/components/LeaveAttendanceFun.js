@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
+import BackButton from './BackButton';
 
 const LeaveAttendanceFun = ({ onBack }) => {
   const { user } = useAuth();
@@ -192,9 +193,7 @@ const LeaveAttendanceFun = ({ onBack }) => {
   return (
     <div style={s.container}>
       <header style={s.header}>
-        <div style={s.backBtn} onClick={activeView === 'MAIN' ? onBack : () => setActiveView('MAIN')}>
-          <ArrowLeft size={20} color="#64748b" />
-        </div>
+        <BackButton onClick={activeView === 'MAIN' ? onBack : () => setActiveView('MAIN')} />
         <h1 style={{ fontSize: '24px', fontWeight: '1000', color: '#0B1E3F', margin: 0 }}>
           {activeView === 'MAIN' ? 'Hub Services' : activeView}
         </h1>

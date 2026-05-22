@@ -10,6 +10,7 @@ import {
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
+import BackButton from '../BackButton';
 
 // These fields are strictly controlled by the backend for non-admin users
 const LOCKED_FIELDS = [
@@ -900,20 +901,7 @@ export default function DocumentsScreen({ onBack }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px' }}>
-            <button onClick={onBack} style={{
-              padding: isMobile ? '8px' : '12px',
-              borderRadius: '12px',
-              backgroundColor: 'white',
-              border: '1.5px solid #e2e8f0',
-              cursor: 'pointer',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-            }}>
-              <ArrowLeft size={isMobile ? 20 : 24} color="#0B1E3F" strokeWidth={3} />
-            </button>
+            <BackButton onClick={onBack} />
             <div>
               <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1 }}>Profile Info</h1>
               <p style={{ fontSize: isMobile ? '11px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>Employee metadata record</p>

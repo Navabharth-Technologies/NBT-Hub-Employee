@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import BackButton from './BackButton';
 
 import logo from '../assets/image.png';
 import petal from '../assets/image.png';
@@ -256,7 +257,10 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         return (
             <div style={s.container}>
                 <div style={s.innerContainer}>
-                    <button style={s.backBtn} onClick={() => setCurrentView(null)}><ChevronLeft size={18} /> Return to curriculum</button>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
+                        <BackButton onClick={() => setCurrentView(null)} />
+                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Return to curriculum</span>
+                    </div>
                     <h2 style={{ ...s.title, marginBottom: '30px' }}>Watching: {selectedCourse.title}</h2>
                     <div style={s.iframeContainer}>
                         {isEmbed ? (
@@ -311,7 +315,10 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         return (
             <div style={s.container}>
                 <div style={s.innerContainer}>
-                    <button style={s.backBtn} onClick={() => setCurrentView(null)}><ChevronLeft size={18} /> Return to curriculum</button>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
+                        <BackButton onClick={() => setCurrentView(null)} />
+                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Return to curriculum</span>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                         <h2 style={{ ...s.title, margin: 0 }}>Reviewing Technical Specification</h2>
                         {rawPdfSrc && !rawPdfSrc.startsWith('data:') && (
@@ -341,7 +348,10 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         return (
             <div style={s.container}>
                 <div style={s.innerContainer}>
-                    <button style={s.backBtn} onClick={handleBackToFleet}><ChevronLeft size={18} /> Back to knowledge hub</button>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
+                        <BackButton onClick={handleBackToFleet} />
+                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to knowledge hub</span>
+                    </div>
                     <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
                     <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('video')}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -396,12 +406,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         <div style={s.container}>
             <div style={s.main}>
                 <div style={s.headerSection}>
-                    <button 
-                        style={{ ...s.backBtn, marginBottom: 0, padding: '10px 18px', borderRadius: '14px' }} 
-                        onClick={() => clearState && clearState()}
-                    >
-                        <ChevronLeft size={16} /> Back
-                    </button>
+                    {clearState && <BackButton onClick={() => clearState()} />}
                     <h1 style={s.title}>Knowledge Hub</h1>
                 </div>
                 <div style={s.grid}>

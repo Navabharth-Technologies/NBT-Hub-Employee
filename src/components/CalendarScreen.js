@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Calendar as CalendarIcon, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { API_ENDPOINTS } from '../config';
+import BackButton from './BackButton';
 
 const CalendarScreen = ({ onBack }) => {
   const [winWidth, setWinWidth] = useState(window.innerWidth);
@@ -152,29 +153,9 @@ const CalendarScreen = ({ onBack }) => {
 
   return (
     <div style={s.container}>
-      <button 
-        onClick={onBack}
-        style={{ 
-          width: 'fit-content', 
-          border: 'none', 
-          background: 'white', 
-          padding: '12px 24px', 
-          borderRadius: '20px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px', 
-          cursor: 'pointer', 
-          fontSize: '13px', 
-          fontWeight: '800', 
-          color: '#3B5998', 
-          boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-          transition: 'all 0.2s ease'
-        }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-5px)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}
-      >
-        <ChevronLeft size={18} strokeWidth={2.5} /> BACK TO DASHBOARD
-      </button>
+      <div style={{ marginBottom: '20px' }}>
+        <BackButton onClick={onBack} />
+      </div>
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
         <div style={s.iconBox}>

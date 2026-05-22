@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { API_ENDPOINTS } from '../config';
+import BackButton from './BackButton';
 
 const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   const { user } = useAuth();
@@ -613,7 +614,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       {/* Header */}
       <div style={s.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '12px' : '20px' }}>
-          <button style={s.backBtn} onClick={onBack}><ArrowLeft size={winWidth < 768 ? 16 : 20} color="#0B1E3F" /></button>
+          <BackButton onClick={onBack} />
           <div>
             <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>Leave Management</h1>
             <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: winWidth < 768 ? '11px' : '13px', fontWeight: '800' }}>Balance, history & holiday calendar</p>

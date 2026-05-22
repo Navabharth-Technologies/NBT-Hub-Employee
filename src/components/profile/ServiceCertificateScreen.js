@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
+import BackButton from '../BackButton';
 
 const ServiceCertificateScreen = ({ onBack }) => {
   const { user } = useAuth();
@@ -301,7 +302,7 @@ const ServiceCertificateScreen = ({ onBack }) => {
     <div style={s.container}>
       {/* Header */}
       <div style={s.header}>
-        <motion.button whileHover={{ scale: 1.05 }} style={s.backBtn} onClick={onBack}><ChevronLeft size={24} color="#10274A" /></motion.button>
+        <BackButton onClick={onBack} />
         <div>
           <h1 style={s.title}>Experience Letter</h1>
           <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Request official service certificate</div>

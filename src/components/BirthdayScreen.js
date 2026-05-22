@@ -3,6 +3,7 @@ import { Cake, ChevronLeft, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
+import BackButton from './BackButton';
 
 const BirthdayScreen = ({ onBack }) => {
   const { user } = useAuth();
@@ -289,29 +290,8 @@ const BirthdayScreen = ({ onBack }) => {
 
   return (
     <div style={s.container}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-        <button
-          onClick={onBack}
-          style={{ 
-            border: 'none', 
-            background: 'white', 
-            width: '40px', 
-            height: '40px', 
-            borderRadius: '12px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            cursor: 'pointer', 
-            color: '#0B1E3F', 
-            boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-3px)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}
-        >
-          <ChevronLeft size={24} strokeWidth={3} />
-        </button>
-        <span style={{ marginLeft: '12px', fontSize: '13px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Dashboard</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+        <BackButton onClick={onBack} />
       </div>
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>

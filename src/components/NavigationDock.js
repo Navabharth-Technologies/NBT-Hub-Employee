@@ -5,10 +5,34 @@ import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Maps sub-pages to their parent nav item so the dock always highlights the right tab
+const resolveParentTab = (tab) => {
+  const parentMap = {
+    // Profile sub-pages
+    'PAYSLIP': 'PROFILE',
+    'DOCUMENTS': 'PROFILE',
+    'EXPERIENCE_LETTER': 'PROFILE',
+    'RESIGNATION_LETTER': 'PROFILE',
+    'SERVICE_CERTIFICATE': 'PROFILE',
+    // Home sub-pages
+    'PROJECTS': 'HOME',
+    'ATTENDANCE': 'HOME',
+    'ATTENDANCE_DETAIL': 'HOME',
+    'BIRTHDAYS': 'HOME',
+    'CALENDAR': 'HOME',
+    'FOCUS_LOGS': 'HOME',
+    'AWARDS': 'HOME',
+    'REPORTS': 'HOME',
+    'TICKET': 'HOME',
+  };
+  return parentMap[tab] || tab;
+};
+
 const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
   const { user, isBlocked } = useAuth();
   const { unreadCount, clearNotifications } = useThread();
   const theme = getTheme(user?.role);
+  const highlightedTab = resolveParentTab(activeTab);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -72,7 +96,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
               <motion.div
                 key={item.id}
                 whileTap={{ scale: 0.9 }}
-                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                className={`nav-item ${highlightedTab === item.id ? 'active' : ''}`}
                 onClick={() => {
                   onTabChange(item.id);
                   if (item.id === 'THREAD') {
@@ -87,7 +111,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
                   cursor: 'pointer', 
                   flex: 1, 
                   transition: 'all 0.2s ease',
-                  borderBottom: activeTab === item.id ? '3px solid #EAB308' : '3px solid transparent',
+                  borderBottom: highlightedTab === item.id ? '3px solid #EAB308' : '3px solid transparent',
                   paddingBottom: '2px',
                   borderRadius: '2px'
                 }}

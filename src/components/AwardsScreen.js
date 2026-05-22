@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Star, Medal, ArrowLeft, Trophy, Calendar, Users, Zap, X, ChevronRight } from 'lucide-react';
 import { BASE_URL, API_ENDPOINTS } from '../config';
 import { useAuth } from '../context/AuthContext';
+import BackButton from './BackButton';
 
 const LeaderboardAvatar = ({ entry, employees, isMe }) => {
     const [imgFailed, setImgFailed] = useState(false);
@@ -771,9 +772,7 @@ const AwardsScreen = ({ onBack }) => {
             {/* Header section... */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <button onClick={onBack} style={{ backgroundColor: 'white', border: 'none', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                        <ArrowLeft size={18} color="#0B1E3F" />
-                    </button>
+                    <BackButton onClick={onBack} />
                     <div>
                         <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>Awards & recognition</h1>
                         <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Excellence recognized at Nbt hub</p>

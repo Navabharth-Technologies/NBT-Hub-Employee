@@ -6,6 +6,7 @@ import {
   CheckCircle2, TrendingUp, Edit3, Save, X, 
   History, Calendar, Clock, Target, ArrowRight, ChevronLeft 
 } from 'lucide-react';
+import BackButton from './BackButton';
 
 const Reports = ({ onBack, onNavigate }) => {
   const { user } = useAuth();
@@ -168,12 +169,7 @@ const Reports = ({ onBack, onNavigate }) => {
       <header style={s.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {onBack && (
-            <button
-              onClick={onBack}
-              style={{ padding: '10px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', flexShrink: 0 }}
-            >
-              <ChevronLeft size={20} /> Back
-            </button>
+            <BackButton onClick={onBack} />
           )}
           <div>
             <h1 style={s.title}>Daily Reports</h1>

@@ -10,8 +10,9 @@ import {
 } from 'lucide-react';
 
 import { getTheme } from '../../constants/Theme';
+import BackButton from '../BackButton';
 
-export default function ProfileScreen({ isNewJoinee, onNavigate }) {
+export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile } = useAuth();
   const theme = getTheme(user?.role);
   const [activeTab, setActiveTab] = useState('My Profile');
@@ -636,6 +637,11 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
               to { transform: translate(-50%, 0); opacity: 1; }
             }
           `}</style>
+        </div>
+      )}
+      {onBack && (
+        <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 100 }}>
+          <BackButton onClick={onBack} />
         </div>
       )}
       <div style={styles.profileWrapper}>
