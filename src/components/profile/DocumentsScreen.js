@@ -590,7 +590,7 @@ export default function DocumentsScreen({ onBack }) {
   const handleChange = (key, value) => {
     // Immediate cleaning for specific fields
     let cleanValue = value;
-    if (['emp_name', 'father_husband_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
+    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
     } else if (key === 'department') {
       cleanValue = value.replace(/[^a-zA-Z\s\&\-\/\.]/g, ''); // Block numbers, allow basic special chars
