@@ -19,6 +19,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const [notificationFeedback, setNotificationFeedback] = useState(null);
   const [reviewData] = useState({}); // taskId -> { review, verified }
   const [taskDetailMap, setTaskDetailMap] = useState({}); // Stores explicit task metadata
+  const [taskReviewMap, setTaskReviewMap] = useState({}); // Stores manager review from /api/master-task/review/{id}
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [pendingStatusData, setPendingStatusData] = useState(null);
   
@@ -77,6 +78,26 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     } catch (e) {}
   }, []);
 
+  // Fetch manager review from dedicated review endpoint
+  const fetchTaskReview = useCallback(async (taskId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token || token === 'undefined') return;
+      const authOk = await checkAuthOnce();
+      if (!authOk) return;
+
+      const headers = { 
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token.trim()}`
+      };
+      const res = await fetch(API_ENDPOINTS.TASK_REVIEW(taskId), { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setTaskReviewMap(prev => ({ ...prev, [taskId]: data }));
+      }
+    } catch (e) {}
+  }, []);
+
   const fetchProjectData = useCallback(async () => {
     const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
     if (!uid) return;
@@ -107,7 +128,10 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const pName = p.projectName || p.project_name || p.project || p.task_name;
           fetchSprintStatus(uid, pName);
           const tid = p.id || p.assigned_id || p.task_id;
-          if (tid) fetchTaskDetail(tid);
+          if (tid) {
+            fetchTaskDetail(tid);
+            fetchTaskReview(tid);
+          }
         });
       }
 
@@ -145,13 +169,16 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
           if (pName) fetchSprintStatus(managerId || uid, pName);
           const tid = p.id || p.assigned_id || p.task_id;
-          if (tid) fetchTaskDetail(tid);
+          if (tid) {
+            fetchTaskDetail(tid);
+            fetchTaskReview(tid);
+          }
         });
       }
     } catch (err) {
       console.error("Project Fetch Error:", err);
     }
-  }, [user, fetchSprintStatus, fetchTaskDetail]);
+  }, [user, fetchSprintStatus, fetchTaskDetail, fetchTaskReview]);
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
@@ -324,7 +351,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         } catch { return false; }
       }
       if (statusFilter === 'ALL') return true;
-      const pStatus = p.status || p.sprint_status || p.overallStatus || sprintStatusMap[p.task_name || p.taskName || p.project_name || p.projectName] || 'Pending';
+      const pName = p.task_name || p.taskName || p.project_name || p.projectName;
+      const pStatus = sprintStatusMap[pName] || p.status || p.sprint_status || p.overallStatus || 'Pending';
       return pStatus.toLowerCase() === statusFilter.toLowerCase();
     });
 
@@ -351,7 +379,10 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
 
       <div style={{ ...s.toggleGrid, marginBottom: '20px' }}>
         {['INDIVIDUAL', 'TEAM'].map(type => (
-          <div key={type} style={s.toggleCard(activeView === type)} onClick={() => setActiveView(type)}>
+          <div key={type} style={s.toggleCard(activeView === type)} onClick={() => {
+            setActiveView(type);
+            setStatusFilter('ALL');
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div style={{ backgroundColor: activeView === type ? 'rgba(255,255,255,0.2)' : '#f1f5f9', padding: '10px', borderRadius: '15px' }}>
                 {type === 'INDIVIDUAL' ? <User size={22} color={activeView === type ? 'white' : '#3B5998'} /> : <Users size={22} color={activeView === type ? 'white' : '#3B5998'} />}
@@ -367,22 +398,28 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '40px', overflowX: 'auto', paddingBottom: '5px' }}>
-        {['ALL', 'Today', 'Pending', 'In Progress', 'Completed', 'Approved'].map(f => (
-          <button 
-            key={f}
-            onClick={() => setStatusFilter(f)}
-            style={{
-              padding: '8px 20px', borderRadius: '12px', border: '1.5px solid',
-              backgroundColor: statusFilter === f ? '#3B5998' : 'white',
-              color: statusFilter === f ? 'white' : '#64748b',
-              borderColor: statusFilter === f ? '#3B5998' : '#eef2f6',
-              fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap'
-            }}
-          >
-            {f}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '40px', overflowX: 'auto', paddingBottom: '10px' }}>
+        {['ALL', 'Today', 'Pending', 'In Progress', 'Completed', 'Approved'].map(f => {
+          const isActive = statusFilter === f;
+          return (
+            <button 
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              style={{
+                padding: '8px 20px', borderRadius: '12px', border: '1.5px solid',
+                backgroundColor: isActive ? '#3B5998' : 'white',
+                color: isActive ? 'white' : '#64748b',
+                borderColor: isActive ? '#3B5998' : '#eef2f6',
+                boxShadow: isActive ? '0 8px 20px rgba(59, 89, 152, 0.2)' : 'none',
+                transform: isActive ? 'translateY(-2px)' : 'none',
+                transition: 'all 0.3s ease',
+                fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap'
+              }}
+            >
+              {f}
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -392,10 +429,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           
           const td = taskDetailMap[proj.id] || {};
           const rd = reviewData[proj.id];
+          const rv = taskReviewMap[proj.id] || {};
           
-          // Priority Fix: Use task_status and task_review from master_tasks table (from main list or detail fetch)
-          const finalReview = proj.task_review || td.task_review || '';
-          const finalStatus = proj.task_status || td.task_status || proj.status || '';
+          // Priority Fix: Use task_status and task_review from master_tasks table, review endpoint, or detail fetch
+          const finalReview = rv.task_review || rv.review || rv.feedback || proj.task_review || td.task_review || '';
+          const finalStatus = rv.task_status || proj.task_status || td.task_status || proj.status || '';
 
           let vRaw = finalStatus || finalReview || null;
           
@@ -414,8 +452,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const isRejected = vRaw !== null && String(vRaw).toUpperCase() === 'REJECTED';
 
           // Overall status for buttons/progress
-          let pStatus = finalStatus || proj.overall_status || proj.overallStatus || 
-                        sprintStatusMap[pName] || 'Pending';
+          let pStatus = sprintStatusMap[pName] || finalStatus || proj.overall_status || proj.overallStatus || 'Pending';
           
           if (isApproved) pStatus = 'Completed';
           else if (isRejected) {

@@ -350,9 +350,11 @@ export const ThreadProvider = ({ children }) => {
   };
 
   const deletePost = async (id) => {
+    // Optimistic removal — instantly hide the post from the UI
+    setThreads(prev => prev.filter(t => t.id !== id));
     try {
         const token = localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        const headers = { 'Accept': 'application/json' };
         if (token && token !== 'undefined') {
           headers['Authorization'] = `Bearer ${token.trim()}`;
         }
@@ -361,13 +363,14 @@ export const ThreadProvider = ({ children }) => {
         const url = `${API_ENDPOINTS.THREAD_DELETE(id)}?userId=${sid}&user_id=${sid}`;
         const res = await fetch(url, { 
           method: 'DELETE',
-          headers,
-          body: JSON.stringify({ userId: user?.id, user_id: user?.id })
+          headers
         });
-        if (res.ok) {
-          await fetchThreads();
-        }
-    } catch {}
+        // Sync with backend regardless of result
+        await fetchThreads(user?.id);
+    } catch {
+        // Revert on failure by re-fetching
+        await fetchThreads(user?.id);
+    }
   };
 
   const fetchSingleThread = async (id) => {
@@ -447,6 +450,8 @@ export const ThreadProvider = ({ children }) => {
   };
 
   const updatePost = async (id, content) => {
+    // Optimistic update — show new content immediately
+    setThreads(prev => prev.map(t => t.id === id ? { ...t, content } : t));
     try {
         const token = localStorage.getItem('token');
         const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
@@ -454,13 +459,23 @@ export const ThreadProvider = ({ children }) => {
           headers['Authorization'] = `Bearer ${token.trim()}`;
         }
 
-        const res = await fetch(API_ENDPOINTS.THREAD_UPDATE(id), {
+        const sid = sanitizeId(user?.id);
+        const res = await fetch(`${API_ENDPOINTS.THREAD_UPDATE(id)}?userId=${sid}&user_id=${sid}`, {
             method: 'PUT',
             headers,
-            body: JSON.stringify({ content })
+            body: JSON.stringify({ 
+              userId: Number(user?.id),
+              user_id: Number(user?.id),
+              content,
+              text: content,
+              message: content
+            })
         });
-        if (res.ok) setThreads(threads.map(t => t.id === id ? { ...t, content } : t));
-    } catch {}
+        // Sync with backend
+        await fetchThreads(user?.id);
+    } catch {
+        await fetchThreads(user?.id);
+    }
   };
 
   return (

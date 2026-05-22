@@ -378,7 +378,28 @@ export default function DocumentsScreen({ onBack }) {
           if (lwdVal) cleanData.lwd = lwdVal;
 
           const dobVal = cleanData.dob || cleanData.date_of_birth || cleanData.dateofbirth || cleanData.birth_date;
-          if (dobVal) cleanData.dob = dobVal;
+          if (dobVal) {
+            // Format DOB to DD/MM/YYYY
+            const formatDOB = (val) => {
+              if (!val || val === 'Not Provided') return val;
+              const s = String(val).trim();
+              // Already in DD/MM/YYYY
+              if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+              // ISO format YYYY-MM-DD or YYYY-MM-DDT...
+              const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+              if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+              // Try parsing as date object
+              const d = new Date(s);
+              if (!isNaN(d.getTime())) {
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                return `${dd}/${mm}/${yyyy}`;
+              }
+              return s;
+            };
+            cleanData.dob = formatDOB(dobVal);
+          }
 
           // Aggressive Name and DOB Resolution
           const isOwnProfile = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
@@ -1428,49 +1449,7 @@ export default function DocumentsScreen({ onBack }) {
             </div>
           </motion.div>
 
-          {/* Save All + Next floating action bar */}
-          {isEditing && (
-            <div style={{
-              display: 'flex', justifyContent: 'flex-end', gap: '12px',
-              marginTop: '24px', paddingBottom: '20px'
-            }}>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  padding: isMobile ? '10px 20px' : '14px 32px',
-                  backgroundColor: '#315A9E', color: 'white',
-                  border: 'none', borderRadius: '14px', fontWeight: '900',
-                  fontSize: isMobile ? '13px' : '15px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  boxShadow: '0 8px 20px rgba(49,90,158,0.25)'
-                }}
-              >
-                {saving ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
-                Save All
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  const currentIdx = SECTIONS.findIndex(s => s.id === activeSection);
-                  const nextSection = SECTIONS[currentIdx + 1];
-                  if (nextSection) setActiveSection(nextSection.id);
-                }}
-                disabled={SECTIONS.findIndex(s => s.id === activeSection) === SECTIONS.length - 1}
-                style={{
-                  padding: isMobile ? '10px 20px' : '14px 32px',
-                  backgroundColor: 'white', color: '#315A9E',
-                  border: '2px solid #315A9E', borderRadius: '14px', fontWeight: '900',
-                  fontSize: isMobile ? '13px' : '15px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  opacity: SECTIONS.findIndex(s => s.id === activeSection) === SECTIONS.length - 1 ? 0.4 : 1
-                }}
-              >
-                Next <ChevronRight size={14} />
-              </motion.button>
-            </div>
-          )}
+
         </div>
       </div>
 
