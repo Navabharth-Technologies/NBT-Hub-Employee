@@ -251,11 +251,35 @@ const TaskNotification = ({ onOpenTask }) => {
         const isNewlyAdded = lastIds.size > 0 && !lastIds.has(gId);
         if (isNewlyAdded) addedNew = true;
 
+        const rawMsg = gn.message || gn.content || gn.description || '';
+        let dynamicTitle = gn.title;
+        
+        if (!dynamicTitle || dynamicTitle === 'System Alert' || dynamicTitle.toLowerCase().includes('system alert')) {
+            const lowerMsg = rawMsg.toLowerCase();
+            if (lowerMsg.includes('leave') && (lowerMsg.includes('approved') || lowerMsg.includes('accepted'))) {
+                dynamicTitle = 'Leave Approved';
+            } else if (lowerMsg.includes('leave') && (lowerMsg.includes('rejected') || lowerMsg.includes('declined'))) {
+                dynamicTitle = 'Leave Rejected';
+            } else if (lowerMsg.includes('leave') && lowerMsg.includes('updated')) {
+                dynamicTitle = 'Leave Status Updated';
+            } else if (lowerMsg.includes('leave')) {
+                dynamicTitle = 'Leave Update';
+            } else if (lowerMsg.includes('quiz')) {
+                dynamicTitle = 'New Fun Quiz';
+            } else if (lowerMsg.includes('task') || lowerMsg.includes('assigned')) {
+                dynamicTitle = 'New Task Assigned';
+            } else if (lowerMsg.includes('reward') || lowerMsg.includes('points')) {
+                dynamicTitle = 'Reward Earned';
+            } else {
+                dynamicTitle = 'System Alert';
+            }
+        }
+
         return {
           id: gId,
           type: gn.type || 'ALERT',
-          title: gn.title || 'System Alert',
-          description: gn.message || gn.content || gn.description || '',
+          title: dynamicTitle,
+          description: rawMsg,
           formattedTime: formatDate(parseDate),
           isNew: isNewlyAdded,
           rawDate: parseDate
