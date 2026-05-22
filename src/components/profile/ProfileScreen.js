@@ -429,16 +429,30 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
 
     try {
-      const res = await fetch(API_ENDPOINTS.CHANGE_PASSWORD, {
+      const res = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
-          email: user.email,
+          userId: user?.id || user?.employee_id || user?.empId,
+          employee_id: user?.employee_id || user?.empId || user?.id,
+          id: user?.id || user?.employee_id,
+          email: user?.email,
           oldPassword: passData.old,
-          newPassword: passData.new
+          newPassword: passData.new,
+          password: passData.new,
+          old_password: passData.old,
+          new_password: passData.new
         })
       });
-      if (res.ok) {
+      
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        // Ignored
+      }
+
+      if (res.ok && !data.error && data.message !== 'Invalid old password' && data.success !== false) {
         triggerToast('Your password has been changed. Please relogin.');
         setShowPasswordModal(false);
         setPassData({ old: '', new: '', confirm: '', otp: '' });
@@ -447,8 +461,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate }) {
           window.location.href = './';
         }, 2500);
       } else {
-        const err = await res.json();
-        triggerToast(err.message || 'Verification failed', 'error');
+        triggerToast(data.message || data.error || 'Verification failed', 'error');
       }
     } catch { triggerToast('Network Error', 'error'); }
   };

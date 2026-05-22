@@ -489,9 +489,18 @@ export default function DocumentsScreen({ onBack }) {
     };
 
     // REQUIRED FIELDS CHECK
-    const required = ['emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id'];
+    const required = [
+      'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
+      // Contact & Geography
+      'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
+      // Academic & Career
+      'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 
+      'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
+      // Banking & Finance
+      'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
+    ];
     if (required.includes(key) && (!value || String(value).trim() === '')) {
-      return `${key.replace('_', ' ').toUpperCase()} is required`;
+      return `${key.replace(/_/g, ' ').toUpperCase()} is required`;
     }
 
     if (!value) return null;
@@ -1137,7 +1146,13 @@ export default function DocumentsScreen({ onBack }) {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
                       <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                        {field.label} {['emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id'].includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
+                        {field.label} {[
+                          'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
+                          'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
+                          'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 
+                          'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
+                          'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
+                        ].includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
                       </label>
                       {isLockedForRole && <Shield size={10} color="#000000" />}
                     </div>
