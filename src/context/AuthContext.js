@@ -263,6 +263,16 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (field, value) => {
     if (!user) return { success: false, error: 'User not logged in' };
+    
+    // If the field is profileImage/profile_pic, it has already been uploaded and saved on the server
+    // by the /upload-image endpoint. We only need to update the local React state and storage.
+    if (field === 'profileImage' || field === 'profile_pic' || field === 'profile_image' || field === 'avatar') {
+      const updatedUser = { ...user, [field]: value };
+      setUser(updatedUser);
+      safeSetItem('user', JSON.stringify(updatedUser));
+      return { success: true };
+    }
+
     try {
       const token = safeGetItem('token');
       const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
@@ -271,7 +281,13 @@ export const AuthProvider = ({ children }) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ [field]: value, email: user.email })
+        body: JSON.stringify({ 
+          [field]: value, 
+          email: user.email,
+          userId: user?.id || user?.employee_id || user?.empId,
+          employee_id: user?.employee_id || user?.empId || user?.id,
+          id: user?.id || user?.employee_id || user?.empId
+        })
       });
 
       const updatedUser = { ...user, [field]: value };
