@@ -812,18 +812,15 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           </motion.div>
 
           {/* TENURITY CARD */}
-          <motion.div
-            whileHover={{ y: -5 }}
-            style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
-            onClick={() => onNavigate?.('RESIGNATION_LETTER')}
+          <div
+            style={{ ...styles.infoCard, borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
           >
             <div style={{ ...styles.iconCircle, backgroundColor: '#dcfce7' }}><Clock size={18} color="#15803d" /></div>
             <div style={{ flex: 1 }}>
               <div style={{ ...styles.managerLabel, color: '#15803d' }}>Total Tenurity</div>
               <div style={styles.infoValue}>{calculateTenure(joiningDate)} Experience</div>
             </div>
-            <ChevronRight size={16} color="#15803d" />
-          </motion.div>
+          </div>
 
         </div>
 
@@ -1208,7 +1205,7 @@ const DocCard = ({ doc, onNavigate }) => {
         } else if (doc.title === 'MONTHLY PAY SLIP') {
           onNavigate?.('PAYSLIP');
         } else if (doc.title === 'EXPERIENCE LETTER') {
-          onNavigate?.('SERVICE_CERTIFICATE');
+          onNavigate?.('EXPERIENCE_LETTER');
         }
       }}
     >

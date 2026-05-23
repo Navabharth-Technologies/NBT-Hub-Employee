@@ -35,19 +35,37 @@ import Reports from './components/Reports';
 
 function App() {
   const { user, loading } = useAuth();
+  
+  const pathToTab = {
+    '/': 'HOME',
+    '/profile': 'PROFILE',
+    '/courses': 'COURSES',
+    '/thread': 'THREAD',
+    '/leave': 'LEAVE',
+    '/attendance': 'ATTENDANCE',
+    '/fun': 'FUN',
+    '/awards': 'AWARDS',
+    '/resignation': 'RESIGNATION'
+  };
+
   const [activeTab, setActiveTab] = useState(() => {
     try {
       // 1. Try to read from URL hash (e.g. #/leave)
       const hash = window.location.hash;
-      if (hash && hash.startsWith('#/')) {
-        const path = hash.substring(2);
-        const pathToTab = (p) => p.toUpperCase().replace(/-/g, '_');
-        const tab = pathToTab(path);
+      const path = hash.startsWith('#') ? hash.substring(1) : '/';
+      if (pathToTab[path]) {
+        return pathToTab[path];
+      }
+      
+      // Fallback for paths not in the map
+      if (path && path.startsWith('/')) {
+        const legacyTab = path.substring(1).toUpperCase().replace(/-/g, '_');
         const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
-        if (validTabs.includes(tab)) {
-          return tab;
+        if (validTabs.includes(legacyTab)) {
+          return legacyTab;
         }
       }
+      
       // 2. Fallback to localStorage
       const saved = localStorage.getItem('nbt_active_tab');
       return saved || 'HOME';
@@ -61,16 +79,22 @@ function App() {
     } catch { return null; }
   });
 
-  const [isNewJoinee, setIsNewJoinee] = useState(false);
+  const [isNewJoinee, setIsNewJoinee] = useState(() => {
+    if (!user) return false;
+    const roleStr = String(user.role || '').toUpperCase();
+    return !!(user.isNewJoinee || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE'));
+  });
   const [isNavVisible, setIsNavVisible] = useState(true);
   const scrollRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
+  const isInitialMount = useRef(true);
 
   React.useEffect(() => {
     const checkJoineeStatus = async () => {
       if (user?.email) {
+        const roleStr = String(user.role || '').toUpperCase();
         // If the user already has the flag or is a trainee, no need to fetch
-        if (user.isNewJoinee || user.role === 'Trainee' || user.role === 'TRAINEE') {
+        if (user.isNewJoinee || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE')) {
           setIsNewJoinee(true);
           return;
         }
@@ -88,17 +112,35 @@ function App() {
             });
             const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
             if (!uid) return;
-            setIsNewJoinee(isListed || user.role === 'Trainee' || user.isNewJoinee);
+            setIsNewJoinee(isListed || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE') || user.isNewJoinee);
           } else {
-            setIsNewJoinee(user.role === 'Trainee' || user.isNewJoinee);
+            setIsNewJoinee(roleStr.includes('TRAINEE') || roleStr.includes('JOINEE') || user.isNewJoinee);
           }
         } catch (e) { 
           console.error("Joinee check failed:", e); 
-          setIsNewJoinee(user.role === 'Trainee' || user.isNewJoinee);
+          setIsNewJoinee(roleStr.includes('TRAINEE') || roleStr.includes('JOINEE') || user.isNewJoinee);
         }
       }
     };
     checkJoineeStatus();
+  }, [user]);
+
+  // ✅ Always redirect to Home/Dashboard after successful login
+  useEffect(() => {
+    if (user) {
+      if (!isInitialMount.current) {
+        setActiveTab('HOME');
+        setActiveTabState(null);
+        localStorage.setItem('nbt_active_tab', 'HOME');
+        localStorage.removeItem('nbt_active_tab_state');
+        try {
+          window.location.hash = '/';
+        } catch (e) {}
+      }
+      isInitialMount.current = false;
+    } else {
+      isInitialMount.current = false;
+    }
   }, [user]);
 
   const showNav = React.useCallback(() => {
@@ -132,9 +174,21 @@ function App() {
   // ✅ Proper Navigation: Sync URL and Title with Active Tab
   useEffect(() => {
     if (!user) return;
-    const tabToPath = (t) => t.toLowerCase().replace(/_/g, '-');
-    const path = tabToPath(activeTab);
-    const displayPath = path === 'home' ? '#/' : `#/${path}`;
+    
+    const tabToPathMap = {
+      'HOME': '/',
+      'PROFILE': '/profile',
+      'COURSES': '/courses',
+      'THREAD': '/thread',
+      'LEAVE': '/leave',
+      'ATTENDANCE': '/attendance',
+      'FUN': '/fun',
+      'AWARDS': '/awards',
+      'RESIGNATION': '/resignation'
+    };
+    
+    const path = tabToPathMap[activeTab] || '/' + activeTab.toLowerCase().replace(/_/g, '-');
+    const displayPath = '#' + path;
     
     // Update Browser History without full page reload
     if (window.location.hash !== displayPath && !(window.location.hash === '' && displayPath === '#/')) {
@@ -143,8 +197,30 @@ function App() {
 
     // Update Document Title
     const title = activeTab.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-    document.title = `NBT Hub | ${title === 'Home' ? 'Dashboard' : title}`;
+    document.title = `NBT Hub | ${title === 'Home' ? 'Dashboard' : (title === 'Fun' ? 'Fun Zone' : title)}`;
   }, [activeTab, user]);
+
+  // ✅ Keep back/forward navigation working
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const path = hash.startsWith('#') ? hash.substring(1) : '/';
+      if (pathToTab[path]) {
+        setActiveTab(pathToTab[path]);
+      } else {
+        if (path && path.startsWith('/')) {
+          const legacyTab = path.substring(1).toUpperCase().replace(/-/g, '_');
+          const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
+          if (validTabs.includes(legacyTab)) {
+            setActiveTab(legacyTab);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   if (loading) return null;
   if (!user) return <LoginScreen />;
@@ -187,7 +263,8 @@ function App() {
       case 'AWARDS': return <AwardsScreen onBack={() => setActiveTab('HOME')} />;
       case 'REPORTS': return <Reports onBack={() => setActiveTab('HOME')} onNavigate={setActiveTab} />;
       case 'PAYSLIP': return <PayslipScreen onBack={() => setActiveTab('PROFILE')} />;
-      case 'EXPERIENCE_LETTER': return <ExperienceLetter onBack={() => setActiveTab('PROFILE')} />;
+      case 'EXPERIENCE_LETTER': return <ServiceCertificateScreen onBack={() => setActiveTab('PROFILE')} />;
+      case 'RESIGNATION':
       case 'RESIGNATION_LETTER': return <ResignationScreen onBack={() => setActiveTab('PROFILE')} />;
       case 'DOCUMENTS': return <DocumentsScreen onBack={() => setActiveTab('PROFILE')} />;
       case 'SERVICE_CERTIFICATE': return <ServiceCertificateScreen onBack={() => setActiveTab('PROFILE')} />;
@@ -207,7 +284,7 @@ function App() {
           {renderTab()}
         </main>
         <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} isVisible={isNavVisible} />
-        <TaskNotification onOpenTask={handleTabChange} />
+        {!isNewJoinee && <TaskNotification onOpenTask={handleTabChange} />}
         <ScrollToTop scrollRef={scrollRef} />
       </div>
     </ThreadProvider>

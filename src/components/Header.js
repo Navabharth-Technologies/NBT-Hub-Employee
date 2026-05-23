@@ -8,7 +8,7 @@ import { BASE_URL } from '../config';
 import logo from '../assets/image.png';
 import awardIcon from '../assets/award_icon.png';
 
-export default function AppHeader({ setActiveTab }) {
+export default function AppHeader({ setActiveTab, isNewJoinee }) {
     const { user, logout } = useAuth();
     const theme = getTheme(user?.role);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
@@ -218,7 +218,8 @@ export default function AppHeader({ setActiveTab }) {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '8px' : '20px' }}>
-                    {/* Achievements/Badges Icon */}
+                    {/* Achievements/Badges Icon - Hidden for new joinees */}
+                    {!isNewJoinee && (
                     <motion.div
                         whileHover={{ scale: 1.2, y: -4, rotate: [-5, 5, -5, 0] }}
                         whileTap={{ scale: 0.9 }}
@@ -252,6 +253,7 @@ export default function AppHeader({ setActiveTab }) {
               />
                         </motion.div>
                     </motion.div>
+                    )}
 
                     <div style={styles.rightSection}>
                         <div style={{ ...styles.infoContainer, textAlign: 'right' }}>

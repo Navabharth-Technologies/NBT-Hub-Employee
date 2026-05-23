@@ -8,10 +8,19 @@ import { API_ENDPOINTS, BASE_URL } from '../config';
 import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 
 // Resolve relative media paths (video/PDF) to absolute using the API base URL
+// Automatically corrects hardcoded localhost references to match the BASE_URL host
 const resolveMediaUrl = (url) => {
   if (!url) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  let finalUrl = url;
+  
+  // If backend saved 'localhost' but app is running on a network IP
+  if (finalUrl.includes('localhost') && BASE_URL && !BASE_URL.includes('localhost')) {
+      const baseIp = BASE_URL.replace(/https?:\/\//, '').split(':')[0];
+      finalUrl = finalUrl.replace('localhost', baseIp);
+  }
+
+  if (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) return finalUrl;
+  return `${BASE_URL}${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
 };
 
 const TraineeDashboard = () => {
@@ -103,8 +112,8 @@ const TraineeDashboard = () => {
         description: item.description,
         deadline: item.deadline,
         category: item.category || 'TECHNICAL',
-        pdf_url: item.pdf_url,
-        video_url: item.video_url,
+        pdf_url: item.pdf_url || item.pdf || item.pdfUrl || item.file_url || item.document_url || item.doc_url || null,
+        video_url: item.video_url || item.video || item.videoUrl || item.media_url || null,
         status: item.status || 'Not Started',
         uploaderName: item.uploaded_by || 'HR'
       }));
@@ -376,6 +385,7 @@ const TraineeDashboard = () => {
                 ) : (course.pdf_url || course.pdf) ? (
                    <button 
                      onClick={() => {
+                        const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
                         // Mark status accordingly
                         if (String(course.status).toLowerCase() !== 'completed') {
                           if (String(course.status).toLowerCase() === 'not started' || !course.status || String(course.status).toLowerCase() === 'pending') {
@@ -384,7 +394,15 @@ const TraineeDashboard = () => {
                             handleComplete(course.id);
                           }
                         }
-                       window.open(resolveMediaUrl(course.pdf_url || course.pdf), '_blank');
+                        if (pdfUrl) {
+                          const newTab = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+                          if (!newTab) {
+                            // Popup blocked fallback - use direct navigation
+                            window.location.href = pdfUrl;
+                          }
+                        } else {
+                          console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
+                        }
                      }}
                      style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
                    >
@@ -401,7 +419,7 @@ const TraineeDashboard = () => {
         </div>
       </div>
 
-      <SaturdayRequirementsPopover />
+
       {/* Video now opens in a new tab via /video-player.html */}
     </div>
   );

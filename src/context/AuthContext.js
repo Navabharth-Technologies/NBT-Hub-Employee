@@ -258,7 +258,10 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('nbt_active_tab');
+    localStorage.removeItem('nbt_active_tab_state');
     resetAuthState();
+    window.location.hash = '';
   };
 
   const updateProfile = async (field, value) => {
@@ -315,7 +318,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const checkBlockedStatus = async (currentUser) => {
-    if (!currentUser || (currentUser.role !== 'Trainee' && !currentUser.isNewJoinee)) {
+    if (!currentUser) {
+      setIsBlocked(false);
+      return;
+    }
+    const roleStr = String(currentUser.role || '').toUpperCase();
+    const isJoineeOrTrainee = currentUser.isNewJoinee || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE');
+    if (!isJoineeOrTrainee) {
       setIsBlocked(false);
       return;
     }

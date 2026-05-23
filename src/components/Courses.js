@@ -128,7 +128,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
     const s = {
         container: { backgroundColor: '#f8fafc', minHeight: '100vh', padding: winWidth < 768 ? '20px 15px 120px 15px' : '30px 40px 150px 40px', fontFamily: "'Inter', sans-serif" },
-        main: { maxWidth: '1200px', margin: '0 auto' },
+        main: { maxWidth: '100%', margin: '0 auto' },
         headerSection: { marginBottom: winWidth < 768 ? '25px' : '35px', textAlign: winWidth < 768 ? 'center' : 'left', display: 'flex', alignItems: 'center', gap: '20px' },
         title: { fontSize: winWidth < 768 ? '18px' : '20px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.5px', margin: 0 },
         subtitle: { display: 'none' },
@@ -146,7 +146,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         progressFill: (width) => ({ height: '100%', width: `${width}%`, backgroundColor: '#3b82f6', transition: 'width 0.3s ease' }),
 
         // INNER SCREEN
-        innerContainer: { maxWidth: '900px', margin: '0 auto', padding: winWidth < 768 ? '10px' : '20px' },
+        innerContainer: { maxWidth: '100%', margin: '0 auto', padding: winWidth < 768 ? '10px' : '20px' },
         backBtn: { background: 'white', border: '1.2px solid #f1f5f9', padding: '12px 24px', borderRadius: '18px', fontWeight: '900', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px', cursor: 'pointer', color: '#3B5998', width: 'fit-content', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' },
         taskRow: { 
             backgroundColor: 'white', borderRadius: '30px', padding: winWidth < 768 ? '20px' : '30px', 
@@ -350,7 +350,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 <div style={s.innerContainer}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
                         <BackButton onClick={handleBackToFleet} />
-                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to knowledge hub</span>
+                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Course</span>
                     </div>
                     <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
                     <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('video')}>
@@ -407,7 +407,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             <div style={s.main}>
                 <div style={s.headerSection}>
                     {clearState && <BackButton onClick={() => clearState()} />}
-                    <h1 style={s.title}>Knowledge Hub</h1>
+                    <h1 style={s.title}>Course</h1>
                 </div>
                 <div style={s.grid}>
                     {courses.map(course => {

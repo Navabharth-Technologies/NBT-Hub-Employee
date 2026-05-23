@@ -263,10 +263,16 @@ const FunQuizScreen = ({ onBack }) => {
   };
 
   const handleStartToday = () => {
-    setQuizActive(true);
-    setCurrentIdx(0);
-    setSelectedOption(null);
-  };
+  // Clear any persisted answers from previous sessions to provide a fresh start
+  try {
+    localStorage.removeItem('quiz_user_answers');
+  } catch (e) {}
+  setSelectedOption(null);
+  setQuizActive(true);
+  setCurrentIdx(0);
+  // Re-fetch questions to ensure no stale selections
+  fetchQuestions();
+};
 
   useEffect(() => {
     fetchQuestions();

@@ -386,6 +386,8 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     .filter(l => {
       const status = String(l.rm_status || l.status || '').toUpperCase();
       const type = String(l.leave_type || l.leaveType || '').toUpperCase();
+      const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
+      if (monthFilter === 'ALL' && leaveMonth > 5) return false;
       return status === 'APPROVED' && (type.includes('CASUAL') || type.includes('ANNUAL'));
     })
     .reduce((acc, curr) => acc + (Number(curr.no_of_days) || calculateDays(curr.start_date, curr.end_date)), 0);
@@ -399,7 +401,12 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     .reduce((acc, curr) => acc + (Number(curr.no_of_days) || calculateDays(curr.start_date, curr.end_date)), 0);
 
   // Derive top card values from backend leaveStats if available (Respecting the Filter)
-  const filteredStats = leaveStats.filter(s => monthFilter === 'ALL' || String(s.month) === String(monthFilter));
+  const filteredStats = leaveStats.filter(s => {
+    if (monthFilter === 'ALL') {
+      return Number(s.month) <= 5;
+    }
+    return String(s.month) === String(monthFilter);
+  });
   
   const statsCasualTotal = filteredStats.reduce((acc, s) => acc + Number(s.leaves_taken ?? s.leavesTaken ?? s.taken ?? 0), 0);
   const statsLopTotal = filteredStats.reduce((acc, s) => acc + Number(s.LOP ?? s.lop ?? s.loss_of_pay ?? 0), 0);
@@ -415,7 +422,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
   // Final display values
   const displayBalance = Math.max(0, leaveStats.length > 0 ? statsBalance : netBalance);
-  const displayCasual = leaveStats.length > 0 ? statsCasualTotal : casualLeavesCount;
+  let displayCasual = leaveStats.length > 0 ? statsCasualTotal : casualLeavesCount;
+  if (monthFilter !== 'ALL' && Number(monthFilter) > 5) {
+    displayCasual = 0;
+  }
   const displayLop = leaveStats.length > 0 ? statsLopTotal : lopLeavesCount;
 
   const getNextHoliday = () => {
@@ -810,8 +820,14 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           <div>
             {myLeaves.length > 0 ? myLeaves
                 .filter(l => {
-                  if (monthFilter === 'ALL') return true;
                   const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
+                  if (monthFilter === 'ALL') {
+                    return leaveMonth <= 5;
+                  }
+                  if (Number(monthFilter) > 5) {
+                    const type = String(l.leave_type || l.leaveType || '').toUpperCase();
+                    if (type.includes('CASUAL') || type.includes('ANNUAL')) return false;
+                  }
                   return String(leaveMonth) === String(monthFilter);
                 })
                 .map(req => {
@@ -863,8 +879,14 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             }) : <p style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>You have no leave history yet.</p>}
               
               {myLeaves.length > 0 && myLeaves.filter(l => {
-                  if (monthFilter === 'ALL') return true;
                   const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
+                  if (monthFilter === 'ALL') {
+                    return leaveMonth <= 5;
+                  }
+                  if (Number(monthFilter) > 5) {
+                    const type = String(l.leave_type || l.leaveType || '').toUpperCase();
+                    if (type.includes('CASUAL') || type.includes('ANNUAL')) return false;
+                  }
                   return String(leaveMonth) === String(monthFilter);
                 }).length === 0 && (
                 <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontWeight: '800' }}>

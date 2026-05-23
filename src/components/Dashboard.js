@@ -936,9 +936,7 @@ const Dashboard = ({ setActiveTab }) => {
                              </div>
                            );
                          })
-                       ) : (
-                         <div style={{ ...s.taskItem, color: '#94a3b8' }}>Plan your day. Update your tasks here.</div>
-                       )}
+                       ) : null}
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px' }}>
                            <div style={{...s.statusBadge, marginTop: 0 }}>{todayStatus}</div>
                            <div style={s.liveBadge}>Live Updates</div>

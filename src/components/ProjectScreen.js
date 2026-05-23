@@ -131,7 +131,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const tid = p.id || p.assigned_id || p.task_id;
           if (tid) {
             fetchTaskDetail(tid);
-            fetchTaskReview(tid);
+            const statusStr = String(p.task_status || p.status || '').toUpperCase();
+            const hasReviewField = !!(p.task_review || p.review || p.feedback);
+            if (!hasReviewField && (statusStr === 'COMPLETED' || statusStr === 'APPROVED' || statusStr === 'REJECTED')) {
+              fetchTaskReview(tid);
+            }
           }
         });
       }
@@ -172,7 +176,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const tid = p.id || p.assigned_id || p.task_id;
           if (tid) {
             fetchTaskDetail(tid);
-            fetchTaskReview(tid);
+            const statusStr = String(p.task_status || p.status || '').toUpperCase();
+            const hasReviewField = !!(p.task_review || p.review || p.feedback);
+            if (!hasReviewField && (statusStr === 'COMPLETED' || statusStr === 'APPROVED' || statusStr === 'REJECTED')) {
+              fetchTaskReview(tid);
+            }
           }
         });
       }
@@ -199,21 +207,18 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   }, [user, fetchProjectData]);
 
   const handleStatusUpdate = (pName, st, taskId) => {
-    const curStatus = sprintStatusMap[pName] || 'Pending';
-    if (curStatus === 'Completed') return;
-
     if (st === 'Completed') {
       setPendingStatusData({ pName, st, taskId });
       setShowFinalizeModal(true);
     } else {
       const td = taskDetailMap[taskId] || {};
-      const curProg = td.progress !== undefined && td.progress !== null ? td.progress : (sprintProgressMap[pName] !== undefined ? sprintProgressMap[pName] : 0);
+      const curProg = sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null ? sprintProgressMap[pName] : (td.progress !== undefined && td.progress !== null ? td.progress : 0);
       let newProgress = curProg;
 
       if (st === 'Pending') {
-        newProgress = curProg;
+        newProgress = 0;
       } else if (st === 'In Progress') {
-        newProgress = Math.min(95, Number(curProg) + 5);
+        newProgress = Math.min(95, Number(curProg) + 10);
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
@@ -257,9 +262,9 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     let progress = currentProgress;
     
     if (st === 'Pending') {
-      progress = 5;
+      progress = 0;
     } else if (st === 'In Progress') {
-      progress = Math.min(95, currentProgress + 5);
+      progress = Math.min(95, currentProgress + 10);
     } else if (st === 'Completed') {
       progress = 100;
     }
@@ -414,32 +419,55 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {projectsToShow.length > 0 ? projectsToShow.map((proj, idx) => {
-          const pName = proj.task_name || proj.taskName || proj.task_text || proj.title || proj.taskTitle || proj.projectName || proj.project_name || proj.project || proj.name || 'Unnamed Project';
+          const targetId = proj.id || proj.assigned_id || proj.task_id || proj.assignment_id;
+          const td = taskDetailMap[targetId] || {};
+          const rd = reviewData[targetId];
+          const rv = taskReviewMap[targetId] || {};
+
+          const getValidString = (...strs) => {
+            for (const s of strs) {
+              if (s && String(s).trim() !== '' && String(s).toLowerCase() !== 'null' && String(s).toLowerCase() !== 'undefined') {
+                return s;
+              }
+            }
+            return 'Unnamed Project';
+          };
+
+          const pName = getValidString(
+            td.task_name,
+            td.taskName,
+            td.projectName,
+            td.project_name,
+            proj.task_name,
+            proj.taskName,
+            proj.task_text,
+            proj.title,
+            proj.taskTitle,
+            proj.projectName,
+            proj.project_name,
+            proj.project,
+            proj.name
+          );
+
           const pDesc = proj.description || proj.projectDescription || proj.project_description || proj.task_text || proj.task_description || 'No description provided.';
           
-          const td = taskDetailMap[proj.id] || {};
-          const rd = reviewData[proj.id];
-          const rv = taskReviewMap[proj.id] || {};
-          
           // Priority Fix: Use task_status and task_review from master_tasks table, review endpoint, or detail fetch
-          const finalReview = rv.task_review || rv.review || rv.feedback || proj.task_review || td.task_review || '';
-          const finalStatus = rv.task_status || proj.task_status || td.task_status || proj.status || '';
+          const finalReview = rv.task_review || rv.review || rv.feedback || rv.taskReview || rv.reviewText || rv.managerReview ||
+                              proj.task_review || proj.taskReview || proj.review || proj.reviewText || proj.feedback || proj.managerReview ||
+                              td.task_review || td.taskReview || td.review || td.feedback || '';
+          const finalStatus = rv.task_status || rv.status || proj.task_status || proj.status || td.task_status || td.status || '';
 
-          let vRaw = finalStatus || finalReview || null;
-          
-          const reviewText = String(finalReview).toLowerCase();
-          if (!vRaw && (reviewText.includes('approved') || reviewText === 'app' || reviewText.includes('verified'))) {
-            vRaw = 'APPROVED';
-          } else if (!vRaw && reviewText.includes('rejected')) {
-            vRaw = 'REJECTED';
-          }
+          const statusText = String(finalStatus || '').toUpperCase();
+          const reviewText = String(finalReview || '').toUpperCase();
 
-          const isApproved = vRaw !== null && (
-            String(vRaw).toUpperCase() === 'APPROVED' || 
-            String(vRaw).toUpperCase() === 'APP' || 
-            String(vRaw).toUpperCase() === 'VERIFIED'
-          );
-          const isRejected = vRaw !== null && String(vRaw).toUpperCase() === 'REJECTED';
+          const isApproved = statusText === 'APPROVED' || 
+                             statusText === 'APP' || 
+                             statusText === 'VERIFIED' ||
+                             reviewText.includes('APPROVED') ||
+                             reviewText.includes('VERIFIED');
+
+          const isRejected = statusText === 'REJECTED' || 
+                             reviewText.includes('REJECTED');
 
           // Overall status for buttons/progress
           let pStatus = sprintStatusMap[pName] || finalStatus || proj.overall_status || proj.overallStatus || 'Pending';
@@ -454,20 +482,51 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           if (pStatus === 'In-Progress') pStatus = 'In Progress';
 
           const pProg = isRejected ? 75 :
-                        ((td.progress !== undefined && td.progress !== null) ? td.progress :
                         ((sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
+                        ((td.progress !== undefined && td.progress !== null) ? td.progress :
                         (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
                         (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0)))));
 
-          const deadlineDate = proj.deadline || td.deadline || proj.sprint_deadline || proj.end_date || proj.target_date || td.sprint_deadline || null;
+          const getValidDate = (...dates) => {
+            for (const d of dates) {
+              if (d && String(d).trim() !== '' && String(d).toLowerCase() !== 'null' && String(d).toLowerCase() !== 'undefined') {
+                return d;
+              }
+            }
+            return null;
+          };
+
+          const deadlineDate = getValidDate(
+            td.deadline,
+            td.sprint_deadline,
+            proj.deadline,
+            proj.sprint_deadline,
+            proj.end_date,
+            proj.target_date
+          );
           
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const dDate = deadlineDate ? new Date(deadlineDate) : null;
           if (dDate) dDate.setHours(0, 0, 0, 0);
           
-          const isToday = dDate && dDate.getTime() === today.getTime();
-          const isDeadlinePast = dDate && dDate.getTime() < today.getTime();
+          let isToday = false;
+          let isDeadlinePast = false;
+          if (dDate) {
+            const todayYear = today.getFullYear();
+            const todayMonth = today.getMonth();
+            const todayDate = today.getDate();
+            
+            const dYear = dDate.getFullYear();
+            const dMonth = dDate.getMonth();
+            const dDay = dDate.getDate();
+            
+            isToday = (todayYear === dYear && todayMonth === dMonth && todayDate === dDay);
+            if (!isToday) {
+              isDeadlinePast = dDate.getTime() < today.getTime();
+            }
+          }
+
           const isCompleted = pStatus === 'Completed';
           
           const compDateRaw = proj.completed_at || proj.completion_date || proj.updated_at || td.updated_at || null;
@@ -564,8 +623,14 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {['Pending', 'In Progress', 'Completed'].map(st => {
                         const isActive = pStatus.toLowerCase() === st.toLowerCase();
-                        // Lock all buttons if already Completed OR if manager has approved/rejected
-                        const isLocked = isCompleted || isApproved || isRejected;
+                        // Lock all buttons ONLY if manager has approved
+                        const isLocked = isApproved;
+                        
+                        // Hide 'Pending' and 'In Progress' when progress is 100% or status is Completed
+                        if ((pProg === 100 || pStatus.toLowerCase() === 'completed') && st !== 'Completed') {
+                          return null;
+                        }
+
                         return (
                           <button 
                             key={st}

@@ -55,7 +55,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
     { id: 'FUN', icon: <Gamepad2 className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Fun' },
     { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Leaves' },
     { id: 'PROFILE', icon: <User className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Profile' },
-  ].filter(item => isNewJoinee ? (item.id === 'HOME' || item.id === 'PROFILE' || item.id === 'FUN') : true);
+  ].filter(item => isNewJoinee ? (item.id === 'HOME' || item.id === 'PROFILE') : true);
 
   return (
     <AnimatePresence>

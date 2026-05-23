@@ -289,14 +289,36 @@ const TaskNotification = ({ onOpenTask }) => {
       localStorage.setItem(`seen_approvals_${uid}`, JSON.stringify(updatedApprovals));
 
       const merged = [...mappedTasks, ...mappedLeaves, ...mappedQuizzes, ...mappedGlobal].sort((a, b) => b.rawDate - a.rawDate);
-      setNotifications(merged);
+      const filteredMerged = merged.filter(notif => {
+        const type = String(notif.type || '').toUpperCase();
+        if (type === 'TASK' || type === 'QUIZ' || type === 'LEAVE') {
+          return true;
+        }
+        const lowerTitle = String(notif.title || '').toLowerCase();
+        const lowerDesc = String(notif.description || '').toLowerCase();
+        const isTaskApproval = (lowerTitle.includes('task') || lowerDesc.includes('task')) && 
+                               (lowerTitle.includes('approved') || lowerDesc.includes('approved') || 
+                                lowerTitle.includes('rejected') || lowerDesc.includes('rejected') ||
+                                lowerTitle.includes('verified') || lowerDesc.includes('verified') ||
+                                lowerTitle.includes('review') || lowerDesc.includes('review'));
+        const isTaskAssignment = (lowerTitle.includes('task') || lowerDesc.includes('task')) && 
+                                 (lowerTitle.includes('assigned') || lowerDesc.includes('assigned') || 
+                                  lowerTitle.includes('new') || lowerDesc.includes('new'));
+        const isQuiz = lowerTitle.includes('quiz') || lowerDesc.includes('quiz');
+        const isLeaveApproval = (lowerTitle.includes('leave') || lowerDesc.includes('leave')) &&
+                                (lowerTitle.includes('approved') || lowerDesc.includes('approved') ||
+                                 lowerTitle.includes('rejected') || lowerDesc.includes('rejected'));
+        return isTaskApproval || isTaskAssignment || isQuiz || isLeaveApproval;
+      });
 
-      if (merged.length > 0) {
-        const latestId = String(merged[0].id);
+      setNotifications(filteredMerged);
+
+      if (filteredMerged.length > 0) {
+        const latestId = String(filteredMerged[0].id);
         const savedId = localStorage.getItem(`last_seen_task_${uid}`);
         if (latestId !== savedId && (addedNew || lastIds.size === 0)) {
           setHasUnread(true);
-          if (addedNew) setIsOpen(true);
+          // if (addedNew) setIsOpen(true); // Prevent notification popup from opening automatically
         }
       }
       setLastIds(newIds);

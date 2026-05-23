@@ -117,12 +117,28 @@ export default function ThreadScreen({ onBack }) {
     const [commentText, setCommentText] = useState('');
     const handleAddComment = async (id) => {
         if (!commentText.trim()) return;
-        const success = await addComment(id, user?.id, user?.name || 'User', commentText);
-        if (success) {
-            setCommentText('');
-            const comments = await fetchComments(id);
-            setPostComments(prev => ({ ...prev, [id]: comments }));
-        }
+        const textToSubmit = commentText;
+        setCommentText('');
+
+        // Optimistic UI Update: immediately append new comment
+        const tempId = 'temp-' + Date.now();
+        const optimisticComment = {
+            id: tempId,
+            userId: user?.id,
+            user_id: user?.id,
+            userName: user?.name || 'User',
+            content: textToSubmit,
+            createdAt: new Date().toISOString()
+        };
+
+        setPostComments(prev => ({
+            ...prev,
+            [id]: [...(prev[id] || []), optimisticComment]
+        }));
+
+        await addComment(id, user?.id, user?.name || 'User', textToSubmit);
+        const comments = await fetchComments(id);
+        setPostComments(prev => ({ ...prev, [id]: comments }));
     };
 
     const handleOpenComments = async (postId) => {
@@ -307,11 +323,6 @@ export default function ThreadScreen({ onBack }) {
 
     return (
         <div style={styles.container}>
-            {onBack && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <BackButton onClick={onBack} />
-                </div>
-            )}
             {/* CREATE THREAD */}
             <div style={{ ...styles.card, borderTop: '5px solid #FDB913' }}>
                 <input style={styles.tagInput} placeholder="Add a tagline..." value={tagline} onChange={e => setTagline(e.target.value)} />
@@ -493,19 +504,33 @@ export default function ThreadScreen({ onBack }) {
 
                         <div style={styles.footer}>
                             <div 
-                                style={styles.action(pLiked, '#ef4444')}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    backgroundColor: pLiked ? '#ef4444' : '#f8fafc',
+                                    color: pLiked ? 'white' : '#ef4444',
+                                    borderRadius: '12px',
+                                    border: pLiked ? '1.5px solid #ef4444' : '1.5px solid #f1f5f9',
+                                    padding: '2px',
+                                    gap: '2px',
+                                    position: 'relative'
+                                }}
                             >
                                 <div 
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        cursor: 'pointer',
+                                        padding: isMobile ? '6px 8px' : '8px 16px',
+                                        borderRadius: '10px',
+                                        fontWeight: '900',
+                                        fontSize: isMobile ? '9px' : (isTablet ? '11px' : '12px'),
+                                        transition: 'all 0.2s ease',
+                                    }}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (activeEmojiPicker === post.id) {
-                                            setActiveEmojiPicker(null);
-                                        } else {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            setEmojiPickerPos({ top: rect.top - 60, left: rect.left });
-                                            setActiveEmojiPicker(post.id);
-                                        }
+                                        onToggleLike(post.id, 'like');
                                     }}
                                 >
                                     <Heart size={18} fill={pLiked ? "white" : "none"} stroke={pLiked ? "white" : "#ef4444"} strokeWidth={2.5} /> 
@@ -519,6 +544,33 @@ export default function ThreadScreen({ onBack }) {
                                     >
                                         ({likeCount})
                                     </span>
+                                </div>
+                                
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '8px',
+                                        cursor: 'pointer',
+                                        color: pLiked ? 'white' : '#64748b',
+                                        borderRadius: '10px',
+                                        transition: 'background 0.2s',
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (activeEmojiPicker === post.id) {
+                                            setActiveEmojiPicker(null);
+                                        } else {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setEmojiPickerPos({ top: rect.top - 60, left: rect.left });
+                                            setActiveEmojiPicker(post.id);
+                                        }
+                                    }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = pLiked ? 'rgba(255,255,255,0.2)' : '#f1f5f9'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    <Smile size={18} />
                                 </div>
                             </div>
                             <div onClick={() => handleOpenComments(post.id)} style={styles.action(activeCommentPost === post.id, '#315A9E')}>
