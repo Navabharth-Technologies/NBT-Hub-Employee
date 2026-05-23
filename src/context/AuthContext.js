@@ -268,9 +268,16 @@ export const AuthProvider = ({ children }) => {
     if (!user) return { success: false, error: 'User not logged in' };
     
     // If the field is profileImage/profile_pic, it has already been uploaded and saved on the server
-    // by the /upload-image endpoint. We only need to update the local React state and storage.
-    if (field === 'profileImage' || field === 'profile_pic' || field === 'profile_image' || field === 'avatar') {
-      const updatedUser = { ...user, [field]: value };
+    if (field === 'profileImage' || field === 'profile_pic' || field === 'profile_image' || field === 'avatar' || field === 'profilePicture' || field === 'profile_picture') {
+      const updatedUser = { 
+        ...user, 
+        profileImage: value,
+        profile_image: value,
+        profile_picture: value,
+        profile_pic: value,
+        avatar: value,
+        profilePicture: value
+      };
       setUser(updatedUser);
       safeSetItem('user', JSON.stringify(updatedUser));
       return { success: true };
@@ -314,6 +321,41 @@ export const AuthProvider = ({ children }) => {
       setUser(updatedUser);
       safeSetItem('user', JSON.stringify(updatedUser));
       return { success: true };
+    }
+  };
+
+  const refreshUser = async () => {
+    const token = safeGetItem('token') || localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
+        headers: { 'Authorization': `Bearer ${token.replace(/['"]+/g, '').trim()}` },
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && !data.error) {
+          const profile = data.data || data;
+          setUser(prev => {
+            const img = profile.profileImage || profile.profile_image || profile.profilePicture || profile.profile_picture || profile.avatar || profile.profile_pic || prev?.profileImage;
+            const updated = {
+              ...prev,
+              ...profile,
+              profileImage: img,
+              profile_image: img,
+              profile_picture: img,
+              profile_pic: img,
+              avatar: img,
+              profilePicture: img,
+              phone_number: profile.phone_number || profile.contact_no || prev?.phone_number
+            };
+            safeSetItem('user', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Refresh User Error:", e);
     }
   };
 
@@ -374,7 +416,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateProfile, loading, isBlocked, setIsBlocked, checkBlockedStatus }}>
+    <AuthContext.Provider value={{ user, login, logout, updateProfile, refreshUser, loading, isBlocked, setIsBlocked, checkBlockedStatus }}>
       {children}
     </AuthContext.Provider>
   );

@@ -13,7 +13,7 @@ import { getTheme } from '../../constants/Theme';
 import BackButton from '../BackButton';
 
 export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
   const [activeTab, setActiveTab] = useState('My Profile');
   const [winWidth, setWinWidth] = useState(window.innerWidth);
@@ -348,13 +348,14 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       if (res.ok) {
         const data = await res.json();
         triggerToast('Profile image updated successfully!');
-        if (data.profileImage) {
-          const finalImg = data.profileImage.startsWith('http') || data.profileImage.startsWith('data:')
-            ? data.profileImage
-            : `${BASE_URL}${data.profileImage}`;
+        const imgPath = data.profileImage || data.profile_pic || data.profile_picture;
+        if (imgPath) {
+          const finalImg = imgPath.startsWith('http') || imgPath.startsWith('data:') ? imgPath : `${BASE_URL}${imgPath}`;
           setProfileImage(finalImg);
-          // Update Context for building-wide sync
-          updateProfile('profileImage', data.profileImage);
+          
+          if (refreshUser) {
+            refreshUser();
+          }
         }
       } else {
         triggerToast('Failed to upload image.', 'error');
