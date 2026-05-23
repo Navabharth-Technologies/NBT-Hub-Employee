@@ -261,7 +261,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('nbt_active_tab');
     localStorage.removeItem('nbt_active_tab_state');
     resetAuthState();
-    window.location.hash = '';
+    window.location.hash = '/login';
   };
 
   const updateProfile = async (field, value) => {
