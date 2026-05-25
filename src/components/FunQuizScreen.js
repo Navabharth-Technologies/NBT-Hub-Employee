@@ -62,6 +62,7 @@ const FunQuizScreen = ({ onBack }) => {
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [quizActive, setQuizActive] = useState(false);
   const [showFullList, setShowFullList] = useState(false);
+  const currentQ = questions[currentIdx];
 
   const showSuccessState = (pts) => {
     setSubmissionFeedback({ show: true, points: pts });
@@ -432,7 +433,7 @@ const FunQuizScreen = ({ onBack }) => {
     }
   };
 
-  const currentQ = questions[currentIdx];
+
 
   const s = {
     container: { minHeight: '100vh', backgroundColor: '#F8F9FA', padding: isMobile ? '15px' : '30px', fontFamily: '"Nunito", "Segoe UI", sans-serif' },
