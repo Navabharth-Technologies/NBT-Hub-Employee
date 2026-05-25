@@ -894,7 +894,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                             </p>
                           </div>
                           <button onClick={handleRequestOTP} style={{ width: '100%', padding: '18px', borderRadius: '18px', backgroundColor: '#3863a8', color: 'white', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 10px 20px rgba(56, 99, 168, 0.2)' }}>
-                            DISPATCH OTP TO TERMINAL
+                            GET OTP
                           </button>
                         </div>
                       ) : !otpVerified ? (

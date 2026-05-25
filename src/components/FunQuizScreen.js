@@ -14,12 +14,16 @@ const checkIfCorrect = (optObj, currentQ) => {
   const letter = String(optObj.letter).trim().toLowerCase();
   const text = String(optObj.text).trim().toLowerCase();
 
-  // Case 1: Match by letter (e.g. 'a', 'option_a', 'option a', 'option-a')
+  // Case 1: Match by letter prefix/exact
   if (
     correct === letter ||
-    correct === `option_${letter}` ||
-    correct === `option ${letter}` ||
-    correct === `option-${letter}`
+    correct.startsWith(`option_${letter}`) ||
+    correct.startsWith(`option ${letter}`) ||
+    correct.startsWith(`option-${letter}`) ||
+    correct.startsWith(`${letter} `) ||
+    correct.startsWith(`${letter}-`) ||
+    correct.startsWith(`${letter}.`) ||
+    correct.startsWith(`${letter}:`)
   ) {
     return true;
   }
@@ -29,8 +33,19 @@ const checkIfCorrect = (optObj, currentQ) => {
     return true;
   }
 
-  // Case 3: Match by text containment (only for longer words to avoid false positive on single characters)
-  if (correct.length > 1 && (correct.includes(text) || text.includes(correct))) {
+  // Helper to check if a string is numeric
+  const isNumeric = (str) => {
+    const cleaned = str.replace(/[-%]/g, '').trim();
+    return cleaned !== '' && !isNaN(Number(cleaned));
+  };
+
+  // Case 3: Match by text containment (only for non-numeric, longer strings)
+  if (
+    !isNumeric(text) &&
+    !isNumeric(correct) &&
+    text.length > 2 &&
+    (correct.includes(text) || text.includes(correct))
+  ) {
     return true;
   }
 
@@ -103,58 +118,89 @@ const FunQuizScreen = ({ onBack }) => {
         }
 
         const mapped = list.filter(i => i !== null).map(item => {
-          let userSelected = item.selected_ans || item.selected_answer || item.user_selected_letter || item.user_answer || item.selected_option || item.user_selected || item.user_choice || item.selectedOption || item.userChoice || null;
-          
-          if (!userSelected && storedAnswers[item.id]) {
-            userSelected = storedAnswers[item.id];
+          // Helper to get property case-insensitively
+          const getProp = (obj, key) => {
+            if (!obj) return null;
+            const target = key.toLowerCase();
+            const foundKey = Object.keys(obj).find(k => k.toLowerCase() === target);
+            return foundKey ? obj[foundKey] : null;
+          };
+
+          const id = getProp(item, 'id');
+          const question = getProp(item, 'question') || '';
+          const optA = getProp(item, 'option_a') || '';
+          const optB = getProp(item, 'option_b') || '';
+          const optC = getProp(item, 'option_c') || '';
+          const optD = getProp(item, 'option_d') || '';
+          const pointsReward = getProp(item, 'points_reward');
+          const quizId = getProp(item, 'quiz_id') || id || 1;
+
+          let userSelected = getProp(item, 'user_selected_letter') ||
+                             getProp(item, 'selected_ans') ||
+                             getProp(item, 'selected_answer') ||
+                             getProp(item, 'user_answer') ||
+                             getProp(item, 'selected_option') ||
+                             getProp(item, 'user_selected') ||
+                             getProp(item, 'user_choice') ||
+                             getProp(item, 'userChoice') ||
+                             getProp(item, 'selectedOption') ||
+                             null;
+
+          if (!userSelected && storedAnswers[id]) {
+            userSelected = storedAnswers[id];
           }
 
           if (!userSelected) {
-            const comp = completions.find(c => c.quiz_id === item.id || c.question_id === item.id || c.id === item.id);
+            const comp = completions.find(c => {
+              const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
+              return String(cQuizId) === String(id);
+            });
             if (comp) {
-              userSelected = comp.selected_ans || comp.selected_option || comp.user_answer || comp.user_selected_letter || comp.answer || null;
+              userSelected = getProp(comp, 'selected_ans') || getProp(comp, 'selected_option') || getProp(comp, 'user_answer') || getProp(comp, 'user_selected_letter') || getProp(comp, 'answer') || null;
             }
           }
 
-          const correctAns = item.correct_answer || item.correct_option || item.correct || item.answer || item.correct_letter || item.correct_choice || item.option_correct || item.correctOption || item.correctAnswer || null;
-          const hasAnswered = item.has_answered || false;
+          const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
+          const hasAnswered = getProp(item, 'has_answered') || false;
 
           let previousResult = null;
           if (hasAnswered) {
             if (userSelected && correctAns) {
               const optObj = [
-                { letter: 'A', text: item.option_a },
-                { letter: 'B', text: item.option_b },
-                { letter: 'C', text: item.option_c },
-                { letter: 'D', text: item.option_d }
-              ].find(o => o.letter === String(userSelected).trim().toUpperCase());
+                { letter: 'A', text: optA },
+                { letter: 'B', text: optB },
+                { letter: 'C', text: optC },
+                { letter: 'D', text: optD }
+              ].find(o => o.letter === String(userSelected).trim().toUpperCase() || String(o.text).trim().toLowerCase() === String(userSelected).trim().toLowerCase());
 
               if (optObj) {
                 previousResult = checkIfCorrect(optObj, { correct_answer: correctAns }) ? 'correct' : 'wrong';
               } else {
-                previousResult = item.previous_result ? (item.previous_result === true || item.previous_result === 'correct' ? 'correct' : 'wrong') : 'wrong';
+                const prevRes = getProp(item, 'previous_result');
+                previousResult = prevRes ? (prevRes === true || prevRes === 'correct' ? 'correct' : 'wrong') : 'wrong';
               }
             } else {
-              previousResult = item.previous_result ? (item.previous_result === true || item.previous_result === 'correct' ? 'correct' : 'wrong') : 'wrong';
+              const prevRes = getProp(item, 'previous_result');
+              previousResult = prevRes ? (prevRes === true || prevRes === 'correct' ? 'correct' : 'wrong') : 'wrong';
             }
           }
 
           return {
-            id: item.id,
-            question: item.question,
+            id,
+            question,
             options: [
-              { letter: 'A', text: item.option_a },
-              { letter: 'B', text: item.option_b },
-              { letter: 'C', text: item.option_c },
-              { letter: 'D', text: item.option_d }
+              { letter: 'A', text: optA },
+              { letter: 'B', text: optB },
+              { letter: 'C', text: optC },
+              { letter: 'D', text: optD }
             ],
-            points_reward: item.points_reward,
+            points_reward: pointsReward,
             has_answered: hasAnswered,
             already_answered: hasAnswered,
             previous_result: previousResult,
             correct_answer: correctAns,
             user_selected_letter: userSelected,
-            quiz_id: item.quiz_id || item.id || 1
+            quiz_id: quizId
           };
         });
         setQuestions(mapped);
@@ -281,8 +327,9 @@ const FunQuizScreen = ({ onBack }) => {
   }, []);
 
   useEffect(() => {
-    setSelectedOption(currentQ?.user_selected_letter || null);
-  }, [currentIdx, currentQ]);
+    const activeQ = questions[currentIdx];
+    setSelectedOption(activeQ?.user_selected_letter || null);
+  }, [currentIdx, questions]);
 
   const handleSubmit = async () => {
     if (!selectedOption) return;
@@ -453,8 +500,10 @@ const FunQuizScreen = ({ onBack }) => {
     },
     bottomSection: { backgroundColor: 'white', borderRadius: '24px', padding: isMobile ? '20px' : '30px', border: '1px solid #eef2f3' },
     option: (optObj, isAnswered) => {
+      const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+      const userPicked = currentQ?.user_selected_letter || selectedOption || storedAnswers[currentQ?.id];
       const isUserChoice = isAnswered
-        ? (optObj.letter === currentQ?.user_selected_letter)
+        ? (optObj.letter === userPicked)
         : (optObj.letter === selectedOption);
       const isActuallyCorrect = checkIfCorrect(optObj, currentQ);
 
@@ -815,7 +864,8 @@ const FunQuizScreen = ({ onBack }) => {
                         {currentQ.previous_result === 'correct' ?
                           'Excellent! You answered this correctly.' :
                           (() => {
-                            const userPicked = currentQ.user_selected_letter || selectedOption;
+                            const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+                            const userPicked = currentQ.user_selected_letter || selectedOption || storedAnswers[currentQ.id];
                             const opt = currentQ.options.find(o => o.letter === userPicked);
                             return `Incorrect. You selected: Option ${userPicked || 'Unknown'}${opt ? ' - ' + opt.text : ''}. The correct answer was: ${formatCorrectAnswerText(currentQ)}`;
                           })()}

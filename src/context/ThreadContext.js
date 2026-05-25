@@ -12,6 +12,7 @@ if (typeof window !== 'undefined' && !window.__NBT_THREAD_CONTEXT__) {
 
 export const ThreadProvider = ({ children }) => {
   const { user } = useAuth();
+  const currentUserId = user?.id || user?.userId || user?.empId || user?.employee_id;
   const [threads, setThreads] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalThreads, setTotalThreads] = useState(0);
@@ -114,22 +115,23 @@ export const ThreadProvider = ({ children }) => {
 
         setTotalThreads(sorted.length);
         
-        const cachedTime = localStorage.getItem('nbt_thread_watermark_time');
+        const watermarkKey = currentUserId ? `nbt_thread_watermark_time_${currentUserId}` : 'nbt_thread_watermark_time';
+        const cachedTime = localStorage.getItem(watermarkKey);
         let unread = 0;
         
-        if (cachedTime) {
+        if (cachedTime && cachedTime !== 'undefined' && cachedTime !== 'null' && !isNaN(new Date(cachedTime).getTime())) {
             const lastTime = new Date(cachedTime).getTime();
             sorted.forEach(t => {
                 const tTime = new Date(t.createdAt || t.created_at).getTime();
-                const isMine = String(t.userId || t.user_id) === String(user?.id || user?.empId || user?.employee_id);
+                const isMine = String(t.userId || t.user_id) === String(currentUserId);
                 if (tTime > lastTime && !isMine) {
                     unread++;
                 }
             });
         } else {
             // Save initial watermark if not present
-            if (sorted.length > 0) {
-                localStorage.setItem('nbt_thread_watermark_time', new Date(sorted[0].createdAt || sorted[0].created_at).toISOString());
+            if (sorted.length > 0 && currentUserId) {
+                localStorage.setItem(watermarkKey, new Date(sorted[0].createdAt || sorted[0].created_at).toISOString());
             }
         }
         
@@ -143,8 +145,9 @@ export const ThreadProvider = ({ children }) => {
 
   const clearNotifications = () => {
     setUnreadCount(0);
-    if (threads.length > 0) {
-      localStorage.setItem('nbt_thread_watermark_time', new Date(threads[0].createdAt || threads[0].created_at).toISOString());
+    if (threads.length > 0 && currentUserId) {
+      const watermarkKey = `nbt_thread_watermark_time_${currentUserId}`;
+      localStorage.setItem(watermarkKey, new Date(threads[0].createdAt || threads[0].created_at).toISOString());
     }
   };
 
