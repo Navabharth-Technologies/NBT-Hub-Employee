@@ -621,53 +621,53 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
   return (
     <div style={s.container}>
-      {/* Header */}
-      <div style={s.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '12px' : '20px' }}>
-          <BackButton onClick={onBack} />
-          <div>
-            <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>Leave Management</h1>
-            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: winWidth < 768 ? '11px' : '13px', fontWeight: '800' }}>Balance, history & holiday calendar</p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Global Month Filter */}
-          <div style={{ position: 'relative', display: winWidth < 600 ? 'none' : 'block' }}>
-            <select 
-              value={monthFilter} 
-              onChange={e => setMonthFilter(e.target.value)}
-              style={{ 
-                padding: '10px 35px 10px 15px', 
-                borderRadius: '12px', 
-                border: '1.5px solid #e2e8f0', 
-                background: 'white', 
-                fontSize: '12px', 
-                fontWeight: '1000', 
-                color: '#0B1E3F',
-                appearance: 'none',
-                cursor: 'pointer',
-                outline: 'none',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
-              }}
-            >
-              <option value="ALL">Full Year</option>
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                <option key={i} value={i + 1}>{m}</option>
-              ))}
-            </select>
-            <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-              <Filter size={12} color="#94a3b8" />
+      <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+        {/* Header */}
+        <div style={s.header}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '12px' : '20px' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>Leave Management</h1>
+              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: winWidth < 768 ? '11px' : '13px', fontWeight: '800' }}>Balance, history & holiday calendar</p>
             </div>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Global Month Filter */}
+            <div style={{ position: 'relative', display: winWidth < 600 ? 'none' : 'block' }}>
+              <select 
+                value={monthFilter} 
+                onChange={e => setMonthFilter(e.target.value)}
+                style={{ 
+                  padding: '10px 35px 10px 15px', 
+                  borderRadius: '12px', 
+                  border: '1.5px solid #e2e8f0', 
+                  background: 'white', 
+                  fontSize: '15px', 
+                  fontWeight: '1000', 
+                  color: '#0B1E3F',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                }}
+              >
+                <option value="ALL">Full Year</option>
+                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                  <option key={i} value={i + 1}>{m}</option>
+                ))}
+              </select>
+              <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <Filter size={12} color="#94a3b8" />
+              </div>
+            </div>
 
-          <button style={{ ...s.requestBtn, padding: winWidth < 768 ? '6px 12px' : '6px 20px', gap: '8px', height: '40px' }} onClick={() => setShowForm(true)}>
-            <Plus size={18} /> {winWidth < 480 ? 'Add' : 'Take time off'}
-          </button>
+            <button style={{ ...s.requestBtn, fontSize: '16px', padding: winWidth < 768 ? '8px 16px' : '8px 24px', gap: '8px', height: '44px' }} onClick={() => setShowForm(true)}>
+              <Plus size={18} /> {winWidth < 480 ? 'Add' : 'Take time off'}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Compact Premium Stats Dashboard */}
-      <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr 1fr' : 'repeat(2, 1fr)', gridTemplateColumns: winWidth < 1024 ? (winWidth < 768 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(4, 1fr)', gap: '25px', marginBottom: '45px' }}>
+        {/* Compact Premium Stats Dashboard */}
+        <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? (winWidth < 768 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(4, 1fr)', gap: '25px', marginBottom: '45px' }}>
         {/* Available Balance - Royal Neon */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -761,7 +761,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Umbrella size={120} /></div>
           <p style={{ opacity: 0.8, margin: 0, fontSize: '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Next Holiday</p>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '38px', fontWeight: '1000' }}>{nextHoliday?.occasion || nextHoliday?.name || '---'}</h2>
+            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '22px' : '26px', fontWeight: '1000', lineHeight: '1.2' }}>{nextHoliday?.occasion || nextHoliday?.name || '---'}</h2>
           </div>
           <div style={{ marginTop: '15px', padding: '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}>
             🌴 HOLIDAY
@@ -1317,6 +1317,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 };

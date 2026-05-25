@@ -9,7 +9,7 @@ import BackButton from './BackButton';
 
 import logo from '../assets/image.png';
 import petal from '../assets/image.png';
-import certificateImg from '../assets/certificate.png';
+import certificateImg from '../assets/certificate_final.png';
 
 export default function CourseScreen({ resumeCourseId, clearState }) {
     const { user } = useAuth();
@@ -21,7 +21,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedCourse, setSelectedCourse] = useState(null);
-    
+
     // Completion Tracking
     const [isVideoDone, setIsVideoDone] = useState(false);
     const [isPdfDone, setIsPdfDone] = useState(false);
@@ -64,11 +64,11 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             }
 
             const res = await fetch(API_ENDPOINTS.COURSES, { headers }).catch(() => null);
-            
+
             if (res && res.ok) {
                 const backendData = await res.json();
                 const list = Array.isArray(backendData) ? backendData : (backendData.value || backendData.data || []);
-                
+
                 // Map backend data to UI fields
                 const finalCourses = list.map(c => ({
                     ...c,
@@ -83,7 +83,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 }));
 
                 setCourses(finalCourses);
-                
+
                 // Deep Link: Resume course if passed via prop
                 if (resumeCourseId) {
                     const target = finalCourses.find(c => String(c.id) === String(resumeCourseId));
@@ -112,7 +112,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             }
             return path;
         }
-        
+
         // Handle path formats (uploads/file.pdf, etc.)
         const parts = path.split(/[\\\/]/);
         const fileName = parts.pop();
@@ -148,21 +148,21 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         // INNER SCREEN
         innerContainer: { maxWidth: '100%', margin: '0 auto', padding: winWidth < 768 ? '10px' : '20px' },
         backBtn: { background: 'white', border: '1.2px solid #f1f5f9', padding: '12px 24px', borderRadius: '18px', fontWeight: '900', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px', cursor: 'pointer', color: '#3B5998', width: 'fit-content', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' },
-        taskRow: { 
-            backgroundColor: 'white', borderRadius: '30px', padding: winWidth < 768 ? '20px' : '30px', 
-            marginBottom: '20px', display: 'flex', 
+        taskRow: {
+            backgroundColor: 'white', borderRadius: '30px', padding: winWidth < 768 ? '20px' : '30px',
+            marginBottom: '20px', display: 'flex',
             flexDirection: winWidth < 768 ? 'column' : 'row',
-            alignItems: winWidth < 768 ? 'flex-start' : 'center', 
-            justifyContent: 'space-between', border: '1.2px solid #f1f5f9', 
+            alignItems: winWidth < 768 ? 'flex-start' : 'center',
+            justifyContent: 'space-between', border: '1.2px solid #f1f5f9',
             boxShadow: '0 10px 30px rgba(0,0,0,0.02)', transition: 'all 0.3s ease',
             gap: winWidth < 768 ? '20px' : '15px'
         },
-        
+
         iframeContainer: { width: '100%', aspectRatio: '16/9', borderRadius: '35px', overflow: 'hidden', backgroundColor: 'black', boxShadow: '0 30px 60px rgba(0,0,0,0.1)' },
         pdfContainer: { width: '100%', minHeight: winWidth < 768 ? '400px' : '650px', borderRadius: '35px', border: '1.2px solid #f1f5f9', backgroundColor: 'white', boxShadow: '0 30px 60px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' },
         finishBtn: { width: '100%', backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '18px 40px', borderRadius: '25px', fontWeight: '900', marginTop: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 25px rgba(11, 30, 63, 0.2)' },
         disabledBtn: { backgroundColor: '#94a3b8', color: '#cbd5e1', cursor: 'not-allowed', opacity: 0.6 },
-        
+
         // CONGRATS POPUP
         popupOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(20px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
         certificate: { backgroundColor: 'white', padding: winWidth < 768 ? '30px' : '60px', borderRadius: '50px', maxWidth: '650px', width: '92%', textAlign: 'center', border: '10px double #0B1E3F', position: 'relative', zIndex: 10001, boxShadow: '0 30px 100px rgba(0,0,0,0.3)' }
@@ -189,16 +189,85 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         }
     };
 
-    const handleDownloadCertificate = async () => {
-        if (!certificateRef.current) return;
+    const handleDownloadCertificate = async (sendEmail = true) => {
         try {
-            const canvas = await html2canvas(certificateRef.current, { scale: 3, useCORS: true });
-            const imgData = canvas.toDataURL('image/png');
+            // Native Canvas drawing for crystal clear, uncompressed PDF generation
+            const image = new Image();
+            image.src = certificateImg;
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = reject;
+            });
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = image.width;
+            canvas.height = image.height;
+
+            ctx.drawImage(image, 0, 0, image.width, image.height);
+
+            const userName = user?.name || user?.userName || 'Employee Name';
+            const courseName = selectedCourse?.title || 'COURSE';
+            const currentDate = new Date().toLocaleDateString('en-GB');
+
+            ctx.font = 'italic bold 115px "Georgia", "Times New Roman", serif';
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.fillText(userName.toUpperCase(), image.width / 2, 725);
+
+            ctx.font = 'bold 40px "Georgia", "Times New Roman", serif';
+            ctx.fillStyle = '#1e3a8a';
+            ctx.textAlign = 'center';
+            ctx.fillText(courseName, image.width / 2, 882);
+
+            ctx.font = 'bold 20px Arial, sans-serif';
+            ctx.fillStyle = '#1e3a8a';
+            ctx.textAlign = 'left';
+            ctx.fillText(currentDate, 400, 1142);
+
+            const imgData = canvas.toDataURL('image/png', 1.0);
             const pdf = new jsPDF('landscape', 'px', [canvas.width, canvas.height]);
             pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-            pdf.save(`${selectedCourse?.title.replace(/\s+/g, '_')}_Certificate.pdf`);
+
+            // 1. Download to local machine
+            pdf.save(`${courseName.replace(/\s+/g, '_')}_Certificate.pdf`);
+
+            // 2. Send to employee email ID
+            if (sendEmail) {
+                const pdfBase64 = pdf.output('datauristring').split(',')[1];
+                const userEmail = user?.email || user?.email_id || user?.emailId || 'imsha@navabharathtechnologie.com';
+
+                if (userEmail) {
+                    try {
+                        const token = localStorage.getItem('token');
+                        const response = await fetch(`${BASE_URL}/api/send-certificate`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                email: userEmail,
+                                userName: userName,
+                                courseName: courseName,
+                                certificateData: pdfBase64
+                            })
+                        });
+
+                        if (response.ok) {
+                            alert(`Certificate downloaded successfully. A copy has been sent directly to your registered email ID: ${userEmail}`);
+                        } else {
+                            alert(`Certificate downloaded, but failed to send email. Email ID: ${userEmail}`);
+                        }
+                    } catch (e) {
+                        console.error("Failed to route certificate to email API", e);
+                        alert(`Certificate downloaded, but failed to send email. Error: ${e.message}`);
+                    }
+                }
+            }
         } catch (error) {
             console.error("Error downloading certificate:", error);
+            alert('Error generating certificate. Please try again.');
         }
     };
 
@@ -212,7 +281,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
     if (selectedCourse && currentView === 'video') {
         // Strict detection: check actual video fields only
-        let videoSrc = selectedCourse.video_data 
+        let videoSrc = selectedCourse.video_data
             ? `data:video/mp4;base64,${selectedCourse.video_data}`
             : formatUrl(selectedCourse.video || selectedCourse.video_url || selectedCourse.video_link || selectedCourse.link || selectedCourse.video_path || selectedCourse.file_path || selectedCourse.url || selectedCourse.path || selectedCourse.attachment || selectedCourse.clip);
 
@@ -221,9 +290,9 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             const possibleKey = Object.keys(selectedCourse).find(key => {
                 const val = selectedCourse[key];
                 return typeof val === 'string' && (
-                    val.toLowerCase().endsWith('.mp4') || 
-                    val.toLowerCase().endsWith('.mkv') || 
-                    val.toLowerCase().endsWith('.mov') || 
+                    val.toLowerCase().endsWith('.mp4') ||
+                    val.toLowerCase().endsWith('.mkv') ||
+                    val.toLowerCase().endsWith('.mov') ||
                     val.toLowerCase().endsWith('.webm') ||
                     (val.includes('youtube.com') && !val.includes('drive.google.com')) ||
                     val.includes('youtu.be')
@@ -233,7 +302,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 videoSrc = formatUrl(selectedCourse[possibleKey]);
             }
         }
-        
+
         // Final logic for Google Drive: Always ensure it's in preview mode for embedding
         if (videoSrc && videoSrc.includes('drive.google.com')) {
             if (videoSrc.includes('/view')) {
@@ -248,12 +317,12 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         }
 
         const isEmbed = videoSrc && (
-            videoSrc.includes('youtube.com') || 
-            videoSrc.includes('vimeo.com') || 
-            videoSrc.includes('youtu.be') || 
+            videoSrc.includes('youtube.com') ||
+            videoSrc.includes('vimeo.com') ||
+            videoSrc.includes('youtu.be') ||
             videoSrc.includes('drive.google.com')
         );
-        
+
         return (
             <div style={s.container}>
                 <div style={s.innerContainer}>
@@ -266,8 +335,8 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                         {isEmbed ? (
                             <iframe src={videoSrc} title="Video" style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen />
                         ) : videoSrc ? (
-                            <video 
-                                ref={videoRef} key={videoSrc} controls style={{ width: '100%', height: '100%' }} 
+                            <video
+                                ref={videoRef} key={videoSrc} controls style={{ width: '100%', height: '100%' }}
                                 poster={formatUrl(selectedCourse.image || selectedCourse.thumbnail || selectedCourse.course_image)}
                                 preload="auto" onTimeUpdate={handleVideoTimeUpdate}
                                 onEnded={() => { setCanShowMarkButton(true); updateProgress(selectedCourse.id, 100); }}
@@ -285,7 +354,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
                     {(isEmbed || canShowMarkButton) ? (
                         <button style={s.finishBtn} onClick={() => { setIsVideoDone(true); updateProgress(selectedCourse.id, 100); setCurrentView(null); }}>
-                             <CheckCircle size={20} /> Mark as proficiency complete
+                            <CheckCircle size={20} /> Mark as proficiency complete
                         </button>
                     ) : (
                         <div style={{ ...s.finishBtn, ...s.disabledBtn }}><Clock size={20} /> Finish video to complete module</div>
@@ -299,7 +368,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         const rawPdfSrc = selectedCourse.pdf_data
             ? `data:application/pdf;base64,${selectedCourse.pdf_data}`
             : formatUrl(selectedCourse.pdf || selectedCourse.pdf_url || selectedCourse.file || selectedCourse.document);
-        
+
         // Handle Google Docs links specifically to allow embedding
         let pdfSrc = rawPdfSrc;
         if (pdfSrc && pdfSrc.includes('docs.google.com') && !pdfSrc.includes('/preview')) {
@@ -329,9 +398,9 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                     </div>
                     <div style={s.pdfContainer}>
                         {pdfSrc ? (
-                            <iframe 
-                                src={pdfSrc.startsWith('data:') ? pdfSrc : `${pdfSrc}${pdfSrc.includes('?') ? '&' : '?'}embedded=true`} 
-                                style={{ flex: 1, border: 'none', borderRadius: '35px' }} 
+                            <iframe
+                                src={pdfSrc.startsWith('data:') ? pdfSrc : `${pdfSrc}${pdfSrc.includes('?') ? '&' : '?'}embedded=true`}
+                                style={{ flex: 1, border: 'none', borderRadius: '35px' }}
                                 title="Course Document"
                             />
                         ) : (
@@ -346,59 +415,135 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
     if (selectedCourse) {
         return (
-            <div style={s.container}>
-                <div style={s.innerContainer}>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
-                        <BackButton onClick={handleBackToFleet} />
-                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Course</span>
-                    </div>
-                    <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
-                    <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('video')}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#eff6ff', color: '#3b82f6' }}><PlayCircle size={24} /></div>
-                            <div>
-                                <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 1: Video Tutorial</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Comprehensive deep dive into core architectural patterns.</div>
-                            </div>
+            <>
+                <div style={s.container}>
+                    <div style={s.innerContainer}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
+                            <BackButton onClick={handleBackToFleet} />
+                            <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Course</span>
                         </div>
-                        <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: (courseProgressMap[selectedCourse.id]?.progress >= 100) ? '#dcfce7' : '#0B1E3F', color: (courseProgressMap[selectedCourse.id]?.progress >= 100) ? '#16a34a' : 'white', cursor: 'pointer' }}>
-                            {(courseProgressMap[selectedCourse.id]?.progress >= 100) ? 'Completed' : (courseProgressMap[selectedCourse.id]?.progress > 0) ? 'Continue watching' : 'Start watching'}
-                        </button>
-                    </div>
-                    <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('pdf')}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#ecfdf5', color: '#10b981' }}><FileText size={24} /></div>
-                            <div>
-                                <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 2: Technical Reference</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Official documentation and specification guide.</div>
-                            </div>
-                        </div>
-                        <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: isPdfDone ? '#dcfce7' : '#0B1E3F', color: isPdfDone ? '#16a34a' : 'white', cursor: 'pointer' }}>{isPdfDone ? 'Completed' : 'Open pdf'}</button>
-                    </div>
-                    {(courseProgressMap[selectedCourse.id]?.progress >= 100 && isPdfDone) && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5 }}
-                            style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}
-                        >
-                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#0B1E3F', textAlign: 'center' }}>Congratulations! Here is your Certificate</div>
-                            <div ref={certificateRef} style={{ position: 'relative', width: '100%', maxWidth: '700px', backgroundColor: 'white', padding: '10px' }}>
-                                <img src={certificateImg} alt="Certificate of Achievement" style={{ width: '100%', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', display: 'block' }} />
-                                <div style={{ position: 'absolute', top: '49%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', textAlign: 'center', color: '#0B1E3F', fontSize: 'clamp(14px, 3vw, 28px)', fontWeight: '900', fontFamily: 'serif', letterSpacing: '1px' }}>
-                                    {user?.name || user?.userName || 'Employee Name'}
+                        <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
+                        <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('video')}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#eff6ff', color: '#3b82f6' }}><PlayCircle size={24} /></div>
+                                <div>
+                                    <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 1: Video Tutorial</div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Comprehensive deep dive into core architectural patterns.</div>
                                 </div>
                             </div>
-                            <button 
-                                onClick={handleDownloadCertificate}
-                                style={{ ...s.actionBtn, marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 28px' }}
-                            >
-                                <Download size={18} /> Download Certificate
+                            <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: (courseProgressMap[selectedCourse.id]?.progress >= 100) ? '#dcfce7' : '#0B1E3F', color: (courseProgressMap[selectedCourse.id]?.progress >= 100) ? '#16a34a' : 'white', cursor: 'pointer' }}>
+                                {(courseProgressMap[selectedCourse.id]?.progress >= 100) ? 'Completed' : (courseProgressMap[selectedCourse.id]?.progress > 0) ? 'Continue watching' : 'Start watching'}
                             </button>
-                        </motion.div>
-                    )}
+                        </div>
+                        <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('pdf')}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#ecfdf5', color: '#10b981' }}><FileText size={24} /></div>
+                                <div>
+                                    <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 2: Technical Reference</div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Official documentation and specification guide.</div>
+                                </div>
+                            </div>
+                            <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: (courseProgressMap[selectedCourse.id]?.progress >= 100 || isPdfDone) ? '#dcfce7' : '#0B1E3F', color: (courseProgressMap[selectedCourse.id]?.progress >= 100 || isPdfDone) ? '#16a34a' : 'white', cursor: 'pointer' }}>{(courseProgressMap[selectedCourse.id]?.progress >= 100 || isPdfDone) ? 'Completed' : 'Open pdf'}</button>
+                        </div>
+                        {(courseProgressMap[selectedCourse.id]?.progress >= 100) && (
+                            <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-start' }}>
+                                <button
+                                    onClick={() => setShowCertificate(true)}
+                                    style={{
+                                        backgroundColor: '#eab308', // Yellow color
+                                        color: 'white',
+                                        padding: '12px 24px',
+                                        borderRadius: '14px',
+                                        border: 'none',
+                                        fontWeight: '900',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 10px rgba(234, 179, 8, 0.3)'
+                                    }}
+                                >
+                                    Download Certificate
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+
+                {/* Certificate Modal Overlay */}
+                {showCertificate && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', maxWidth: '800px', marginBottom: '20px', gap: '15px' }}>
+                            <button
+                                onClick={handleDownloadCertificate}
+                                style={{
+                                    backgroundColor: '#10b981', // Green
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    fontWeight: '800',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <Download size={16} /> DOWNLOAD PDF
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowCertificate(false);
+                                    handleBackToFleet();
+                                }}
+                                style={{
+                                    backgroundColor: '#1e3a8a', // Dark blue
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    fontWeight: '800',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                &lt; RETURN TO HUB
+                            </button>
+                        </div>
+
+                        <div ref={certificateRef} style={{ position: 'relative', width: '100%', maxWidth: '700px', backgroundColor: 'white', padding: '10px', borderRadius: '16px' }}>
+                            <img src={certificateImg} alt="Certificate of Achievement" style={{ width: '100%', display: 'block', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0' }} />
+
+                            {/* Employee Name */}
+                            <div style={{ position: 'absolute', top: '51%', left: '50%', transform: 'translate(-50%, -100%)', width: '100%', textAlign: 'center', color: '#000000', fontSize: 'clamp(22px, 5vw, 44px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', letterSpacing: '1px' }}>
+                                {(user?.name || user?.userName || 'Employee Name').toUpperCase()}
+                            </div>
+
+                            {/* Course Name */}
+                            <div style={{ position: 'absolute', top: '60.5%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', textAlign: 'center', color: '#1e3a8a', fontSize: 'clamp(16px, 2.5vw, 24px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', letterSpacing: '1px' }}>
+                                {selectedCourse?.title || 'COURSE'}
+                            </div>
+
+                            {/* Date */}
+                            <div style={{ position: 'absolute', top: '80.8%', left: '28%', transform: 'translate(0, -50%)', color: '#1e3a8a', fontSize: 'clamp(8px, 0.9vw, 11px)', fontWeight: '900', fontFamily: 'Arial, sans-serif' }}>
+                                {new Date().toLocaleDateString('en-GB')}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </>
         );
     }
 
@@ -414,7 +559,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                         const progress = courseProgressMap[course.id]?.progress || 0;
                         const imageUrl = formatUrl(course.image || course.image_url || course.thumbnail || course.course_image || course.image_path || course.pic);
                         const videoLink = formatUrl(course.video || course.video_url || course.video_link || course.link);
-                        
+
                         return (
                             <motion.div key={course.id} style={s.courseCard} onClick={() => setSelectedCourse(course)} whileHover={{ y: -8, boxShadow: '0 20px 50px rgba(0,0,0,0.08)' }}>
                                 <div style={{ ...s.courseImage, backgroundColor: '#f1f5f9', position: 'relative' }}>

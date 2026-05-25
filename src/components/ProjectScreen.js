@@ -41,9 +41,20 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       };
       const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
       if (res.ok) {
-        const data = await res.json();
-        const respName = data.project_name || data.projectName;
-        if (!respName || respName === currentProjectName) {
+        const raw = await res.json();
+        const dataArr = Array.isArray(raw) ? raw : (raw.value && Array.isArray(raw.value) ? raw.value : [raw]);
+        console.log(`[DEBUG] fetchSprintStatus API response for ${sid}:`, dataArr);
+        
+        // Find the latest update for this specific project by searching in reverse
+        const data = [...dataArr].reverse().find(d => {
+          if (!d) return false;
+          const respName = d.project_name || d.projectName;
+          return !respName || respName === currentProjectName;
+        });
+        
+        console.log(`[DEBUG] fetchSprintStatus matching data for ${currentProjectName}:`, data);
+
+        if (data) {
           const newStatus = data.sprint_status || data.sprintStatus;
           const newProg = data.progress_percentage || data.progressPercentage || data.progress;
           
@@ -73,8 +84,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       };
       const res = await fetch(API_ENDPOINTS.SINGLE_TASK_DETAIL(taskId), { headers });
       if (res.ok) {
-        const data = await res.json();
-        setTaskDetailMap(prev => ({ ...prev, [taskId]: data }));
+        const raw = await res.json();
+        const data = Array.isArray(raw) ? raw[0] : (raw.value && Array.isArray(raw.value) ? raw.value[0] : (raw.value || raw));
+        if (data) {
+          setTaskDetailMap(prev => ({ ...prev, [taskId]: data }));
+        }
       }
     } catch (e) {}
   }, []);
@@ -93,8 +107,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       };
       const res = await fetch(API_ENDPOINTS.TASK_REVIEW(taskId), { headers });
       if (res.ok) {
-        const data = await res.json();
-        setTaskReviewMap(prev => ({ ...prev, [taskId]: data }));
+        const raw = await res.json();
+        const data = Array.isArray(raw) ? raw[0] : (raw.value && Array.isArray(raw.value) ? raw.value[0] : (raw.value || raw));
+        if (data) {
+          setTaskReviewMap(prev => ({ ...prev, [taskId]: data }));
+        }
       }
     } catch (e) {}
   }, []);
@@ -126,16 +143,12 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         safeSetItem(`ind_projects_${user.id}`, JSON.stringify(valid));
         
         valid.forEach(p => {
-          const pName = p.projectName || p.project_name || p.project || p.task_name;
-          fetchSprintStatus(uid, pName);
+          const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
+          if (pName) fetchSprintStatus(uid, pName);
           const tid = p.id || p.assigned_id || p.task_id;
           if (tid) {
             fetchTaskDetail(tid);
-            const statusStr = String(p.task_status || p.status || '').toUpperCase();
-            const hasReviewField = !!(p.task_review || p.review || p.feedback);
-            if (!hasReviewField && (statusStr === 'COMPLETED' || statusStr === 'APPROVED' || statusStr === 'REJECTED')) {
-              fetchTaskReview(tid);
-            }
+            fetchTaskReview(tid);
           }
         });
       }
@@ -176,11 +189,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const tid = p.id || p.assigned_id || p.task_id;
           if (tid) {
             fetchTaskDetail(tid);
-            const statusStr = String(p.task_status || p.status || '').toUpperCase();
-            const hasReviewField = !!(p.task_review || p.review || p.feedback);
-            if (!hasReviewField && (statusStr === 'COMPLETED' || statusStr === 'APPROVED' || statusStr === 'REJECTED')) {
-              fetchTaskReview(tid);
-            }
+            fetchTaskReview(tid);
           }
         });
       }
@@ -206,19 +215,19 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [user, fetchProjectData]);
 
-  const handleStatusUpdate = (pName, st, taskId) => {
+  const handleStatusUpdate = async (pName, st, taskId, currentStatus, currentProgress) => {
+    // Prevent re-triggering the finalize modal if the task is already 100% completed
+    if (st === 'Completed' && currentProgress === 100) return;
+
     if (st === 'Completed') {
       setPendingStatusData({ pName, st, taskId });
       setShowFinalizeModal(true);
     } else {
-      const td = taskDetailMap[taskId] || {};
-      const curProg = sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null ? sprintProgressMap[pName] : (td.progress !== undefined && td.progress !== null ? td.progress : 0);
-      let newProgress = curProg;
-
+      let newProgress = currentProgress;
       if (st === 'Pending') {
-        newProgress = 0;
+        // Keep progress unchanged (do not reset to 0%)
       } else if (st === 'In Progress') {
-        newProgress = Math.min(95, Number(curProg) + 10);
+        newProgress = Math.min(95, Number(currentProgress) + 5);
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
@@ -229,23 +238,31 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       setSprintProgressMap(prev => ({ ...prev, [pName]: newProgress }));
 
       const sid = sanitizeId(ownerId);
-      fetch(`${BASE_URL}/api/sprint-updates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectName: pName,
-          teamLeaderId: sid,
-          sprintStatus: st,
-          progressPercentage: newProgress
-        })
-      });
-
-      if (taskId) {
-        fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(taskId), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: st, overallStatus: st, progress: newProgress })
+      try {
+        await fetch(`${BASE_URL}/api/sprint-updates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectName: pName,
+            teamLeaderId: sid,
+            sprintStatus: st,
+            progressPercentage: newProgress
+          })
         });
+
+        if (taskId) {
+          await fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(taskId), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                status: st, 
+                overallStatus: st,
+                progress: newProgress 
+              })
+          });
+        }
+      } catch (err) {
+        console.error("[DEBUG] Network error updating task status:", err);
       }
     }
   };
@@ -421,7 +438,6 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         {projectsToShow.length > 0 ? projectsToShow.map((proj, idx) => {
           const targetId = proj.id || proj.assigned_id || proj.task_id || proj.assignment_id;
           const td = taskDetailMap[targetId] || {};
-          const rd = reviewData[targetId];
           const rv = taskReviewMap[targetId] || {};
 
           const getValidString = (...strs) => {
@@ -456,36 +472,53 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                               proj.task_review || proj.taskReview || proj.review || proj.reviewText || proj.feedback || proj.managerReview ||
                               td.task_review || td.taskReview || td.review || td.feedback || '';
           const finalStatus = rv.task_status || rv.status || proj.task_status || proj.status || td.task_status || td.status || '';
-
-          const statusText = String(finalStatus || '').toUpperCase();
-          const reviewText = String(finalReview || '').toUpperCase();
-
-          const isApproved = statusText === 'APPROVED' || 
-                             statusText === 'APP' || 
-                             statusText === 'VERIFIED' ||
-                             reviewText.includes('APPROVED') ||
-                             reviewText.includes('VERIFIED');
-
-          const isRejected = statusText === 'REJECTED' || 
-                             reviewText.includes('REJECTED');
+          
+          const verifyStatus = proj.verify || td.verify || rv.verify || '';
+          const verifyText = String(verifyStatus).toUpperCase();
 
           // Overall status for buttons/progress
           let pStatus = sprintStatusMap[pName] || finalStatus || proj.overall_status || proj.overallStatus || 'Pending';
           
-          if (isApproved) pStatus = 'Completed';
-          else if (isRejected) {
-            // Manager rejected — force back to In Progress at 75%
-            pStatus = 'In Progress';
-          }
-          
           // Ensure 'In-Progress' is handled as 'In Progress'
           if (pStatus === 'In-Progress') pStatus = 'In Progress';
 
-          const pProg = isRejected ? 75 :
-                        ((sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
-                        ((td.progress !== undefined && td.progress !== null) ? td.progress :
-                        (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
-                        (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0)))));
+          const statusText = String(finalStatus || '').toUpperCase();
+          const reviewText = String(finalReview || '').toUpperCase();
+
+          const isApproved = (statusText === 'APPROVED' || 
+                             statusText === 'APP' || 
+                             statusText === 'VERIFIED' ||
+                             reviewText.includes('APPROVED') ||
+                             reviewText.includes('VERIFIED') ||
+                             verifyText === 'VERIFIED' ||
+                             verifyText === 'APPROVED' ||
+                             verifyText === 'APPROVE' ||
+                             verifyText === 'TRUE' ||
+                             verifyText === '1') && pStatus !== 'In Progress' && pStatus !== 'Pending';
+
+          const isRejected = (statusText === 'REJECTED' || 
+                             statusText === 'REJECT' ||
+                             reviewText.includes('REJECTED') ||
+                             reviewText.includes('REJECT') ||
+                             verifyText === 'REJECTED' ||
+                             verifyText === 'REJECT' ||
+                             verifyText === 'FALSE' ||
+                             verifyText === '0') && pStatus !== 'In Progress' && pStatus !== 'Pending';
+
+          if (isApproved) pStatus = 'Completed';
+          else if (isRejected) {
+            // Manager rejected — force back to In Progress at 70%
+            pStatus = 'In Progress';
+          }
+
+          let pProg = (sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
+                      ((td.progress !== undefined && td.progress !== null) ? td.progress :
+                      (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
+                      (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0))));
+
+          if (isRejected && (pProg === 100 || pProg < 70)) {
+            pProg = 70;
+          }
 
           const getValidDate = (...dates) => {
             for (const d of dates) {
@@ -527,7 +560,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
             }
           }
 
-          const isCompleted = pStatus === 'Completed';
+          const isCompleted = pStatus === 'Completed' || pProg === 100;
           
           const compDateRaw = proj.completed_at || proj.completion_date || proj.updated_at || td.updated_at || null;
           const compDate = compDateRaw ? new Date(compDateRaw).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Today';
@@ -577,7 +610,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                         ) : (
                           <>
                             {new Date(deadlineDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} | 
-                            {isToday ? ' DEADLINE TODAY ⚠️' : (isDeadlinePast ? ' DEADLINE COMPLETED' : ' DEADLINE')}
+                            {isToday ? ' DEADLINE TODAY ⚠️' : (isDeadlinePast ? ' DEADLINE CROSSED' : ' DEADLINE')}
                           </>
                         )}
                       </div>
@@ -619,22 +652,18 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                     />
                   </div>
 
-                  {activeView === 'INDIVIDUAL' && (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {['Pending', 'In Progress', 'Completed'].map(st => {
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {['Pending', 'In Progress', 'Completed'].map(st => {
                         const isActive = pStatus.toLowerCase() === st.toLowerCase();
-                        // Lock all buttons ONLY if manager has approved
-                        const isLocked = isApproved;
+                        // Buttons are always clickable
+                        const isLocked = false;
                         
-                        // Hide 'Pending' and 'In Progress' when progress is 100% or status is Completed
-                        if ((pProg === 100 || pStatus.toLowerCase() === 'completed') && st !== 'Completed') {
-                          return null;
-                        }
+                        // Keep all buttons visible so they are never removed from the UI
 
                         return (
                           <button 
                             key={st}
-                            onClick={() => !isLocked && handleStatusUpdate(pName, st, proj.id)}
+                            onClick={() => !isLocked && handleStatusUpdate(pName, st, proj.id, pStatus, pProg)}
                             disabled={isLocked}
                             title={isLocked ? (isApproved ? 'Approved by manager' : isRejected ? 'Rejected – awaiting resubmission' : 'Task is completed') : ''}
                             style={{ 
@@ -658,7 +687,6 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                         );
                       })}
                     </div>
-                  )}
                 </div>
               </div>
 
@@ -692,7 +720,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                     border: '1px solid rgba(255,255,255,0.1)',
                     boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
                   }}>
-                    {isApproved ? 'APPROVED' : (isRejected ? 'REJECTED' : 'PENDING REVIEW')}
+                    {isApproved ? 'APPROVED' : (isRejected ? 'REJECTED' : (verifyText ? verifyText : 'PENDING REVIEW'))}
                   </div>
                 </div>
 

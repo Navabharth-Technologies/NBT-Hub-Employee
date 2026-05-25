@@ -396,9 +396,16 @@ const TaskNotification = ({ onOpenTask }) => {
                       onClick={() => {
                         markAsRead(notif.id);
                         let tab = 'HOME';
-                        if (notif.type === 'LEAVE') tab = 'LEAVE';
-                        if (notif.type === 'THREAD') tab = 'THREAD';
-                        if (notif.type === 'QUIZ') tab = 'FUN';
+                        const nType = String(notif.type || '').toUpperCase();
+                        const nTitle = String(notif.title || '').toLowerCase();
+                        
+                        if (nType === 'LEAVE' || nTitle.includes('leave')) {
+                          tab = 'LEAVE';
+                        } else if (nType === 'THREAD' || nTitle.includes('thread')) {
+                          tab = 'THREAD';
+                        } else if (nType === 'QUIZ' || nTitle.includes('quiz')) {
+                          tab = 'FUN';
+                        }
 
                         onOpenTask(tab);
                         setIsOpen(false);
