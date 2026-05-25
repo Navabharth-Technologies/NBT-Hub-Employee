@@ -27,6 +27,8 @@ const TraineeDashboard = () => {
   const { user, logout, isBlocked } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activePdfUrl, setActivePdfUrl] = useState(null);
+  const [activeCourse, setActiveCourse] = useState(null);
   // Redundant showBlocked removed — now using global isBlocked from AuthContext
   const fetchDataRef = useRef(null); // stable ref so BroadcastChannel closure always calls latest
 
@@ -214,6 +216,16 @@ const TraineeDashboard = () => {
       console.error("[TraineeDash] handleComplete update failed:", e);
     }
   };
+  
+  const handleClosePdf = async () => {
+    if (activeCourse) {
+      if (String(activeCourse.status).toLowerCase() !== 'completed') {
+        await handleComplete(activeCourse.id);
+      }
+    }
+    setActivePdfUrl(null);
+    setActiveCourse(null);
+  };
 
   const openVideoInNewTab = (course) => {
     if (String(course.status).toLowerCase() === 'not started' || !course.status || String(course.status).toLowerCase() === 'pending') {
@@ -231,6 +243,59 @@ const TraineeDashboard = () => {
     });
     window.open(`/video-player.html?${params.toString()}`, '_blank');
   };
+
+  if (activePdfUrl) {
+    return (
+      <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+        {/* Header bar */}
+        <div style={{ 
+          height: '70px', 
+          backgroundColor: 'white', 
+          borderBottom: '1px solid #e2e8f0', 
+          display: 'flex', 
+          alignItems: 'center', 
+          padding: '0 20px', 
+          justifyContent: 'space-between',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+          zIndex: 10
+        }}>
+          <button 
+            onClick={handleClosePdf}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              backgroundColor: '#0f172a', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '12px', 
+              color: 'white', 
+              fontWeight: '900', 
+              fontSize: '13px', 
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
+              transition: 'all 0.2s'
+            }}
+          >
+            ← Back to Home
+          </button>
+          <span style={{ fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>
+            {activeCourse?.title || 'Document Viewer'}
+          </span>
+          <div style={{ width: '120px' }}></div>
+        </div>
+
+        {/* PDF Iframe */}
+        <div style={{ flex: 1, backgroundColor: '#525659' }}>
+          <iframe 
+            src={activePdfUrl} 
+            title={activeCourse?.title || 'PDF Document'}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
@@ -386,25 +451,17 @@ const TraineeDashboard = () => {
                    <button 
                      onClick={() => {
                         const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
-                        // Mark status accordingly
-                        if (String(course.status).toLowerCase() !== 'completed') {
+                        if (pdfUrl) {
                           if (String(course.status).toLowerCase() === 'not started' || !course.status || String(course.status).toLowerCase() === 'pending') {
                             handleStart(course.id);
-                          } else {
-                            handleComplete(course.id);
                           }
-                        }
-                        if (pdfUrl) {
-                          const newTab = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-                          if (!newTab) {
-                            // Popup blocked fallback - use direct navigation
-                            window.location.href = pdfUrl;
-                          }
+                          setActivePdfUrl(pdfUrl);
+                          setActiveCourse(course);
                         } else {
                           console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
                         }
-                     }}
-                     style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                      }}
+                      style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
                    >
                       <FileText size={18} /> View PDF Content
                    </button>
