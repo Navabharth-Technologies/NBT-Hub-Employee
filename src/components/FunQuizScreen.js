@@ -280,8 +280,8 @@ const FunQuizScreen = ({ onBack }) => {
   }, []);
 
   useEffect(() => {
-    setSelectedOption(null);
-  }, [currentIdx]);
+    setSelectedOption(currentQ?.user_selected_letter || null);
+  }, [currentIdx, currentQ]);
 
   const handleSubmit = async () => {
     if (!selectedOption) return;
@@ -452,7 +452,9 @@ const FunQuizScreen = ({ onBack }) => {
     },
     bottomSection: { backgroundColor: 'white', borderRadius: '24px', padding: isMobile ? '20px' : '30px', border: '1px solid #eef2f3' },
     option: (optObj, isAnswered) => {
-      const isUserChoice = (optObj.letter === currentQ?.user_selected_letter || optObj.letter === selectedOption);
+      const isUserChoice = isAnswered
+        ? (optObj.letter === currentQ?.user_selected_letter)
+        : (optObj.letter === selectedOption);
       const isActuallyCorrect = checkIfCorrect(optObj, currentQ);
 
       let border = '2px solid #eef2f3';
