@@ -410,29 +410,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '40px', overflowX: 'auto', paddingBottom: '10px' }}>
-        {['ALL', 'Today', 'Pending', 'In Progress', 'Completed', 'Approved'].map(f => {
-          const isActive = statusFilter === f;
-          return (
-            <button 
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              style={{
-                padding: '8px 20px', borderRadius: '12px', border: '1.5px solid',
-                backgroundColor: isActive ? '#3B5998' : 'white',
-                color: isActive ? 'white' : '#64748b',
-                borderColor: isActive ? '#3B5998' : '#eef2f6',
-                boxShadow: isActive ? '0 8px 20px rgba(59, 89, 152, 0.2)' : 'none',
-                transform: isActive ? 'translateY(-2px)' : 'none',
-                transition: 'all 0.3s ease',
-                fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap'
-              }}
-            >
-              {f}
-            </button>
-          );
-        })}
-      </div>
+
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {projectsToShow.length > 0 ? projectsToShow.map((proj, idx) => {
