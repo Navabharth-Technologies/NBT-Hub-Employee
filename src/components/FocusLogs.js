@@ -77,14 +77,31 @@ export default function FocusLogs({ onBack }) {
   };
 
   const filterData = () => {
-    const s = new Date(startDate);
-    const e = new Date(endDate);
-    e.setHours(23, 59, 59, 999);
+    if (!startDate && !endDate) {
+      setFilteredLogs(logs);
+      return;
+    }
 
     const filtered = logs.filter(log => {
       const ts = log.timestamp || log.created_at || log.date || log.Date || log.CreatedAt;
+      if (!ts) return true;
       const d = new Date(ts);
-      return d >= s && d <= e;
+      if (isNaN(d.getTime())) return true;
+
+      if (startDate && endDate) {
+        const s = new Date(startDate);
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        return d >= s && d <= e;
+      } else if (startDate) {
+        const s = new Date(startDate);
+        return d >= s;
+      } else if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        return d <= e;
+      }
+      return true;
     });
     setFilteredLogs(filtered);
   };
@@ -112,7 +129,8 @@ export default function FocusLogs({ onBack }) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `focus_logs_${startDate}_to_${endDate}.csv`);
+    const fileRange = (startDate && endDate) ? `${startDate}_to_${endDate}` : 'all_time';
+    link.setAttribute("download", `focus_logs_${fileRange}.csv`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -122,7 +140,8 @@ export default function FocusLogs({ onBack }) {
   const downloadPDF = () => {
     if (filteredLogs.length === 0) return alert("No logs to download");
     const doc = new jsPDF();
-    doc.text(`Personal Focus Logs: ${startDate} to ${endDate}`, 14, 15);
+    const rangeTitle = (startDate && endDate) ? `${startDate} to ${endDate}` : 'All Time';
+    doc.text(`Personal Focus Logs: ${rangeTitle}`, 14, 15);
     
     const tableColumn = ["Date", "Time", "Status", "Tasks"];
     const tableRows = [];
@@ -151,7 +170,8 @@ export default function FocusLogs({ onBack }) {
       columnStyles: { 3: { cellWidth: 100 } }
     });
     
-    doc.save(`focus_logs_${startDate}_to_${endDate}.pdf`);
+    const fileRange = (startDate && endDate) ? `${startDate}_to_${endDate}` : 'all_time';
+    doc.save(`focus_logs_${fileRange}.pdf`);
     setShowDownloadMenu(false);
   };
 
@@ -305,8 +325,9 @@ export default function FocusLogs({ onBack }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>
             <button style={{...s.clearBtn, marginLeft: '0'}} onClick={() => {
-              setStartDate(firstDay);
-              setEndDate(lastDay);
+              setStartDate('');
+              setEndDate('');
+              fetchLogs();
             }}>
               Clear Filter
             </button>
