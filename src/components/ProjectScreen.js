@@ -655,8 +655,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {['Pending', 'In Progress', 'Completed'].map(st => {
                         const isActive = pStatus.toLowerCase() === st.toLowerCase();
-                        // Buttons are always clickable
-                        const isLocked = false;
+                        // Lock logic:
+                        // 1. Fully locked if Approved by manager.
+                        // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert, UNLESS it was Rejected by manager.
+                        const isTaskDone = pStatus === 'Completed' || pProg === 100;
+                        const isLocked = isApproved || (isTaskDone && !isRejected && st !== 'Completed');
                         
                         // Keep all buttons visible so they are never removed from the UI
 
