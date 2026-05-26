@@ -49,7 +49,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         const data = [...dataArr].reverse().find(d => {
           if (!d) return false;
           const respName = d.project_name || d.projectName;
-          return !respName || respName === currentProjectName;
+          return respName === currentProjectName;
         });
         
         console.log(`[DEBUG] fetchSprintStatus matching data for ${currentProjectName}:`, data);
@@ -227,7 +227,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       if (st === 'Pending') {
         // Keep progress unchanged (do not reset to 0%)
       } else if (st === 'In Progress') {
-        newProgress = Math.min(95, Number(currentProgress) + 5);
+        newProgress = currentProgress || 0; // Don't add arbitrary 5% progress
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
@@ -410,29 +410,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '40px', overflowX: 'auto', paddingBottom: '10px' }}>
-        {['ALL', 'Today', 'Pending', 'In Progress', 'Completed', 'Approved'].map(f => {
-          const isActive = statusFilter === f;
-          return (
-            <button 
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              style={{
-                padding: '8px 20px', borderRadius: '12px', border: '1.5px solid',
-                backgroundColor: isActive ? '#3B5998' : 'white',
-                color: isActive ? 'white' : '#64748b',
-                borderColor: isActive ? '#3B5998' : '#eef2f6',
-                boxShadow: isActive ? '0 8px 20px rgba(59, 89, 152, 0.2)' : 'none',
-                transform: isActive ? 'translateY(-2px)' : 'none',
-                transition: 'all 0.3s ease',
-                fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap'
-              }}
-            >
-              {f}
-            </button>
-          );
-        })}
-      </div>
+
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {projectsToShow.length > 0 ? projectsToShow.map((proj, idx) => {
@@ -655,8 +633,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {['Pending', 'In Progress', 'Completed'].map(st => {
                         const isActive = pStatus.toLowerCase() === st.toLowerCase();
-                        // Buttons are always clickable
-                        const isLocked = false;
+                        // Lock logic:
+                        // 1. Fully locked if Approved by manager.
+                        // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert, UNLESS it was Rejected by manager.
+                        const isTaskDone = pStatus === 'Completed' || pProg === 100;
+                        const isLocked = isApproved || (isTaskDone && !isRejected && st !== 'Completed');
                         
                         // Keep all buttons visible so they are never removed from the UI
 

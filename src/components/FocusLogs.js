@@ -10,6 +10,14 @@ export default function FocusLogs({ onBack }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const sanitizeId = (id) => String(id || '').split(':')[0];
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+  };
 
   const handleBack = () => {
     if (onBack) onBack();
@@ -117,7 +125,7 @@ export default function FocusLogs({ onBack }) {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
-      const dateStr = `${day}-${month}-${year}`;
+      const dateStr = `${day}/${month}/${year}`;
       const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
       const status = log.overallStatus || "PENDING";
       const tasksStr = (log.tasks || []).map(t => typeof t === 'string' ? t : (t.text || '')).join('; ');
@@ -140,7 +148,7 @@ export default function FocusLogs({ onBack }) {
   const downloadPDF = () => {
     if (filteredLogs.length === 0) return alert("No logs to download");
     const doc = new jsPDF();
-    const rangeTitle = (startDate && endDate) ? `${startDate} to ${endDate}` : 'All Time';
+    const rangeTitle = (startDate && endDate) ? `${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}` : 'All Time';
     doc.text(`Personal Focus Logs: ${rangeTitle}`, 14, 15);
     
     const tableColumn = ["Date", "Time", "Status", "Tasks"];
@@ -152,7 +160,7 @@ export default function FocusLogs({ onBack }) {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
-      const dateStr = `${day}-${month}-${year}`;
+      const dateStr = `${day}/${month}/${year}`;
       const logData = [
         dateStr,
         d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
@@ -311,16 +319,50 @@ export default function FocusLogs({ onBack }) {
         <div style={s.filterBar}>
           <div style={s.label}><Calendar size={18} /> DATE RANGE</div>
           
-          <div style={s.dateInputBox}>
+          <div style={{ ...s.dateInputBox, position: 'relative' }}>
             <div style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3B5998'}} />
-            <input type="date" style={s.input} value={startDate} onChange={e => setStartDate(e.target.value)} />
+            <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', pointerEvents: 'none' }}>
+              {formatDisplayDate(startDate)}
+            </span>
+            <Calendar size={14} color="#64748b" style={{ pointerEvents: 'none', marginLeft: 'auto' }} />
+            <input 
+              type="date" 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                cursor: 'pointer'
+              }} 
+              value={startDate} 
+              onChange={e => setStartDate(e.target.value)} 
+            />
           </div>
 
           <span style={s.toText}>TO</span>
 
-          <div style={s.dateInputBox}>
+          <div style={{ ...s.dateInputBox, position: 'relative' }}>
             <div style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981'}} />
-            <input type="date" style={s.input} value={endDate} onChange={e => setEndDate(e.target.value)} />
+            <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', pointerEvents: 'none' }}>
+              {formatDisplayDate(endDate)}
+            </span>
+            <Calendar size={14} color="#64748b" style={{ pointerEvents: 'none', marginLeft: 'auto' }} />
+            <input 
+              type="date" 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                cursor: 'pointer'
+              }} 
+              value={endDate} 
+              onChange={e => setEndDate(e.target.value)} 
+            />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>
