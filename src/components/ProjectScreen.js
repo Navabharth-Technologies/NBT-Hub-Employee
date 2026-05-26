@@ -49,7 +49,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         const data = [...dataArr].reverse().find(d => {
           if (!d) return false;
           const respName = d.project_name || d.projectName;
-          return !respName || respName === currentProjectName;
+          return respName === currentProjectName;
         });
         
         console.log(`[DEBUG] fetchSprintStatus matching data for ${currentProjectName}:`, data);
@@ -227,7 +227,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       if (st === 'Pending') {
         // Keep progress unchanged (do not reset to 0%)
       } else if (st === 'In Progress') {
-        newProgress = Math.min(95, Number(currentProgress) + 5);
+        newProgress = currentProgress || 0; // Don't add arbitrary 5% progress
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
