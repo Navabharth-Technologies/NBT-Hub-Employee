@@ -502,8 +502,9 @@ const FunQuizScreen = ({ onBack }) => {
     option: (optObj, isAnswered) => {
       const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
       const userPicked = currentQ?.user_selected_letter || selectedOption || storedAnswers[currentQ?.id];
+      const normalizedUserPicked = userPicked ? String(userPicked).trim().toUpperCase() : null;
       const isUserChoice = isAnswered
-        ? (optObj.letter === userPicked)
+        ? (String(optObj.letter).toUpperCase() === normalizedUserPicked)
         : (optObj.letter === selectedOption);
       const isActuallyCorrect = checkIfCorrect(optObj, currentQ);
 
@@ -866,8 +867,14 @@ const FunQuizScreen = ({ onBack }) => {
                           (() => {
                             const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
                             const userPicked = currentQ.user_selected_letter || selectedOption || storedAnswers[currentQ.id];
-                            const opt = currentQ.options.find(o => o.letter === userPicked);
-                            return `Incorrect. You selected: Option ${userPicked || 'Unknown'}${opt ? ' - ' + opt.text : ''}. The correct answer was: ${formatCorrectAnswerText(currentQ)}`;
+                            const normalizedPicked = userPicked ? String(userPicked).trim().toUpperCase() : null;
+                            const opt = currentQ.options.find(o =>
+                              String(o.letter).toUpperCase() === normalizedPicked ||
+                              String(o.text).trim().toLowerCase() === String(userPicked || '').trim().toLowerCase()
+                            );
+                            const displayLetter = opt ? opt.letter : (normalizedPicked || 'Unknown');
+                            const displayText = opt ? ` - ${opt.text}` : '';
+                            return `Incorrect. You selected: ${displayLetter}${displayText}. The correct answer was: ${formatCorrectAnswerText(currentQ)}`;
                           })()}
                       </span>
                     </div>
