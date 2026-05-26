@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, Download, ChevronLeft, Search, Filter, Clock, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { API_ENDPOINTS } from '../config';
@@ -10,11 +10,13 @@ export default function FocusLogs({ onBack }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const sanitizeId = (id) => String(id || '').split(':')[0];
+  const startDateRef = useRef(null);
+  const endDateRef = useRef(null);
   const formatDisplayDate = (dateStr) => {
-    if (!dateStr) return '';
+    if (!dateStr) return 'dd-mm-yyyy';
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
     return dateStr;
   };
@@ -33,17 +35,8 @@ export default function FocusLogs({ onBack }) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const lastDay = now.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState(() => {
-    const stored = localStorage.getItem('focusLogsStartDate');
-    if (stored) return stored;
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(() => {
-    const stored = localStorage.getItem('focusLogsEndDate');
-    if (stored) return stored;
-    return new Date().toISOString().split('T')[0];
-  });
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -85,8 +78,12 @@ export default function FocusLogs({ onBack }) {
   };
 
   const filterData = () => {
-    const s = new Date(startDate);
-    const e = new Date(endDate);
+    if (!startDate && !endDate) {
+      setFilteredLogs(logs);
+      return;
+    }
+    const s = startDate ? new Date(startDate) : new Date(0);
+    const e = endDate ? new Date(endDate) : new Date();
     e.setHours(23, 59, 59, 999);
 
     const filtered = logs.filter(log => {
@@ -297,24 +294,22 @@ export default function FocusLogs({ onBack }) {
 
         {/* Filter Bar */}
         <div style={s.filterBar}>
-          <div style={s.label}><Calendar size={18} /> DATE RANGE</div>
           
-          <div style={{ ...s.dateInputBox, position: 'relative' }}>
-            <div style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3B5998'}} />
-            <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', pointerEvents: 'none' }}>
+          <div style={{ ...s.dateInputBox, cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
+            <Calendar size={14} color="#94a3b8" />
+            <span style={{ fontSize: '14px', fontWeight: '700', color: startDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(startDate)}
             </span>
-            <Calendar size={14} color="#64748b" style={{ pointerEvents: 'none', marginLeft: 'auto' }} />
+            <Calendar size={14} color="#94a3b8" style={{ marginLeft: 'auto' }} />
             <input 
+              ref={startDateRef}
               type="date" 
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
+                width: 0,
+                height: 0,
                 opacity: 0,
-                cursor: 'pointer'
+                pointerEvents: 'none'
               }} 
               value={startDate} 
               onChange={e => setStartDate(e.target.value)} 
@@ -323,22 +318,21 @@ export default function FocusLogs({ onBack }) {
 
           <span style={s.toText}>TO</span>
 
-          <div style={{ ...s.dateInputBox, position: 'relative' }}>
-            <div style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981'}} />
-            <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', pointerEvents: 'none' }}>
+          <div style={{ ...s.dateInputBox, cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
+            <Calendar size={14} color="#94a3b8" />
+            <span style={{ fontSize: '14px', fontWeight: '700', color: endDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(endDate)}
             </span>
-            <Calendar size={14} color="#64748b" style={{ pointerEvents: 'none', marginLeft: 'auto' }} />
+            <Calendar size={14} color="#94a3b8" style={{ marginLeft: 'auto' }} />
             <input 
+              ref={endDateRef}
               type="date" 
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
+                width: 0,
+                height: 0,
                 opacity: 0,
-                cursor: 'pointer'
+                pointerEvents: 'none'
               }} 
               value={endDate} 
               onChange={e => setEndDate(e.target.value)} 
@@ -347,8 +341,8 @@ export default function FocusLogs({ onBack }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>
             <button style={{...s.clearBtn, marginLeft: '0'}} onClick={() => {
-              setStartDate(firstDay);
-              setEndDate(lastDay);
+              setStartDate('');
+              setEndDate('');
             }}>
               Clear Filter
             </button>
