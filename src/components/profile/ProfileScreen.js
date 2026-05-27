@@ -981,7 +981,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                                 </div>
                               )}
                             </div>
-                          ))})}
+                          ))}
                         </div>
                       )}
                     </>
