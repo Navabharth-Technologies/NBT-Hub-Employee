@@ -11,7 +11,7 @@ import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 // Automatically corrects hardcoded localhost references to match the BASE_URL host
 const resolveMediaUrl = (url) => {
   if (!url) return null;
-  let finalUrl = url;
+  let finalUrl = String(url).replace(/\\/g, '/');
   
   // If backend saved 'localhost' but app is running on a network IP
   if (finalUrl.includes('localhost') && BASE_URL && !BASE_URL.includes('localhost')) {
@@ -25,11 +25,11 @@ const resolveMediaUrl = (url) => {
 
 const cleanMediaUrl = (url) => {
   if (!url) return null;
-  const str = String(url).trim();
-  const lower = str.replace(/\\/g, '/').toLowerCase();
+  const normalized = String(url).trim().replace(/\\/g, '/');
+  const lower = normalized.toLowerCase();
   if (lower === '' || lower === 'null' || lower === 'undefined') return null;
   if (lower.endsWith('/null') || lower.endsWith('/undefined')) return null;
-  return str;
+  return normalized;
 };
 
 const TraineeDashboard = () => {
@@ -117,8 +117,8 @@ const TraineeDashboard = () => {
       const sourceArr = enrollmentArr.length > 0 ? enrollmentArr : globalArr;
       
       finalArr = sourceArr.map(item => {
-        const rawPdf = item.pdf_url || item.pdf || item.pdfUrl || item.file_url || item.document_url || item.doc_url || null;
-        const rawVideo = item.video_url || item.video || item.videoUrl || item.media_url || null;
+        const rawPdf = item.pdf_url || item.pdf || item.pdfUrl || item.pdf_path || item.file || item.document || item.file_url || item.document_url || item.doc_url || null;
+        const rawVideo = item.video_url || item.video || item.videoUrl || item.video_link || item.link || item.video_path || item.media_url || null;
         const cleanedPdf = cleanMediaUrl(rawPdf);
         const cleanedVideo = cleanMediaUrl(rawVideo);
         return {
