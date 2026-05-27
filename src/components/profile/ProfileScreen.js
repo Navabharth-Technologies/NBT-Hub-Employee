@@ -405,10 +405,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   };
 
   const validatePassword = (password) => {
-    // Requires: length >= 6, starts with uppercase, followed by lowercase, special char, and numbers (e.g., Imsha@123)
+    // Requires: length >= 6, first character must be a special character
     if (!password || password.length < 6) return false;
-    const re = /^[A-Z][a-z]+[@$!%*?&#_\-]+\d+$/;
-    return re.test(password);
+    const specialCharRegex = /^[^a-zA-Z0-9\s]/;
+    return specialCharRegex.test(password);
   };
 
   const handleResetWithOTP = async () => {
@@ -418,7 +418,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       return triggerToast('invalid numbers', 'error');
     }
     if (!validatePassword(passData.new)) {
-      return triggerToast('Password must be at least 6 characters: Start with a Capital letter, followed by lowercase, a special character, and numbers (e.g. Imsha@123)', 'error');
+      return triggerToast('Password must be at least 6 characters and the first character must be a special character.', 'error');
     }
 
     try {
@@ -452,7 +452,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       return triggerToast('invalid numbers', 'error');
     }
     if (!validatePassword(passData.new)) {
-      return triggerToast('Password must be at least 6 characters: Start with a Capital letter, followed by lowercase, a special character, and numbers (e.g. Imsha@123)', 'error');
+      return triggerToast('Password must be at least 6 characters and the first character must be a special character.', 'error');
     }
 
     try {
@@ -892,20 +892,27 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                       {[{ label: 'Old Password', key: 'old' }, { label: 'New Password', key: 'new' }, { label: 'Confirm Password', key: 'confirm' }].map(f => (
                         <div key={f.key} style={{ position: 'relative' }}>
                           <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block', paddingLeft: '4px' }}>{f.label} <span style={{ color: '#ef4444' }}>*</span></label>
-                          <input
-                            type={showPass[f.key] ? "text" : "password"}
-                            style={{ width: '100%', padding: '16px 50px 16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s', boxSizing: 'border-box' }}
-                            onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
-                            onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
-                            value={passData[f.key]}
-                            onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
-                          />
-                          <div
-                            onClick={() => setShowPass(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
-                            style={{ position: 'absolute', right: '18px', bottom: '16px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
-                          >
-                            {showPass[f.key] ? <Eye size={20} /> : <EyeOff size={20} />}
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type={showPass[f.key] ? "text" : "password"}
+                              style={{ width: '100%', padding: '16px 50px 16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s', boxSizing: 'border-box' }}
+                              onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
+                              onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
+                              value={passData[f.key]}
+                              onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
+                            />
+                            <div
+                              onClick={() => setShowPass(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                              style={{ position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+                            >
+                              {showPass[f.key] ? <Eye size={20} /> : <EyeOff size={20} />}
+                            </div>
                           </div>
+                          {f.key === 'new' && (
+                            <div style={{ fontSize: '11px', color: '#3863a8', marginTop: '6px', fontWeight: '800', paddingLeft: '4px', lineHeight: '1.4' }}>
+                              Password must be at least 6 characters and the first character must be a special character.
+                            </div>
+                          )}
                         </div>
                       ))}
                     </>
@@ -949,26 +956,32 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                         <div style={{ animation: 'slideIn 0.4s ease-out' }}>
                           <div style={{ backgroundColor: '#f0fdf4', color: '#16a34a', padding: '15px', borderRadius: '16px', fontSize: '12px', fontWeight: '800', textAlign: 'center', marginBottom: '20px', border: '1.5px solid #bbf7d0' }}>
                             ✓ AUTHORIZATION GRANTED
-                          </div>
-                          {[{ label: 'Vault Signature (New Password)', key: 'new' }, { label: 'Confirm Signature', key: 'confirm' }].map(f => (
+                          </div>                           {[{ label: 'Vault Signature (New Password)', key: 'new' }, { label: 'Confirm Signature', key: 'confirm' }].map(f => (
                             <div key={f.key} style={{ position: 'relative', marginBottom: '15px' }}>
                               <label style={{ fontSize: '11px', fontWeight: '1000', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', display: 'block', paddingLeft: '4px' }}>{f.label} <span style={{ color: '#ef4444' }}>*</span></label>
-                              <input
-                                type={showPass[f.key] ? "text" : "password"}
-                                style={{ width: '100%', padding: '16px 50px 16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s', boxSizing: 'border-box' }}
-                                onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
-                                onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
-                                value={passData[f.key]}
-                                onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
-                              />
-                              <div
-                                onClick={() => setShowPass(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
-                                style={{ position: 'absolute', right: '18px', bottom: '16px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
-                              >
-                                {showPass[f.key] ? <Eye size={20} /> : <EyeOff size={20} />}
+                              <div style={{ position: 'relative' }}>
+                                <input
+                                  type={showPass[f.key] ? "text" : "password"}
+                                  style={{ width: '100%', padding: '16px 50px 16px 20px', borderRadius: '18px', border: '2px solid #f1f5f9', fontSize: '15px', fontWeight: '700', outline: 'none', backgroundColor: '#f8fafc', transition: '0.2s', boxSizing: 'border-box' }}
+                                  onFocus={(e) => { e.target.style.borderColor = '#3863a8'; e.target.style.backgroundColor = 'white'; }}
+                                  onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
+                                  value={passData[f.key]}
+                                  onChange={e => setPassData({ ...passData, [f.key]: e.target.value })}
+                                />
+                                <div
+                                  onClick={() => setShowPass(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                                  style={{ position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+                                >
+                                  {showPass[f.key] ? <Eye size={20} /> : <EyeOff size={20} />}
+                                </div>
                               </div>
+                              {f.key === 'new' && (
+                                <div style={{ fontSize: '11px', color: '#3863a8', marginTop: '6px', fontWeight: '800', paddingLeft: '4px', lineHeight: '1.4' }}>
+                                  Password must be at least 6 characters and the first character must be a special character.
+                                </div>
+                              )}
                             </div>
-                          ))}
+                          ))})}
                         </div>
                       )}
                     </>
