@@ -515,16 +515,6 @@ export default function ThreadScreen({ onBack }) {
                                     <span>LIKE ({likeCount})</span>
                                 </div>
 
-                                <div 
-                                    style={styles.action(pBadged, '#FDB913')} 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onToggleBadge(post.id);
-                                    }}
-                                >
-                                    <Award size={18} fill={pBadged ? '#FDB913' : 'none'} strokeWidth={2.5} />
-                                    <span>BADGE ({badgeCount})</span>
-                                </div>
 
                                 <div
                                     style={{

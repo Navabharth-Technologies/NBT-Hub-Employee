@@ -103,7 +103,7 @@ const FunQuizScreen = ({ onBack }) => {
       const token = localStorage.getItem('token');
       const [res, compRes] = await Promise.all([
         fetch(`${BASE_URL}/api/fun-quizzes`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }),
-        Promise.resolve({ ok: false }) // fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
+        fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
       ]);
 
       if (res.ok) {
@@ -146,6 +146,25 @@ const FunQuizScreen = ({ onBack }) => {
                              getProp(item, 'selectedOption') ||
                              null;
 
+          // Normalize: if backend returns full text like "Option A" or "A - Tigger", extract just the letter
+          if (userSelected && String(userSelected).trim().length > 1) {
+            const letterMatch = String(userSelected).trim().match(/^(?:option[_ -]?)?([A-Da-d])\b/i);
+            if (letterMatch) {
+              userSelected = letterMatch[1].toUpperCase();
+            } else {
+              // Check if it matches one of the option texts exactly
+              const matchedOpt = [
+                { letter: 'A', text: optA },
+                { letter: 'B', text: optB },
+                { letter: 'C', text: optC },
+                { letter: 'D', text: optD }
+              ].find(o => String(o.text).trim().toLowerCase() === String(userSelected).trim().toLowerCase());
+              if (matchedOpt) {
+                userSelected = matchedOpt.letter;
+              }
+            }
+          }
+
           if (!userSelected && storedAnswers[id]) {
             userSelected = storedAnswers[id];
           }
@@ -157,6 +176,13 @@ const FunQuizScreen = ({ onBack }) => {
             });
             if (comp) {
               userSelected = getProp(comp, 'selected_ans') || getProp(comp, 'selected_option') || getProp(comp, 'user_answer') || getProp(comp, 'user_selected_letter') || getProp(comp, 'answer') || null;
+              // Normalize completion data too
+              if (userSelected && String(userSelected).trim().length > 1) {
+                const letterMatch2 = String(userSelected).trim().match(/^(?:option[_ -]?)?([A-Da-d])\b/i);
+                if (letterMatch2) {
+                  userSelected = letterMatch2[1].toUpperCase();
+                }
+              }
             }
           }
 
@@ -168,8 +194,36 @@ const FunQuizScreen = ({ onBack }) => {
             }
           }
 
+          // Deep scan fallback: if backend returned the selected answer in ANY property, try to detect it
           const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
           const hasAnswered = getProp(item, 'has_answered') || false;
+          if (!userSelected && hasAnswered) {
+            const validLetters = ['A', 'B', 'C', 'D'];
+            for (const key of Object.keys(item)) {
+              const val = String(item[key] || '').trim().toUpperCase();
+              if (validLetters.includes(val) && !['correct_answer', 'correct_option', 'correct', 'answer', 'id', 'quiz_id'].includes(key.toLowerCase())) {
+                userSelected = val;
+                break;
+              }
+            }
+          }
+
+          // Normalize final value
+          if (userSelected) {
+            userSelected = String(userSelected).trim().toUpperCase();
+            if (!['A', 'B', 'C', 'D'].includes(userSelected)) {
+              // Last resort: match against option texts
+              const matchedFinal = [
+                { letter: 'A', text: optA },
+                { letter: 'B', text: optB },
+                { letter: 'C', text: optC },
+                { letter: 'D', text: optD }
+              ].find(o => String(o.text).trim().toLowerCase() === String(userSelected).toLowerCase());
+              userSelected = matchedFinal ? matchedFinal.letter : userSelected;
+            }
+          }
+
+
 
           let previousResult = null;
           if (hasAnswered) {
@@ -319,17 +373,11 @@ const FunQuizScreen = ({ onBack }) => {
   };
 
   const handleStartToday = () => {
-  // Only clear stored answers if starting a fresh quiz (not revisiting already-answered questions)
-  const allAnswered = questions.length > 0 && questions.every(q => q.has_answered);
-  if (!allAnswered) {
-    try {
-      localStorage.removeItem('quiz_user_answers');
-    } catch (e) {}
-  }
+  // Never clear stored answers — they are the persistent record of user choices
   setSelectedOption(null);
   setQuizActive(true);
   setCurrentIdx(0);
-  // Re-fetch questions to ensure no stale selections
+  // Re-fetch questions to ensure fresh data from backend
   fetchQuestions();
 };
 
