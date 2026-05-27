@@ -220,12 +220,12 @@ export default function ResignationScreen({ onBack }) {
           <h1 style={s.title}>Exit Management</h1>
         </div>
 
-        <div style={s.tabBar}>
-          <button style={s.tab(activeTab === 'main')} onClick={() => setActiveTab('main')}><Send size={16} /> Submit Notice</button>
-          {(user?.role === 'Manager' || user?.role === 'Admin') && (
+        {(user?.role === 'Manager' || user?.role === 'Admin') && (
+          <div style={s.tabBar}>
+            <button style={s.tab(activeTab === 'main')} onClick={() => setActiveTab('main')}><Send size={16} /> My Resignation</button>
             <button style={s.tab(activeTab === 'team')} onClick={() => setActiveTab('team')}><Users size={16} /> Team notice</button>
-          )}
-        </div>
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {activeTab === 'main' && (
@@ -320,6 +320,72 @@ export default function ResignationScreen({ onBack }) {
                     </div>
                   </motion.div>
                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'letter' && previewLetter && (
+            <motion.div key="letter" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1000px', margin: '0 auto 20px' }}>
+                <button style={s.backBtn} onClick={() => setActiveTab('main')}>
+                  <ArrowLeft size={18} /> Back to Resignation
+                </button>
+                {previewLetter.status === 'PENDING' && (
+                  <button 
+                    style={{ ...s.submitBtn, backgroundColor: '#dc2626', width: 'auto', padding: '10px 20px', boxShadow: 'none' }}
+                    onClick={() => { setRevokeData({ id: previewLetter.id, reason: '' }); setShowRevokeModal(true); }}
+                  >
+                    <RefreshCcw size={16} /> Revoke Resignation
+                  </button>
+                )}
+              </div>
+
+              <div style={s.letterContainer}>
+                <div style={s.topShape}></div>
+                <div style={s.topShapePrimary}></div>
+                <div style={s.topShapeSecondary}></div>
+
+                <div style={s.watermark}>
+                  <img src={logo} alt="Watermark" style={{ width: '500px' }} />
+                </div>
+
+                <div style={s.letterHeader}>
+                  <img src={logo} alt="Company Logo" style={s.logo} />
+                  <div style={{ fontSize: '12px', fontWeight: '900', color: '#64748b', letterSpacing: '2px' }}>
+                    NAVABHARATH TECHNOLOGIES
+                  </div>
+                </div>
+
+                <div style={{ position: 'relative', zIndex: 10, marginTop: '40px' }}>
+                  <div style={{ fontSize: '24px', fontWeight: '1000', color: '#1e3a8a', textAlign: 'center', textDecoration: 'underline', textUnderlineOffset: '8px', marginBottom: '50px' }}>
+                    RESIGNATION LETTER
+                  </div>
+                  <div style={{ fontWeight: '800', marginBottom: '30px' }}>Date: {new Date(previewLetter.resignationDate || previewLetter.resignation_date || new Date()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                  <div style={{ fontWeight: '1000', color: '#0B1E3F', marginBottom: '40px' }}>To, <br/>The Management, <br/>Navabharath Technologies</div>
+                  
+                  <div style={{ whiteSpace: 'pre-wrap', color: '#334155', lineHeight: '1.8', marginBottom: '40px' }}>
+                    {previewLetter.letter_content || `Dear Sir/Madam,\n\nThis is to formally notify you of my resignation from the position of ${user?.designation || user?.role || 'Engineer'} at Navabharath Technologies. My proposed last working day will be ${new Date(previewLetter.lastWorkingDay || previewLetter.last_working_day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.\n\nI have decided to move on for ${previewLetter.reason || 'Personal Reasons'}.\n\n${previewLetter.detailedReason || previewLetter.detailed_reason || ''}\n\nI appreciate the opportunities provided to me during my time with the company.\n\nSincerely,\n${previewLetter.userName || user?.name}`}
+                  </div>
+                </div>
+
+                <div style={s.footerInfo}>
+                  <div style={s.footerItem}>
+                    <span>Phone: 0821-3128831</span>
+                    <div style={s.footerBar('#3b82f6')}></div>
+                  </div>
+                  <div style={s.footerItem}>
+                    <span>www.navabharathtechnologies.com</span>
+                    <div style={s.footerBar('#1d4ed8')}></div>
+                  </div>
+                  <div style={s.footerItem}>
+                    <span>contact@navabharathtechnologies.com</span>
+                    <div style={s.footerBar('#1e3a8a')}></div>
+                  </div>
+                </div>
+
+                <div style={s.bottomShape}></div>
+                <div style={s.bottomShapePrimary}></div>
+                <div style={s.bottomShapeSecondary}></div>
               </div>
             </motion.div>
           )}
