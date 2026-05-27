@@ -23,6 +23,15 @@ const resolveMediaUrl = (url) => {
   return `${BASE_URL}${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
 };
 
+const cleanMediaUrl = (url) => {
+  if (!url) return null;
+  const str = String(url).trim();
+  const lower = str.toLowerCase();
+  if (lower === '' || lower === 'null' || lower === 'undefined') return null;
+  if (lower.endsWith('/null') || lower.endsWith('/undefined')) return null;
+  return str;
+};
+
 const TraineeDashboard = () => {
   const { user, logout, isBlocked } = useAuth();
   const [courses, setCourses] = useState([]);
@@ -107,18 +116,26 @@ const TraineeDashboard = () => {
       let finalArr = [];
       const sourceArr = enrollmentArr.length > 0 ? enrollmentArr : globalArr;
       
-      finalArr = sourceArr.map(item => ({
-        ...item,
-        id: item.id,
-        title: item.title || 'Untitled Mission',
-        description: item.description,
-        deadline: item.deadline,
-        category: item.category || 'TECHNICAL',
-        pdf_url: item.pdf_url || item.pdf || item.pdfUrl || item.file_url || item.document_url || item.doc_url || null,
-        video_url: item.video_url || item.video || item.videoUrl || item.media_url || null,
-        status: item.status || 'Not Started',
-        uploaderName: item.uploaded_by || 'HR'
-      }));
+      finalArr = sourceArr.map(item => {
+        const rawPdf = item.pdf_url || item.pdf || item.pdfUrl || item.file_url || item.document_url || item.doc_url || null;
+        const rawVideo = item.video_url || item.video || item.videoUrl || item.media_url || null;
+        const cleanedPdf = cleanMediaUrl(rawPdf);
+        const cleanedVideo = cleanMediaUrl(rawVideo);
+        return {
+          ...item,
+          id: item.id,
+          title: item.title || 'Untitled Mission',
+          description: item.description,
+          deadline: item.deadline,
+          category: item.category || 'TECHNICAL',
+          pdf_url: cleanedPdf,
+          pdf: cleanedPdf,
+          video_url: cleanedVideo,
+          video: cleanedVideo,
+          status: item.status || 'Not Started',
+          uploaderName: item.uploaded_by || 'HR'
+        };
+      });
 
       setCourses(finalArr);
 
