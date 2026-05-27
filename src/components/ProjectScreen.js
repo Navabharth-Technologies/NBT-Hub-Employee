@@ -310,10 +310,16 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       progress = 100;
     }
 
+    // Optimistic update: update UI state immediately so the user sees the change
+    setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
+    setSprintProgressMap(prev => ({ ...prev, [pName]: progress }));
+    setNotificationFeedback(`Project "${pName}" updated to ${st}!`);
+    setTimeout(() => setNotificationFeedback(null), 3000);
+
     try {
       // 1. Log to Sprint History (Temporal)
       const sid = sanitizeId(ownerId);
-      const res = await fetch(`${BASE_URL}/api/sprint-updates`, {
+      await fetch(`${BASE_URL}/api/sprint-updates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -335,13 +341,6 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
               progress: progress 
             })
         });
-      }
-
-      if (res.ok) {
-        setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
-        setSprintProgressMap(prev => ({ ...prev, [pName]: progress }));
-        setNotificationFeedback(`Project "${pName}" updated to ${st}!`);
-        setTimeout(() => setNotificationFeedback(null), 3000);
       }
     } catch { } finally {
       setShowFinalizeModal(false);
@@ -510,10 +509,17 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                              verifyText === 'FALSE' ||
                              verifyText === '0');
 
+          // Check if employee has explicitly overridden via sprint status update (e.g. clicked Complete after rejection)
+          const explicitSprintStatus = sprintStatusMap[pName];
+          const userExplicitlyCompleted = explicitSprintStatus === 'Completed';
+
           if (isApproved) pStatus = 'Completed';
-          else if (isRejected) {
-            // Manager rejected — force back to In Progress at 70%
+          else if (isRejected && !userExplicitlyCompleted) {
+            // Manager rejected — force back to In Progress at 70%, UNLESS employee explicitly completed again
             pStatus = 'In Progress';
+          } else if (isRejected && userExplicitlyCompleted) {
+            // Employee resubmitted after rejection — honor their explicit completion
+            pStatus = 'Completed';
           }
 
           let pProg = (sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
@@ -521,7 +527,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                       (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
                       (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0))));
 
-          if (isRejected && (pProg === 100 || pProg < 70)) {
+          if (isRejected && !userExplicitlyCompleted && (pProg === 100 || pProg < 70)) {
             pProg = 70;
           }
 
