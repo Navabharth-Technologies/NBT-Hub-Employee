@@ -258,7 +258,8 @@ const TraineeDashboard = () => {
       apiBase:  BASE_URL,
       uid:      uid
     });
-    window.open(`/video-player.html?${params.toString()}`, '_blank');
+    const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+    window.open(`${basePath}video-player.html?${params.toString()}`, '_blank');
   };
 
   if (activePdfUrl) {
