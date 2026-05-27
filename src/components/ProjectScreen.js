@@ -88,6 +88,13 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         const data = Array.isArray(raw) ? raw[0] : (raw.value && Array.isArray(raw.value) ? raw.value[0] : (raw.value || raw));
         if (data) {
           setTaskDetailMap(prev => ({ ...prev, [taskId]: data }));
+          
+          // Priority fix: If this is an assignment row, it might contain the master task ID.
+          // Fetch the review using that master task ID.
+          const discoveredMasterTid = data.task_id || data.taskId || data.master_task_id || data.masterTaskId;
+          if (discoveredMasterTid && String(sanitizeId(discoveredMasterTid)) !== String(sanitizeId(taskId))) {
+            fetchTaskReview(discoveredMasterTid);
+          }
         }
       }
     } catch (e) {}
@@ -146,9 +153,15 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
           if (pName) fetchSprintStatus(uid, pName);
           const tid = p.id || p.assigned_id || p.task_id;
+          const masterTid = p.task_id || p.taskId || p.master_task_id || p.masterTaskId;
           if (tid) {
             fetchTaskDetail(tid);
             fetchTaskReview(tid);
+          }
+          // Also fetch review using master task ID if different from assignment ID
+          if (masterTid && String(sanitizeId(masterTid)) !== String(sanitizeId(tid))) {
+            fetchTaskDetail(masterTid);
+            fetchTaskReview(masterTid);
           }
         });
       }
@@ -187,9 +200,15 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const pName = p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title;
           if (pName) fetchSprintStatus(managerId || uid, pName);
           const tid = p.id || p.assigned_id || p.task_id;
+          const masterTid = p.task_id || p.taskId || p.master_task_id || p.masterTaskId;
           if (tid) {
             fetchTaskDetail(tid);
             fetchTaskReview(tid);
+          }
+          // Also fetch review using master task ID if different from assignment ID
+          if (masterTid && String(sanitizeId(masterTid)) !== String(sanitizeId(tid))) {
+            fetchTaskDetail(masterTid);
+            fetchTaskReview(masterTid);
           }
         });
       }
@@ -219,15 +238,20 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     // Prevent re-triggering the finalize modal if the task is already 100% completed
     if (st === 'Completed' && currentProgress === 100) return;
 
+    // Once completed, lock Pending and In Progress so user can't revert
+    if ((currentStatus === 'Completed' || currentProgress === 100) && st !== 'Completed') return;
+
     if (st === 'Completed') {
       setPendingStatusData({ pName, st, taskId });
       setShowFinalizeModal(true);
     } else {
-      let newProgress = currentProgress;
+      let newProgress = currentProgress || 0;
       if (st === 'Pending') {
         // Keep progress unchanged (do not reset to 0%)
       } else if (st === 'In Progress') {
-        newProgress = currentProgress || 0; // Don't add arbitrary 5% progress
+        // Each click on In Progress increases by 5%, capped at 95%
+        newProgress = Math.min(95, newProgress + 5);
+        if (newProgress < 5) newProgress = 5;
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
@@ -415,8 +439,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {projectsToShow.length > 0 ? projectsToShow.map((proj, idx) => {
           const targetId = proj.id || proj.assigned_id || proj.task_id || proj.assignment_id;
-          const td = taskDetailMap[targetId] || {};
-          const rv = taskReviewMap[targetId] || {};
+          const masterTid = proj.task_id || proj.taskId || proj.master_task_id || proj.masterTaskId;
+          const td = taskDetailMap[targetId] || (masterTid ? taskDetailMap[masterTid] : null) || {};
+          
+          const derivedMasterTid = masterTid || td.task_id || td.taskId || td.master_task_id || td.masterTaskId;
+          const rv = taskReviewMap[targetId] || (derivedMasterTid ? taskReviewMap[derivedMasterTid] : null) || {};
 
           const getValidString = (...strs) => {
             for (const s of strs) {
@@ -472,7 +499,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                              verifyText === 'APPROVED' ||
                              verifyText === 'APPROVE' ||
                              verifyText === 'TRUE' ||
-                             verifyText === '1') && pStatus !== 'In Progress' && pStatus !== 'Pending';
+                             verifyText === '1');
 
           const isRejected = (statusText === 'REJECTED' || 
                              statusText === 'REJECT' ||
@@ -481,7 +508,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                              verifyText === 'REJECTED' ||
                              verifyText === 'REJECT' ||
                              verifyText === 'FALSE' ||
-                             verifyText === '0') && pStatus !== 'In Progress' && pStatus !== 'Pending';
+                             verifyText === '0');
 
           if (isApproved) pStatus = 'Completed';
           else if (isRejected) {

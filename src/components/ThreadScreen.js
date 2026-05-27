@@ -503,59 +503,34 @@ export default function ThreadScreen({ onBack }) {
                         </div>
 
                         <div style={styles.footer}>
-                            <div 
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    backgroundColor: pLiked ? '#ef4444' : '#f8fafc',
-                                    color: pLiked ? 'white' : '#ef4444',
-                                    borderRadius: '12px',
-                                    border: pLiked ? '1.5px solid #ef4444' : '1.5px solid #f1f5f9',
-                                    padding: '2px',
-                                    gap: '2px',
-                                    position: 'relative'
-                                }}
-                            >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px' }}>
                                 <div 
-                                    style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: '8px', 
-                                        cursor: 'pointer',
-                                        padding: isMobile ? '6px 8px' : '8px 16px',
-                                        borderRadius: '10px',
-                                        fontWeight: '900',
-                                        fontSize: isMobile ? '9px' : (isTablet ? '11px' : '12px'),
-                                        transition: 'all 0.2s ease',
-                                    }}
+                                    style={styles.action(pLiked, '#ef4444')} 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        onToggleLike(post.id, 'like');
+                                        onToggleLike(post.id);
                                     }}
                                 >
-                                    <Heart size={18} fill={pLiked ? "white" : "none"} stroke={pLiked ? "white" : "#ef4444"} strokeWidth={2.5} /> 
-                                    {pLiked ? 'LIKED' : 'LIKE'} 
-                                    <span 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openReactorsModal(post, 'like');
-                                        }}
-                                        style={{ marginLeft: '4px', cursor: 'help', textDecoration: 'underline' }}
-                                    >
-                                        ({likeCount})
-                                    </span>
+                                    <Heart size={18} fill={pLiked ? '#ef4444' : 'none'} strokeWidth={2.5} />
+                                    <span>LIKE ({likeCount})</span>
                                 </div>
-                                
+
+                                <div 
+                                    style={styles.action(pBadged, '#FDB913')} 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleBadge(post.id);
+                                    }}
+                                >
+                                    <Award size={18} fill={pBadged ? '#FDB913' : 'none'} strokeWidth={2.5} />
+                                    <span>BADGE ({badgeCount})</span>
+                                </div>
+
                                 <div
                                     style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        padding: '8px',
-                                        cursor: 'pointer',
-                                        color: pLiked ? 'white' : '#64748b',
-                                        borderRadius: '10px',
-                                        transition: 'background 0.2s',
+                                        ...styles.action(false, '#64748b'),
+                                        padding: isMobile ? '6px 8px' : '8px 12px',
+                                        flex: 'none'
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -567,10 +542,8 @@ export default function ThreadScreen({ onBack }) {
                                             setActiveEmojiPicker(post.id);
                                         }
                                     }}
-                                    onMouseOver={e => e.currentTarget.style.backgroundColor = pLiked ? 'rgba(255,255,255,0.2)' : '#f1f5f9'}
-                                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
-                                    <Smile size={18} />
+                                    <Smile size={18} strokeWidth={2.5} />
                                 </div>
                             </div>
                             <div onClick={() => handleOpenComments(post.id)} style={styles.action(activeCommentPost === post.id, '#315A9E')}>
@@ -645,7 +618,15 @@ export default function ThreadScreen({ onBack }) {
                                                                         autoFocus
                                                                     />
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={() => { updateComment(post.id, c.id, editCommentContent); setEditingCommentId(null); }} style={{ fontSize: '11px', fontWeight: '900', color: 'white', background: '#315A9E', border: 'none', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>UPDATE</button>
+                                                                        <button onClick={async () => { 
+                                                                            // Optimistic local update so UI updates immediately
+                                                                            setPostComments(prev => ({
+                                                                                ...prev,
+                                                                                [post.id]: (prev[post.id] || []).map(x => x.id === c.id ? { ...x, content: editCommentContent } : x)
+                                                                            }));
+                                                                            setEditingCommentId(null);
+                                                                            await updateComment(post.id, c.id, editCommentContent); 
+                                                                        }} style={{ fontSize: '11px', fontWeight: '900', color: 'white', background: '#315A9E', border: 'none', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>UPDATE</button>
                                                                         <button onClick={() => setEditingCommentId(null)} style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', background: 'none', border: '1.5px solid #e2e8f0', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>CANCEL</button>
                                                                     </div>
                                                                 </div>

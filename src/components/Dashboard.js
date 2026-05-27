@@ -161,22 +161,24 @@ const Dashboard = ({ setActiveTab }) => {
 
   const handleSprintStatusClick = (projName, st, taskId = null) => {
     const curStatus = sprintStatusMap[projName] || 'Pending';
+    const curProg = sprintProgressMap[projName] || 0;
+
+    // Once completed (status or 100%), lock Pending and In Progress so user can't revert
+    if ((curStatus === 'Completed' || curProg === 100) && st !== 'Completed') return;
     if (curStatus === 'Completed') return;
 
     if (st === 'Completed') {
       setPendingStatusData({ projName, st, taskId });
       setShowFinalizeModal(true);
     } else {
-      const curProg = sprintProgressMap[projName] || 0;
       let newProgress = curProg;
 
       if (st === 'Pending') {
-        // Pending should always reset to 5% and not increase
-        newProgress = 5;
+        // Keep progress unchanged
       } else if (st === 'In Progress') {
-        // In Progress increases the progress
+        // In Progress increases the progress by 5%
         newProgress = Math.min(95, curProg + 5);
-        if (newProgress < 10) newProgress = 10; // Ensure it's higher than Pending
+        if (newProgress < 5) newProgress = 5;
       }
       
       setSprintStatusMap(prev => ({ ...prev, [projName]: st }));

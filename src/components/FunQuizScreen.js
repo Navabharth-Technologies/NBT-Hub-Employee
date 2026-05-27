@@ -160,6 +160,14 @@ const FunQuizScreen = ({ onBack }) => {
             }
           }
 
+          // Fallback: preserve user selection from current questions state (covers case where localStorage was cleared)
+          if (!userSelected) {
+            const existingQ = questions.find(q => String(q.id) === String(id));
+            if (existingQ && existingQ.user_selected_letter) {
+              userSelected = existingQ.user_selected_letter;
+            }
+          }
+
           const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
           const hasAnswered = getProp(item, 'has_answered') || false;
 
@@ -232,6 +240,7 @@ const FunQuizScreen = ({ onBack }) => {
     });
   });
   const userLifetimeScore = myLeaderboardData ? (myLeaderboardData.quiz_points || myLeaderboardData.quizPoints || 0) : 0;
+  const userQuizPoints = myLeaderboardData?.quiz_points || 0;
 
   const fetchScores = async () => {
     try {
@@ -310,10 +319,13 @@ const FunQuizScreen = ({ onBack }) => {
   };
 
   const handleStartToday = () => {
-  // Clear any persisted answers from previous sessions to provide a fresh start
-  try {
-    localStorage.removeItem('quiz_user_answers');
-  } catch (e) {}
+  // Only clear stored answers if starting a fresh quiz (not revisiting already-answered questions)
+  const allAnswered = questions.length > 0 && questions.every(q => q.has_answered);
+  if (!allAnswered) {
+    try {
+      localStorage.removeItem('quiz_user_answers');
+    } catch (e) {}
+  }
   setSelectedOption(null);
   setQuizActive(true);
   setCurrentIdx(0);
@@ -684,24 +696,35 @@ const FunQuizScreen = ({ onBack }) => {
       <AnimatePresence>
         {submissionFeedback.show && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             style={{
               position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-              backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-              zIndex: 10000, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: '20px'
+              backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+              zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}
           >
-            <div style={{ padding: '30px', borderRadius: '40px', backgroundColor: '#dcfce7', border: '2px solid #22c55e' }}>
-              <CheckCircle size={80} color="#15803d" />
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <h1 style={{ fontSize: '32px', fontWeight: '1000', color: '#0B1E3F', margin: '0 0 8px 0' }}>Success!</h1>
-              <p style={{ fontSize: '18px', fontWeight: '800', color: '#15803d', margin: 0 }}>+{submissionFeedback.points} REP Points Stored</p>
-              <div style={{ marginTop: '20px', fontSize: '14px', color: '#64748b', fontWeight: '700' }}>Returning to dashboard...</div>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              style={{
+                backgroundColor: 'white', padding: '40px', borderRadius: '30px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.2)', display: 'flex',
+                flexDirection: 'column', alignItems: 'center', gap: '20px',
+                maxWidth: '400px', width: '90%'
+              }}
+            >
+              <div style={{ padding: '25px', borderRadius: '50%', backgroundColor: '#dcfce7', border: '3px solid #22c55e' }}>
+                <CheckCircle size={60} color="#15803d" />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <h1 style={{ fontSize: '28px', fontWeight: '1000', color: '#0B1E3F', margin: '0 0 10px 0' }}>Success!</h1>
+                <p style={{ fontSize: '18px', fontWeight: '900', color: '#15803d', margin: 0 }}>+{submissionFeedback.points} REP Points Earned</p>
+                <div style={{ marginTop: '20px', fontSize: '14px', color: '#64748b', fontWeight: '800' }}>Returning to dashboard...</div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -748,10 +771,11 @@ const FunQuizScreen = ({ onBack }) => {
                           <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{userLifetimeScore}</div>
                         </div>
 
-                        <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                           <div style={{ fontSize: '12px', fontWeight: '900', color: '#15803d', textTransform: 'uppercase' }}>Session Score</div>
                           <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{sessionScoreForDisplay}</div>
                         </div>
+
                       </>
                     );
                   })()}

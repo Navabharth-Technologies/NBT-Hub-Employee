@@ -125,10 +125,17 @@ function App() {
     checkJoineeStatus();
   }, [user]);
 
-  // ✅ Always redirect to Home/Dashboard after successful login
+  const previousUser = useRef(user);
+
+  // ✅ Always redirect to Home/Dashboard after successful login, and clean up on logout
   useEffect(() => {
-    if (user) {
-      if (!isInitialMount.current) {
+    if (!user) {
+      // User just logged out
+      setActiveTab('HOME');
+      setActiveTabState(null);
+    } else {
+      if (!isInitialMount.current && !previousUser.current) {
+        // Transitioned from null to logged-in user (Fresh Login)
         setActiveTab('HOME');
         setActiveTabState(null);
         localStorage.setItem('nbt_active_tab', 'HOME');
@@ -137,10 +144,9 @@ function App() {
           window.location.hash = '/';
         } catch (e) {}
       }
-      isInitialMount.current = false;
-    } else {
-      isInitialMount.current = false;
     }
+    isInitialMount.current = false;
+    previousUser.current = user;
   }, [user]);
 
   const showNav = React.useCallback(() => {

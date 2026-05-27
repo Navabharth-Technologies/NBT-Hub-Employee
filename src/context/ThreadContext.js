@@ -215,27 +215,53 @@ export const ThreadProvider = ({ children }) => {
     }
   };
 
+  const reactionLocks = React.useRef(new Set());
+
+  // Complete bidirectional emoji maps — shared across optimistic + API layers
+  const NAME_TO_EMOJI = {
+    'heart': '❤️', 'thumbsup': '👍', 'thumbs_up': '👍', 'cake': '🎂',
+    'fire': '🔥', 'clap': '👏', 'laughing': '😂', 'shocked': '😮',
+    'heart_eyes': '😍'
+  };
+  // Use exact strings expected by the backend schema (especially thumbs_up)
+  const EMOJI_TO_NAME = {
+    '❤️': 'heart', '👍': 'thumbs_up', '🎂': 'cake', '🔥': 'fire',
+    '👏': 'clap', '😂': 'laughing', '😮': 'shocked', '😍': 'heart_eyes'
+  };
+
   const toggleReaction = async (threadId, userId, type = 'like') => {
+    // Per-post+type lock: ignore duplicate clicks while API call is in-flight
+    const lockKey = `${threadId}_${type}`;
+    if (reactionLocks.current.has(lockKey)) return;
+    reactionLocks.current.add(lockKey);
+
+    // Normalize type to always use emoji character for client-side state
+    const normType = NAME_TO_EMOJI[type.toLowerCase()] || type;
+
     mutationInFlight.current = true;
     setThreads(prev => prev.map(t => {
       if (t.id === threadId) {
         const reactions = { ...(t.reactions || {}) };
-        const currentCount = reactions[type] || (type === 'like' ? t.likeCount : 0) || 0;
-        
-        // Normalization: Ensure symbols and names are treated consistently
-        const emojiMap = { 'heart': '❤️', 'thumbsup': '👍', 'cake': '🎂', 'fire': '🔥', 'clap': '👏' };
-        const normType = emojiMap[type.toLowerCase()] || type;
-        
+
+        // Look up current count using the normalized emoji key
+        const currentCount = reactions[normType] || (type === 'like' ? t.likeCount : 0) || 0;
+
         // Dynamic Toggle Logic: Decrement if current state is already active
-        const userState = type === 'like' ? t.userHasLiked : (t.userReactions?.[normType] || t.userReactions?.[type] || false);
+        const userState = type === 'like' ? t.userHasLiked : (t.userReactions?.[normType] || false);
         const newCount = userState ? Math.max(0, currentCount - 1) : currentCount + 1;
+
+        // Clean up any duplicate text-name keys
+        const textName = EMOJI_TO_NAME[normType];
+        if (textName && reactions[textName] !== undefined) {
+          delete reactions[textName];
+        }
 
         return { 
             ...t, 
             userHasLiked: type === 'like' ? !userState : t.userHasLiked, 
-            userReactions: { ...(t.userReactions || {}), [normType]: !userState, [type]: !userState },
+            userReactions: { ...(t.userReactions || {}), [normType]: !userState },
             likeCount: type === 'like' ? newCount : (t.likeCount || 0),
-            reactions: { ...reactions, [normType]: newCount, [type]: newCount }
+            reactions: { ...reactions, [normType]: newCount }
         };
       }
       return t;
@@ -248,10 +274,10 @@ export const ThreadProvider = ({ children }) => {
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
 
-      const emojiToName = { '❤️': 'heart', '👍': 'thumbsup', '🎂': 'cake', '🔥': 'fire', '👏': 'clap' };
-      const apiType = emojiToName[type] || type;
+      // Send the backend-expected name (e.g. 'thumbs_up', 'heart') — NOT the emoji character
+      const apiType = type === 'like' ? 'like' : (EMOJI_TO_NAME[normType] || type);
 
-      const res = await fetch(API_ENDPOINTS.THREAD_REACT(threadId), {
+      await fetch(API_ENDPOINTS.THREAD_REACT(threadId), {
         method: 'POST',
         headers,
         body: JSON.stringify({ userId: Number(userId), user_id: Number(userId), reactionType: apiType, reaction_type: apiType })
@@ -262,6 +288,7 @@ export const ThreadProvider = ({ children }) => {
     } catch (err) {
       console.error("toggleReaction error:", err);
     } finally {
+      reactionLocks.current.delete(lockKey);
       mutationInFlight.current = false;
     }
   };
@@ -374,8 +401,10 @@ export const ThreadProvider = ({ children }) => {
     }
   };
 
-  const fetchReactors = async (threadId, reactionType) => {
+  const fetchReactors = async (threadId, emoji) => {
     try {
+      // Use the literal emoji character or 'like' for the API request
+      const reactionType = emoji === 'like' ? 'like' : emoji;
       const res = await fetch(API_ENDPOINTS.THREAD_REACTORS(threadId, reactionType));
       if (res.ok) {
         const data = await res.json();

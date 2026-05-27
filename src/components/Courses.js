@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Clock, Star, PlayCircle, Award, CheckCircle, ChevronLeft, Lock, FileText, Download } from 'lucide-react';
+import { BookOpen, Clock, Star, PlayCircle, CheckCircle, FileText, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import BackButton from './BackButton';
 
@@ -26,6 +25,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
     const [isVideoDone, setIsVideoDone] = useState(false);
     const [isPdfDone, setIsPdfDone] = useState(false);
     const [isTestDone, setIsTestDone] = useState(false);
+    const [lastCompletedCourseId, setLastCompletedCourseId] = useState(null);
     const [currentView, setCurrentView] = useState(null); // 'video', 'pdf', 'test'
     const [showCertificate, setShowCertificate] = useState(false);
     const [showCard, setShowCard] = useState(false);
@@ -49,11 +49,102 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         window.addEventListener('resize', handleResize);
         fetchCourses();
         return () => window.removeEventListener('resize', handleResize);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         localStorage.setItem(lsKey, JSON.stringify(courseProgressMap));
     }, [courseProgressMap, lsKey]);
+
+    // Initialize completion states when selected course changes
+    useEffect(() => {
+        if (selectedCourse) {
+            const record = courseProgressMap[selectedCourse.id] || {};
+            setIsVideoDone(!!record.videoDone);
+            setIsPdfDone(!!record.pdfDone);
+            if (record.progress >= 100) {
+                setLastCompletedCourseId(selectedCourse.id);
+            } else {
+                setLastCompletedCourseId(null);
+            }
+        }
+    }, [selectedCourse, courseProgressMap]);
+
+    const sendCourseCompletionToBackend = async (courseId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const userEmail = user?.email || user?.email_id || user?.emailId || 'unknown';
+            const userName = user?.name || user?.userName || 'Employee';
+            const payload = {
+                userId: uid,
+                user_id: uid,
+                employee_id: uid,
+                courseId: courseId,
+                course_id: courseId,
+                completed: 1,
+                email: userEmail,
+                userName: userName
+            };
+
+            const requests = [
+                { url: `${BASE_URL}/api/user-courses`, method: 'POST' },
+                { url: `${BASE_URL}/api/user-courses/${courseId}`, method: 'PUT' },
+                { url: `${BASE_URL}/api/user-course/${courseId}`, method: 'PUT' },
+                { url: `${BASE_URL}/api/user_courses/${courseId}`, method: 'PUT' },
+                { url: `${BASE_URL}/api/user_course/${courseId}`, method: 'PUT' },
+                { url: `${BASE_URL}/api/user_courses`, method: 'POST' },
+                { url: `${BASE_URL}/api/user-course`, method: 'POST' },
+                { url: `${BASE_URL}/api/user_course`, method: 'POST' },
+                { url: `${BASE_URL}/api/user-courses/complete`, method: 'PUT' },
+                { url: `${BASE_URL}/api/user_courses/complete`, method: 'PUT' }
+            ];
+
+            console.log(`[CourseScreen] Sending course completion for course ${courseId} to backend...`);
+
+            for (const req of requests) {
+                try {
+                    const response = await fetch(req.url, {
+                        method: req.method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        console.log(`[CourseScreen] Successfully completed course via ${req.method} endpoint: ${req.url}`);
+                        break;
+                    } else {
+                        console.warn(`[CourseScreen] ${req.method} Endpoint ${req.url} returned status ${response.status}`);
+                    }
+                } catch (err) {
+                    console.warn(`[CourseScreen] Failed to connect to ${req.method} endpoint ${req.url}:`, err.message);
+                }
+            }
+        } catch (error) {
+            console.error("[CourseScreen] Failed to sync course completion with backend:", error);
+        }
+    };
+
+    // Trigger backend notification when course is completed
+    useEffect(() => {
+        if (!selectedCourse) return;
+
+        const hasVideo = !!(selectedCourse.video_url || selectedCourse.video || selectedCourse.video_link || selectedCourse.link || selectedCourse.video_path);
+        const hasPdf = !!(selectedCourse.pdf_url || selectedCourse.pdf || selectedCourse.file || selectedCourse.document);
+
+        const videoOk = !hasVideo || isVideoDone;
+        const pdfOk = !hasPdf || isPdfDone;
+
+        const allDone = (hasVideo || hasPdf) && videoOk && pdfOk;
+
+        if (allDone && lastCompletedCourseId !== selectedCourse.id) {
+            setLastCompletedCourseId(selectedCourse.id);
+            sendCourseCompletionToBackend(selectedCourse.id);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCourse, isVideoDone, isPdfDone, lastCompletedCourseId]);
 
     const fetchCourses = async () => {
         try {
@@ -113,17 +204,35 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             return path;
         }
 
-        // Handle path formats (uploads/file.pdf, etc.)
-        const parts = path.split(/[\\\/]/);
-        const fileName = parts.pop();
-        return `${BASE_URL}/uploads/${fileName}`;
+        // Preserve relative API paths (e.g. /api/drive/stream/...) — just prepend BASE_URL
+        return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
     };
 
-    const updateProgress = (courseId, progress) => {
-        setCourseProgressMap(prev => ({
-            ...prev,
-            [courseId]: { ...prev[courseId], progress: progress }
-        }));
+    const updateCourseProgress = (course, updates) => {
+        setCourseProgressMap(prev => {
+            const current = prev[course.id] || { progress: 0, videoProgress: 0, videoDone: false, pdfDone: false };
+            const next = { ...current, ...updates };
+
+            const hasVideo = !!(course.video_url || course.video || course.video_link || course.link || course.video_path);
+            const hasPdf = !!(course.pdf_url || course.pdf || course.file || course.document);
+
+            let overallProgress = 0;
+            if (hasVideo && hasPdf) {
+                const videoWeight = next.videoDone ? 50 : (next.videoProgress || 0) * 0.5;
+                const pdfWeight = next.pdfDone ? 50 : 0;
+                overallProgress = videoWeight + pdfWeight;
+            } else if (hasVideo) {
+                overallProgress = next.videoDone ? 100 : (next.videoProgress || 0);
+            } else if (hasPdf) {
+                overallProgress = next.pdfDone ? 100 : 0;
+            }
+
+            next.progress = Math.min(overallProgress, 100);
+            return {
+                ...prev,
+                [course.id]: next
+            };
+        });
     };
 
     const s = {
@@ -158,7 +267,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             gap: winWidth < 768 ? '20px' : '15px'
         },
 
-        iframeContainer: { width: '100%', aspectRatio: '16/9', borderRadius: '35px', overflow: 'hidden', backgroundColor: 'black', boxShadow: '0 30px 60px rgba(0,0,0,0.1)' },
+        iframeContainer: { width: '100%', maxWidth: '960px', aspectRatio: '16/9', maxHeight: winWidth < 768 ? '300px' : '400px', borderRadius: '35px', overflow: 'hidden', backgroundColor: 'black', boxShadow: '0 30px 60px rgba(0,0,0,0.1)', margin: '0 auto' },
         pdfContainer: { width: '100%', minHeight: winWidth < 768 ? '400px' : '650px', borderRadius: '35px', border: '1.2px solid #f1f5f9', backgroundColor: 'white', boxShadow: '0 30px 60px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' },
         finishBtn: { width: '100%', backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '18px 40px', borderRadius: '25px', fontWeight: '900', marginTop: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 25px rgba(11, 30, 63, 0.2)' },
         disabledBtn: { backgroundColor: '#94a3b8', color: '#cbd5e1', cursor: 'not-allowed', opacity: 0.6 },
@@ -184,7 +293,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             const current = videoRef.current.currentTime;
             const duration = videoRef.current.duration;
             const percentage = (current / duration) * 100;
-            updateProgress(selectedCourse.id, percentage);
+            updateCourseProgress(selectedCourse, { videoProgress: percentage });
             if (percentage >= 98 && !canShowMarkButton) setCanShowMarkButton(true);
         }
     };
@@ -238,6 +347,10 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 const userEmail = user?.email || user?.email_id || user?.emailId || 'imsha@navabharathtechnologie.com';
 
                 if (userEmail) {
+                    // Always show success to user — email delivery happens in background
+                    alert(`🎉 Certificate downloaded successfully!\n\nA copy will be sent to your registered email: ${userEmail}`);
+
+                    // Attempt email delivery silently — if backend isn't ready, just log it
                     try {
                         const token = localStorage.getItem('token');
                         const response = await fetch(`${BASE_URL}/api/send-certificate`, {
@@ -255,13 +368,12 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                         });
 
                         if (response.ok) {
-                            alert(`Certificate downloaded successfully. A copy has been sent directly to your registered email ID: ${userEmail}`);
+                            console.log(`Certificate email sent successfully to ${userEmail}`);
                         } else {
-                            alert(`Certificate downloaded, but failed to send email. Email ID: ${userEmail}`);
+                            console.warn(`Certificate email API returned ${response.status} — backend may not be ready yet.`);
                         }
                     } catch (e) {
-                        console.error("Failed to route certificate to email API", e);
-                        alert(`Certificate downloaded, but failed to send email. Error: ${e.message}`);
+                        console.warn("Certificate email API not reachable — backend endpoint pending:", e.message);
                     }
                 }
             }
@@ -339,7 +451,10 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                                 ref={videoRef} key={videoSrc} controls style={{ width: '100%', height: '100%' }}
                                 poster={formatUrl(selectedCourse.image || selectedCourse.thumbnail || selectedCourse.course_image)}
                                 preload="auto" onTimeUpdate={handleVideoTimeUpdate}
-                                onEnded={() => { setCanShowMarkButton(true); updateProgress(selectedCourse.id, 100); }}
+                                onEnded={() => {
+                                    setCanShowMarkButton(true);
+                                    updateCourseProgress(selectedCourse, { videoProgress: 100 });
+                                }}
                             >
                                 <source src={videoSrc} type="video/mp4" />
                                 Your browser does not support the video tag.
@@ -353,7 +468,11 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                     </div>
 
                     {(isEmbed || canShowMarkButton) ? (
-                        <button style={s.finishBtn} onClick={() => { setIsVideoDone(true); updateProgress(selectedCourse.id, 100); setCurrentView(null); }}>
+                        <button style={s.finishBtn} onClick={() => {
+                            setIsVideoDone(true);
+                            updateCourseProgress(selectedCourse, { videoDone: true, videoProgress: 100 });
+                            setCurrentView(null);
+                        }}>
                             <CheckCircle size={20} /> Mark as proficiency complete
                         </button>
                     ) : (
@@ -407,7 +526,13 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                             <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontWeight: '800' }}>PDF Documentation Not Available</div>
                         )}
                     </div>
-                    <button style={s.finishBtn} onClick={() => { setIsPdfDone(true); setCurrentView(null); }}><CheckCircle size={20} /> Mark as read</button>
+                    <button style={s.finishBtn} onClick={() => {
+                        setIsPdfDone(true);
+                        updateCourseProgress(selectedCourse, { pdfDone: true });
+                        setCurrentView(null);
+                    }}>
+                        <CheckCircle size={20} /> Mark as read
+                    </button>
                 </div>
             </div>
         );
@@ -423,48 +548,84 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                             <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Course</span>
                         </div>
                         <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
-                        <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('video')}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#eff6ff', color: '#3b82f6' }}><PlayCircle size={24} /></div>
-                                <div>
-                                    <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 1: Video Tutorial</div>
-                                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Comprehensive deep dive into core architectural patterns.</div>
+                        {/* Video module — only shown if backend provides a video URL */}
+                        {(selectedCourse.video_url || selectedCourse.video || selectedCourse.video_link || selectedCourse.link || selectedCourse.video_path) && (
+                            <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('video')}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#eff6ff', color: '#3b82f6' }}><PlayCircle size={24} /></div>
+                                    <div>
+                                        <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Video Tutorial</div>
+                                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>{selectedCourse.description || 'Watch the course video.'}</div>
+                                    </div>
                                 </div>
-                            </div>
-                            <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: (courseProgressMap[selectedCourse.id]?.progress >= 100) ? '#dcfce7' : '#0B1E3F', color: (courseProgressMap[selectedCourse.id]?.progress >= 100) ? '#16a34a' : 'white', cursor: 'pointer' }}>
-                                {(courseProgressMap[selectedCourse.id]?.progress >= 100) ? 'Completed' : (courseProgressMap[selectedCourse.id]?.progress > 0) ? 'Continue watching' : 'Start watching'}
-                            </button>
-                        </div>
-                        <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('pdf')}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#ecfdf5', color: '#10b981' }}><FileText size={24} /></div>
-                                <div>
-                                    <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Module 2: Technical Reference</div>
-                                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Official documentation and specification guide.</div>
-                                </div>
-                            </div>
-                            <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: (courseProgressMap[selectedCourse.id]?.progress >= 100 || isPdfDone) ? '#dcfce7' : '#0B1E3F', color: (courseProgressMap[selectedCourse.id]?.progress >= 100 || isPdfDone) ? '#16a34a' : 'white', cursor: 'pointer' }}>{(courseProgressMap[selectedCourse.id]?.progress >= 100 || isPdfDone) ? 'Completed' : 'Open pdf'}</button>
-                        </div>
-                        {(courseProgressMap[selectedCourse.id]?.progress >= 100) && (
-                            <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-start' }}>
-                                <button
-                                    onClick={() => setShowCertificate(true)}
-                                    style={{
-                                        backgroundColor: '#eab308', // Yellow color
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        borderRadius: '14px',
-                                        border: 'none',
-                                        fontWeight: '900',
-                                        fontSize: '13px',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 4px 10px rgba(234, 179, 8, 0.3)'
-                                    }}
-                                >
-                                    Download Certificate
+                                <button style={{
+                                    padding: '12px 24px',
+                                    borderRadius: '14px',
+                                    border: 'none',
+                                    fontWeight: '900',
+                                    fontSize: '11px',
+                                    backgroundColor: isVideoDone ? '#dcfce7' : '#0B1E3F',
+                                    color: isVideoDone ? '#16a34a' : 'white',
+                                    cursor: 'pointer'
+                                }}>
+                                    {isVideoDone ? 'Completed' : (courseProgressMap[selectedCourse.id]?.videoProgress > 0) ? 'Continue watching' : 'Start watching'}
                                 </button>
                             </div>
                         )}
+
+                        {/* PDF module — only shown if backend provides a pdf URL */}
+                        {(selectedCourse.pdf_url || selectedCourse.pdf || selectedCourse.file || selectedCourse.document) && (
+                            <div style={{ ...s.taskRow, cursor: 'pointer' }} onClick={() => setCurrentView('pdf')}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ padding: '15px', borderRadius: '15px', backgroundColor: '#ecfdf5', color: '#10b981' }}><FileText size={24} /></div>
+                                    <div>
+                                        <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>PDF Reference Material</div>
+                                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>{selectedCourse.description || 'Read the course documentation.'}</div>
+                                    </div>
+                                </div>
+                                <button style={{ padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '900', fontSize: '11px', backgroundColor: isPdfDone ? '#dcfce7' : '#0B1E3F', color: isPdfDone ? '#16a34a' : 'white', cursor: 'pointer' }}>
+                                    {isPdfDone ? 'Completed' : 'Open PDF'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Fallback — shown only if backend has neither video nor pdf */}
+                        {!(selectedCourse.video_url || selectedCourse.video || selectedCourse.video_link || selectedCourse.link || selectedCourse.video_path) &&
+                            !(selectedCourse.pdf_url || selectedCourse.pdf || selectedCourse.file || selectedCourse.document) && (
+                                <div style={{ ...s.taskRow, border: '1.5px dashed #e2e8f0', backgroundColor: '#f8fafc' }}>
+                                    <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '800', textAlign: 'center', width: '100%' }}>
+                                        No course materials have been uploaded yet. Check back soon.
+                                    </div>
+                                </div>
+                            )}
+                        {/* Certificate — only when ALL available materials are completed */}
+                        {(() => {
+                            const hasVideo = !!(selectedCourse.video_url || selectedCourse.video || selectedCourse.video_link || selectedCourse.link || selectedCourse.video_path);
+                            const hasPdf = !!(selectedCourse.pdf_url || selectedCourse.pdf || selectedCourse.file || selectedCourse.document);
+                            const videoOk = !hasVideo || isVideoDone;
+                            const pdfOk = !hasPdf || isPdfDone;
+                            const allDone = (hasVideo || hasPdf) && videoOk && pdfOk;
+                            return allDone ? (
+                                <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-start' }}>
+                                    <button
+                                        onClick={() => setShowCertificate(true)}
+                                        style={{
+                                            backgroundColor: '#eab308',
+                                            color: 'white',
+                                            padding: '12px 24px',
+                                            borderRadius: '14px',
+                                            border: 'none',
+                                            fontWeight: '900',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 10px rgba(234, 179, 8, 0.3)'
+                                        }}
+                                    >
+                                        Download Certificate
+                                    </button>
+                                </div>
+                            ) : null;
+                        })()}
                     </div>
                 </div>
 

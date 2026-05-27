@@ -398,9 +398,22 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     }
   };
 
+  const validatePassword = (password) => {
+    // Requires: length >= 6, starts with uppercase, followed by lowercase, special char, and numbers (e.g., Imsha@123)
+    if (!password || password.length < 6) return false;
+    const re = /^[A-Z][a-z]+[@$!%*?&#_\-]+\d+$/;
+    return re.test(password);
+  };
+
   const handleResetWithOTP = async () => {
     if (!passData.otp || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
+    if (/^\d+$/.test(passData.new)) {
+      return triggerToast('invalid numbers', 'error');
+    }
+    if (!validatePassword(passData.new)) {
+      return triggerToast('Password must be at least 6 characters: Start with a Capital letter, followed by lowercase, a special character, and numbers (e.g. Imsha@123)', 'error');
+    }
 
     try {
       const res = await fetch(API_ENDPOINTS.RESET_PASSWORD_OTP, {
@@ -429,6 +442,12 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
     if (!passData.old || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
+    if (/^\d+$/.test(passData.new)) {
+      return triggerToast('invalid numbers', 'error');
+    }
+    if (!validatePassword(passData.new)) {
+      return triggerToast('Password must be at least 6 characters: Start with a Capital letter, followed by lowercase, a special character, and numbers (e.g. Imsha@123)', 'error');
+    }
 
     try {
       const res = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
@@ -626,7 +645,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         <div style={{
           position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
           backgroundColor: toast.type === 'success' ? '#10b981' : '#ef4444',
-          color: 'white', padding: '12px 30px', borderRadius: '15px', zIndex: 9999,
+          color: 'white', padding: '12px 30px', borderRadius: '15px', zIndex: 99999,
           display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '800', fontSize: '14px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease-out'
         }}>

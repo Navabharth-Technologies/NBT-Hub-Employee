@@ -39,6 +39,17 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     return { padding: '6px 12px', border: '1px solid #e2e8f0', color: '#94a3b8', borderRadius: '8px', fontSize: '10px', fontWeight: '900', backgroundColor: 'white' };
   };
 
+  const getIconContainerStyle = (leaveType) => {
+    const t = String(leaveType || '').toUpperCase();
+    if (t.includes('CASUAL') || t.includes('ANNUAL')) {
+      return { backgroundColor: '#ecfdf5', color: '#10b981' };
+    }
+    if (t.includes('LOP')) {
+      return { backgroundColor: '#f5f3ff', color: '#7c3aed' };
+    }
+    return { backgroundColor: '#eff6ff', color: '#3b82f6' };
+  };
+
   const [formData, setFormData] = useState({
     type: 'Earned Leaves',
     to: '',
@@ -608,20 +619,28 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   };
 
   const s = {
-    container: { minHeight: '100vh', backgroundColor: '#f8fafc', padding: winWidth < 768 ? '15px 15px 120px 15px' : '30px 40px 120px 40px', boxSizing: 'border-box' },
-    header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px', padding: '20px' },
+    container: {
+      minHeight: '100vh',
+      backgroundColor: '#f8fafc',
+      paddingTop: winWidth < 768 ? '10px' : '20px',
+      paddingLeft: winWidth < 768 ? '15px' : '40px',
+      paddingRight: winWidth < 768 ? '15px' : '40px',
+      paddingBottom: '120px',
+      boxSizing: 'border-box'
+    },
+    header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: winWidth < 768 ? '10px 0' : '12px 0' },
     backBtn: { width: '45px', height: '45px', borderRadius: '15px', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
-    requestBtn: { display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#0B1E3F', color: 'white', padding: '12px 25px', borderRadius: '15px', border: 'none', fontWeight: '900', fontSize: '14px', cursor: 'pointer' },
-    tabs: { display: 'flex', gap: '30px', marginBottom: '30px', borderBottom: '1px solid #e2e8f0' },
-    tab: (active) => ({ padding: '15px 5px', color: active ? '#0B1E3F' : '#64748b', fontWeight: '900', fontSize: '15px', cursor: 'pointer', borderBottom: active ? '3px solid #0B1E3F' : '3px solid transparent', transition: 'all 0.2s' }),
-    card: { backgroundColor: 'white', borderRadius: '30px', padding: '30px', border: '1.5px solid #f1f5f9', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' },
-    pendingItem: { display: 'flex', flexDirection: winWidth < 600 ? 'column' : 'row', justifyContent: 'space-between', alignItems: winWidth < 600 ? 'flex-start' : 'center', padding: winWidth < 768 ? '15px' : '25px', backgroundColor: '#f8fafc', borderRadius: '25px', marginBottom: '15px', border: '1px solid #f1f5f9', gap: '15px' },
+    requestBtn: { display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#0B1E3F', color: 'white', padding: '10px 20px', borderRadius: '15px', border: 'none', fontWeight: '900', fontSize: '14px', cursor: 'pointer' },
+    tabs: { display: 'flex', gap: '30px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0' },
+    tab: (active) => ({ padding: '12px 5px', color: active ? '#0B1E3F' : '#64748b', fontWeight: '900', fontSize: '15px', cursor: 'pointer', borderBottom: active ? '3px solid #0B1E3F' : '3px solid transparent', transition: 'all 0.2s' }),
+    card: { backgroundColor: 'transparent', border: 'none', boxShadow: 'none', padding: 0 },
+    pendingItem: { display: 'flex', flexDirection: winWidth < 600 ? 'column' : 'row', justifyContent: 'space-between', alignItems: winWidth < 600 ? 'flex-start' : 'center', padding: winWidth < 768 ? '15px' : '20px 25px', backgroundColor: 'white', borderRadius: '25px', marginBottom: '15px', border: '1.5px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', gap: '15px' },
     actionBtn: (type) => ({ backgroundColor: type === 'approve' ? '#22c55e' : '#ef4444', color: 'white', border: 'none', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: `0 4px 10px ${type === 'approve' ? '#22c55e' : '#ef4444'}30` })
   };
 
   return (
     <div style={s.container}>
-      <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+      <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%' }}>
         {/* Header */}
         <div style={s.header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '12px' : '20px' }}>
@@ -667,7 +686,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         </div>
 
         {/* Compact Premium Stats Dashboard */}
-        <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? (winWidth < 768 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(4, 1fr)', gap: '25px', marginBottom: '45px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? (winWidth < 768 ? '1fr 1fr' : 'repeat(2, 1fr)') : 'repeat(4, 1fr)', gap: winWidth < 768 ? '10px' : '15px', marginBottom: '20px' }}>
         {/* Available Balance - Royal Neon */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -675,9 +694,13 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           whileHover={{ scale: 1.02, rotate: 0.5 }}
           style={{
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
-            padding: '25px', borderRadius: '25px', color: 'white', position: 'relative', overflow: 'hidden',
+            backgroundSize: '100% 100%',
+            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
             boxShadow: '0 20px 40px -12px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(255,255,255,0.1)'
+            border: '1px solid rgba(255,255,255,0.1)',
+            minHeight: winWidth < 768 ? '120px' : '160px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            boxSizing: 'border-box'
           }}
         >
           <motion.div
@@ -687,12 +710,12 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           >
             <CreditCard size={110} />
           </motion.div>
-          <p style={{ opacity: 0.7, margin: 0, fontSize: '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Available leaves</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '36px' : '42px', fontWeight: '1000', background: 'linear-gradient(to bottom, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{displayBalance}</h2>
-            <span style={{ opacity: 0.6, fontSize: '15px', fontWeight: '800' }}>Days</span>
+          <p style={{ opacity: 0.7, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Available leaves</p>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000', background: 'linear-gradient(to bottom, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{displayBalance}</h2>
+            <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Days</span>
           </div>
-          <div style={{ marginTop: '15px', padding: '6px 12px', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', width: 'fit-content', fontSize: '10px', fontWeight: '900', color: '#60a5fa' }}>⚡ READY TO USE</div>
+          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', width: 'fit-content', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', color: '#60a5fa' }}>⚡ READY TO USE</div>
         </motion.div>
 
         {/* Casual Leave - Emerald Green */}
@@ -703,19 +726,19 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           whileHover={{ scale: 1.02, rotate: -0.5 }}
           style={{
             background: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
-            padding: '25px', borderRadius: '25px', color: 'white', position: 'relative', overflow: 'hidden',
+            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
             boxShadow: '0 20px 40px -12px rgba(16, 185, 129, 0.25)',
             border: '1px solid rgba(255,255,255,0.1)'
           }}
         >
           <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Calendar size={120} /></div>
-          <p style={{ opacity: 0.8, margin: 0, fontSize: '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Casual Leave</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '36px' : '42px', fontWeight: '1000' }}>{displayCasual}</h2>
-            <span style={{ opacity: 0.6, fontSize: '15px', fontWeight: '800' }}>Leaves</span>
+          <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Casual Leave</p>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000' }}>{displayCasual}</h2>
+            <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Leaves</span>
           </div>
-          <div style={{ marginTop: '15px', padding: '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}>
-            <Activity size={12} /> VERIFIED RECORDS
+          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
+            <Activity size={winWidth < 768 ? 10 : 12} /> VERIFIED RECORDS
           </div>
         </motion.div>
 
@@ -727,19 +750,19 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           whileHover={{ scale: 1.02, rotate: 0.5 }}
           style={{
             background: 'linear-gradient(135deg, #5b21b6 0%, #8b5cf6 100%)',
-            padding: '25px', borderRadius: '25px', color: 'white', position: 'relative', overflow: 'hidden',
+            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
             boxShadow: '0 20px 40px -12px rgba(139, 92, 246, 0.25)',
             border: '1px solid rgba(255,255,255,0.1)'
           }}
         >
           <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Info size={120} /></div>
-          <p style={{ opacity: 0.8, margin: 0, fontSize: '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Loss of Pay</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '36px' : '42px', fontWeight: '1000' }}>{displayLop}</h2>
-            <span style={{ opacity: 0.6, fontSize: '15px', fontWeight: '800' }}>Days</span>
+          <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Loss of Pay</p>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000' }}>{displayLop}</h2>
+            <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Days</span>
           </div>
-          <div style={{ marginTop: '15px', padding: '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}>
-            <Clock size={12} /> LOP RECORDS
+          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
+            <Clock size={winWidth < 768 ? 10 : 12} /> LOP RECORDS
           </div>
         </motion.div>
 
@@ -752,18 +775,18 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           onClick={() => onNavigate ? onNavigate('CALENDAR') : setActiveTab('HOLIDAYS')}
           style={{
             background: 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)',
-            padding: '25px', borderRadius: '25px', color: 'white', position: 'relative', overflow: 'hidden',
+            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
             boxShadow: '0 20px 40px -12px rgba(239, 68, 68, 0.25)',
             border: '1px solid rgba(255,255,255,0.1)',
             cursor: 'pointer'
           }}
         >
           <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Umbrella size={120} /></div>
-          <p style={{ opacity: 0.8, margin: 0, fontSize: '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Next Holiday</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '22px' : '26px', fontWeight: '1000', lineHeight: '1.2' }}>{nextHoliday?.occasion || nextHoliday?.name || '---'}</h2>
+          <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Next Holiday</p>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '16px' : '26px', fontWeight: '1000', lineHeight: '1.2' }}>{nextHoliday?.occasion || nextHoliday?.name || '---'}</h2>
           </div>
-          <div style={{ marginTop: '15px', padding: '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}>
+          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
             🌴 HOLIDAY
           </div>
         </motion.div>
@@ -782,8 +805,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
+                whileHover={{ y: -3, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
+                transition={{ duration: 0.2 }}
                 key={req.id}
-                style={{ ...s.pendingItem, cursor: 'pointer' }}
+                style={{ ...s.pendingItem, cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
                 onClick={() => setSelectedLeave(req)}
               >
                 <div style={{ display: 'flex', flexDirection: winWidth < 480 ? 'column' : 'row', gap: winWidth < 768 ? '15px' : '25px' }}>
@@ -839,12 +864,24 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ y: -3, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
+                  transition={{ duration: 0.2 }}
                   key={req.id}
-                  style={{ ...s.pendingItem, cursor: 'pointer', backgroundColor: 'white' }}
+                  style={{ ...s.pendingItem, cursor: 'pointer', backgroundColor: 'white', transition: 'all 0.2s ease-in-out' }}
                   onClick={() => setSelectedLeave(req)}
                 >
                   <div style={{ display: 'flex', flexDirection: winWidth < 480 ? 'column' : 'row', gap: winWidth < 768 ? '15px' : '25px' }}>
-                    <div style={{ width: winWidth < 768 ? '45px' : '55px', height: winWidth < 768 ? '45px' : '55px', borderRadius: '18px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0B1E3F', fontSize: winWidth < 768 ? '16px' : '18px', fontWeight: '1000' }}>
+                    <div style={{
+                      width: winWidth < 768 ? '45px' : '55px',
+                      height: winWidth < 768 ? '45px' : '55px',
+                      borderRadius: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: winWidth < 768 ? '16px' : '18px',
+                      fontWeight: '1000',
+                      ...getIconContainerStyle(req.leave_type || req.leaveType)
+                    }}>
                       <Calendar size={winWidth < 768 ? 20 : 24} />
                     </div>
                     <div>
@@ -899,7 +936,13 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         {activeTab === 'HOLIDAYS' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
             {holidays.length > 0 ? holidays.map(h => (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={h.id} style={{ padding: '25px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -4, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
+                key={h.id}
+                style={{ padding: '25px', backgroundColor: 'white', borderRadius: '24px', border: '1.5px solid #e2e8f0', boxShadow: '0 8px 24px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '15px', transition: 'all 0.2s ease-in-out' }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ width: '50px', height: '50px', borderRadius: '15px', backgroundColor: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                     <Umbrella size={24} />
@@ -1043,29 +1086,29 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              style={{ backgroundColor: 'white', width: '95%', maxWidth: '600px', borderRadius: '40px', padding: '50px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden' }}
+              style={{ backgroundColor: 'white', width: '90%', maxWidth: '480px', maxHeight: '85vh', borderRadius: '30px', padding: winWidth < 768 ? '20px' : '30px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Geometric Brand Elements */}
-              <div style={{ position: 'absolute', top: 0, right: 0, width: '150px', height: '150px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1 }}></div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100px', height: '100px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1 }}></div>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: '120px', height: '120px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1 }}></div>
+              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '80px', height: '80px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1 }}></div>
 
-              <div style={{ position: 'relative', zIndex: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>Apply for Leave</h2>
-                  <X size={24} color="#94a3b8" onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }} />
+              <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexShrink: 0 }}>
+                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Apply for Leave</h2>
+                  <X size={22} color="#94a3b8" onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }} />
                 </div>
 
-                <form onSubmit={handleSubmitRequest}>
+                <form onSubmit={handleSubmitRequest} style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
 
 
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>Leave Type</label>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>Leave Type</label>
                     <div style={{ position: 'relative' }}>
                       <select
                         value={formData.type}
                         onChange={e => setFormData({ ...formData, type: e.target.value })}
-                        style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '14px', fontWeight: '700', appearance: 'none', backgroundColor: '#eff6ff', color: '#1e40af' }}
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '700', appearance: 'none', backgroundColor: '#eff6ff', color: '#1e40af' }}
                       >
                         <option>Earned Leaves</option>
                         <option>Casual Leave</option>
@@ -1077,31 +1120,31 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                     <div>
-                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>From date</label>
+                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>From date</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           type="date" value={formData.start_date || ''}
                           onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                          style={{ width: '100%', padding: '12px 15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '800', boxSizing: 'border-box' }} required
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '12px', fontWeight: '800', boxSizing: 'border-box' }} required
                         />
                       </div>
                     </div>
                     <div>
-                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>To date</label>
+                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>To date</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           type="date" value={formData.end_date || ''}
                           onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                          style={{ width: '100%', padding: '12px 15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '800', boxSizing: 'border-box' }} required
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '12px', fontWeight: '800', boxSizing: 'border-box' }} required
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* Half Day Selection */}
-                  <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '14px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                       <input 
                         type="checkbox" 
@@ -1138,19 +1181,19 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                     </motion.div>
                   )}
 
-                  <div style={{ marginBottom: '30px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>Reason for leave</label>
+                  <div style={{ marginBottom: '18px' }}>
+                    <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>Reason for leave</label>
                     <textarea
                       value={formData.reason}
                       onChange={e => setFormData({ ...formData, reason: e.target.value })}
-                      style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '14px', fontWeight: '700', height: '100px', resize: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '700', height: '75px', resize: 'none', boxSizing: 'border-box' }}
                       placeholder="Please provide a brief reason..." required
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '15px' }}>
-                    <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, padding: '18px', borderRadius: '18px', border: '1.5px solid #f1f5f9', background: 'white', fontWeight: '900', cursor: 'pointer', color: '#64748b' }}>Cancel</button>
-                    <button type="submit" disabled={isSubmitting} style={{ flex: 2, padding: '18px', borderRadius: '18px', border: 'none', background: isSubmitting ? '#94a3b8' : '#0B1E3F', color: 'white', fontWeight: '900', cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: isSubmitting ? 'none' : '0 10px 30px rgba(11, 30, 63, 0.2)' }}>
+                  <div style={{ display: 'flex', gap: '12px', flexShrink: 0, paddingTop: '8px' }}>
+                    <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1.5px solid #f1f5f9', background: 'white', fontWeight: '900', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>Cancel</button>
+                    <button type="submit" disabled={isSubmitting} style={{ flex: 2, padding: '14px', borderRadius: '14px', border: 'none', background: isSubmitting ? '#94a3b8' : '#0B1E3F', color: 'white', fontWeight: '900', cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: isSubmitting ? 'none' : '0 10px 30px rgba(11, 30, 63, 0.2)', fontSize: '13px' }}>
                       {isSubmitting ? 'Submitting...' : 'Submit official request'}
                     </button>
                   </div>

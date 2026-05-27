@@ -236,7 +236,10 @@ export const AuthProvider = ({ children }) => {
 
         safeSetItem('user', JSON.stringify(userData));
         safeSetItem('token', data.token);
+        localStorage.setItem('nbt_active_tab', 'HOME');
+        localStorage.removeItem('nbt_active_tab_state');
         resetAuthState();
+        window.location.hash = '/';
         return { success: true };
       }
 
@@ -260,6 +263,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('nbt_active_tab');
     localStorage.removeItem('nbt_active_tab_state');
+    localStorage.removeItem('quiz_user_answers');
     resetAuthState();
     window.location.hash = '/login';
   };
