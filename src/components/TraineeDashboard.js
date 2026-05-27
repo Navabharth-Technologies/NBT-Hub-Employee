@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  PlayCircle, FileText, AlertCircle, Calendar
+  PlayCircle, FileText, AlertCircle, Calendar, Video
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
@@ -26,7 +26,7 @@ const resolveMediaUrl = (url) => {
 const cleanMediaUrl = (url) => {
   if (!url) return null;
   const str = String(url).trim();
-  const lower = str.toLowerCase();
+  const lower = str.replace(/\\/g, '/').toLowerCase();
   if (lower === '' || lower === 'null' || lower === 'undefined') return null;
   if (lower.endsWith('/null') || lower.endsWith('/undefined')) return null;
   return str;
@@ -455,38 +455,87 @@ const TraineeDashboard = () => {
 
               {/* Media Button Content */}
               <div style={{ marginTop: '15px' }}>
-                {course.video_url || course.video ? (
-                   <button 
-                     onClick={() => openVideoInNewTab(course)}
-                     style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#ef4444', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
-                     onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fee2e2'; }}
-                     onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
-                   >
-                      <PlayCircle size={18} /> Watch Video
-                   </button>
-                ) : (course.pdf_url || course.pdf) ? (
-                   <button 
-                     onClick={() => {
-                        const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
-                        if (pdfUrl) {
-                          if (String(course.status).toLowerCase() === 'not started' || !course.status || String(course.status).toLowerCase() === 'pending') {
-                            handleStart(course.id);
+                {(() => {
+                  const hasVideo = !!(course.video_url || course.video);
+                  const hasPdf = !!(course.pdf_url || course.pdf);
+
+                  if (hasVideo && hasPdf) {
+                    return (
+                      <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                        <button 
+                          onClick={() => {
+                            const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
+                            if (pdfUrl) {
+                              if (String(course.status).toLowerCase() === 'not started' || !course.status || String(course.status).toLowerCase() === 'pending') {
+                                handleStart(course.id);
+                              }
+                              setActivePdfUrl(pdfUrl);
+                              setActiveCourse(course);
+                            } else {
+                              console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
+                            }
+                          }}
+                          style={{ flex: 1, padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                        >
+                          <FileText size={18} /> PDF
+                        </button>
+                        <button 
+                          onClick={() => openVideoInNewTab(course)}
+                          style={{ flex: 1, padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                        >
+                          <Video size={18} /> Video
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (hasVideo) {
+                    return (
+                      <button 
+                        onClick={() => openVideoInNewTab(course)}
+                        style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#ef4444', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fee2e2'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                      >
+                         <PlayCircle size={18} /> Watch Video
+                      </button>
+                    );
+                  }
+
+                  if (hasPdf) {
+                    return (
+                      <button 
+                        onClick={() => {
+                          const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
+                          if (pdfUrl) {
+                            if (String(course.status).toLowerCase() === 'not started' || !course.status || String(course.status).toLowerCase() === 'pending') {
+                              handleStart(course.id);
+                            }
+                            setActivePdfUrl(pdfUrl);
+                            setActiveCourse(course);
+                          } else {
+                            console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
                           }
-                          setActivePdfUrl(pdfUrl);
-                          setActiveCourse(course);
-                        } else {
-                          console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
-                        }
-                      }}
-                      style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-                   >
-                      <FileText size={18} /> View PDF Content
-                   </button>
-                ) : (
-                   <div style={{ width: '100%', padding: '14px', borderRadius: '16px', background: '#f8fafc', border: '1.5px dashed #e2e8f0', color: '#94a3b8', fontWeight: '800', fontSize: '12px', textAlign: 'center' }}>
-                      No Materials Available
-                   </div>
-                )}
+                        }}
+                        style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                      >
+                         <FileText size={18} /> View PDF Content
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div style={{ width: '100%', padding: '14px', borderRadius: '16px', background: '#f8fafc', border: '1.5px dashed #e2e8f0', color: '#94a3b8', fontWeight: '800', fontSize: '12px', textAlign: 'center' }}>
+                       No Materials Available
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}

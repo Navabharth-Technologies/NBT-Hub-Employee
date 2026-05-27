@@ -15,6 +15,12 @@ import BackButton from '../BackButton';
 export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
+  const hideForJoinees = !!(
+    isNewJoinee || 
+    user?.isNewJoinee || 
+    String(user?.role || '').toUpperCase().includes('TRAINEE') || 
+    String(user?.role || '').toUpperCase().includes('JOINEE')
+  );
   const [activeTab, setActiveTab] = useState('My Profile');
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const isMobile = winWidth < 768;
@@ -804,7 +810,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         </div>
 
 
-        {!(isNewJoinee || user?.isNewJoinee) && (
+        {!hideForJoinees && (
           <div style={styles.infoGrid}>
             <motion.div
               whileHover={{ y: -5 }}
@@ -1003,7 +1009,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
 
         {/* ────── HR DOCUMENTS SECTION ────── */}
-        {!(isNewJoinee || user?.isNewJoinee) && (
+        {!hideForJoinees && (
           <div style={{ marginTop: '25px', marginBottom: '40px' }}>
             <div style={{ ...styles.sectionTitle, marginBottom: '20px' }}>HR Documents</div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'), gap: isMobile ? '15px' : '25px' }}>
