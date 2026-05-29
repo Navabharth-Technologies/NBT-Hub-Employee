@@ -85,6 +85,7 @@ const FunQuizScreen = ({ onBack }) => {
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [quizActive, setQuizActive] = useState(false);
   const [showFullList, setShowFullList] = useState(false);
+  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   const currentQ = questions[currentIdx];
 
   const showSuccessState = (pts) => {
@@ -117,7 +118,23 @@ const FunQuizScreen = ({ onBack }) => {
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.data || []);
-        const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
+        const uidKey = getQuizStorageKey();
+        let storedAnswers = JSON.parse(localStorage.getItem(uidKey) || '{}');
+        
+        // Migration: If no answers found for this user, check legacy key to prevent re-attending
+        if (Object.keys(storedAnswers).length === 0) {
+          const legacyAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+          if (Object.keys(legacyAnswers).length > 0) {
+            const hasRelevantLegacy = list.some(item => {
+              const qId = item.id || Object.keys(item).find(k => k.toLowerCase() === 'id');
+              return legacyAnswers[item[qId]] !== undefined;
+            });
+            if (hasRelevantLegacy) {
+              storedAnswers = legacyAnswers;
+              localStorage.setItem(uidKey, JSON.stringify(legacyAnswers));
+            }
+          }
+        }
 
         let completions = [];
         if (compRes && compRes.ok) {
@@ -125,14 +142,39 @@ const FunQuizScreen = ({ onBack }) => {
           completions = Array.isArray(compData) ? compData : (compData.data || []);
         }
 
+        // Check if user has already completed the daily quiz (by today's date or matching quiz ID)
+        const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+        const todayStrHyphen = new Date().toISOString().split('T')[0];
+
+        const getProp = (obj, key) => {
+          if (!obj) return null;
+          const target = key.toLowerCase();
+          const foundKey = Object.keys(obj).find(k => k.toLowerCase() === target);
+          return foundKey ? obj[foundKey] : null;
+        };
+
+        const alreadyCompleted = completions.some(c => {
+          const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
+          const cDate = getProp(c, 'completion_date') || getProp(c, 'created_at') || getProp(c, 'date') || getProp(c, 'timestamp');
+          const formattedCDate = cDate ? String(cDate).split('T')[0].replace(/-/g, '/') : '';
+
+          return (
+            formattedCDate === todayStr ||
+            formattedCDate === todayStrHyphen.replace(/-/g, '/') ||
+            list.some(item => {
+              const qId = getProp(item, 'id');
+              const qQuizId = getProp(item, 'quiz_id') || qId;
+              return String(qQuizId) === String(cQuizId) || String(qId) === String(cQuizId);
+            })
+          );
+        }) || (list.length > 0 && list.every(item => {
+          const qId = getProp(item, 'id');
+          return storedAnswers[qId] !== undefined;
+        }));
+
+        setIsQuizCompleted(alreadyCompleted);
+
         const mapped = list.filter(i => i !== null).map(item => {
-          // Helper to get property case-insensitively
-          const getProp = (obj, key) => {
-            if (!obj) return null;
-            const target = key.toLowerCase();
-            const foundKey = Object.keys(obj).find(k => k.toLowerCase() === target);
-            return foundKey ? obj[foundKey] : null;
-          };
 
           const id = getProp(item, 'id');
           const question = getProp(item, 'question') || '';
@@ -183,7 +225,7 @@ const FunQuizScreen = ({ onBack }) => {
           }
 
           const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
-          const hasAnswered = isReallyAnswered;
+          const hasAnswered = alreadyCompleted || isReallyAnswered;
 
           let previousResult = null;
           if (hasAnswered) {
@@ -491,18 +533,20 @@ const FunQuizScreen = ({ onBack }) => {
 
       showSuccessState(totalPoints);
       setTimeout(() => {
-        setQuizActive(false);
         if (typeof onBack === 'function') {
           onBack();
+        } else {
+          setQuizActive(false);
         }
       }, 1500);
     } catch (err) {
       console.error("Batch submit failed:", err);
       showSuccessState(0);
       setTimeout(() => {
-        setQuizActive(false);
         if (typeof onBack === 'function') {
           onBack();
+        } else {
+          setQuizActive(false);
         }
       }, 1500);
     } finally {
@@ -775,7 +819,7 @@ const FunQuizScreen = ({ onBack }) => {
 
                   <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }}>Points Remaining</div>
-                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{questions.filter(q => !q.has_answered).reduce((sum, q) => sum + (q.points_reward || 0), 0)}</div>
+                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{isQuizCompleted ? 0 : questions.filter(q => !q.has_answered).reduce((sum, q) => sum + (q.points_reward || 0), 0)}</div>
                   </div>
 
                   {/* Session score calculation */}
@@ -799,7 +843,18 @@ const FunQuizScreen = ({ onBack }) => {
                   })()}
                 </div>
 
-                <button onClick={handleStartToday} style={{ ...s.heroBtn, marginTop: '25px' }}>Start Quiz</button>
+                <button
+                  disabled={isQuizCompleted}
+                  onClick={handleStartToday}
+                  style={{
+                    ...s.heroBtn,
+                    marginTop: '25px',
+                    backgroundColor: isQuizCompleted ? '#94a3b8' : '#0d676c',
+                    cursor: isQuizCompleted ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isQuizCompleted ? 'Already Attended' : 'Start Quiz'}
+                </button>
               </div>
 
               {/* Default Monster Graphic for Landing */}

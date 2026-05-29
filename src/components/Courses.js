@@ -302,6 +302,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         try {
             // Native Canvas drawing for crystal clear, uncompressed PDF generation
             const image = new Image();
+            image.crossOrigin = 'anonymous';
             image.src = certificateImg;
             await new Promise((resolve, reject) => {
                 image.onload = resolve;
@@ -319,24 +320,30 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             const courseName = selectedCourse?.title || 'COURSE';
             const currentDate = new Date().toLocaleDateString('en-GB');
 
-            ctx.font = 'italic bold 75px "Georgia", "Times New Roman", serif';
+            // 1. Employee Name (Reduced size, bottom-aligned at 51%)
+            ctx.font = 'italic bold 55px "Georgia", "Times New Roman", serif';
             ctx.fillStyle = '#000000';
             ctx.textAlign = 'center';
-            ctx.fillText(userName.toUpperCase(), image.width / 2, 725);
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(userName.toUpperCase(), image.width / 2, image.height * 0.51);
 
+            // 2. Course Name (Middle-aligned at 60.5%)
             ctx.font = 'bold 40px "Georgia", "Times New Roman", serif';
             ctx.fillStyle = '#1e3a8a';
             ctx.textAlign = 'center';
-            ctx.fillText(courseName, image.width / 2, 882);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(courseName, image.width / 2, image.height * 0.605);
 
-            ctx.font = 'bold 20px Arial, sans-serif';
+            // 3. Date (Middle-aligned at 80.8%, Left at 28%)
+            ctx.font = 'bold 22px Arial, sans-serif';
             ctx.fillStyle = '#1e3a8a';
             ctx.textAlign = 'left';
-            ctx.fillText(currentDate, image.width * 0.285, 1142);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(currentDate, image.width * 0.28, image.height * 0.808);
 
-            const imgData = canvas.toDataURL('image/png', 1.0);
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const pdf = new jsPDF('landscape', 'px', [canvas.width, canvas.height]);
-            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
 
             // 1. Download to local machine
             pdf.save(`${courseName.replace(/\s+/g, '_')}_Certificate.pdf`);
@@ -688,7 +695,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                             <img src={certificateImg} alt="Certificate of Achievement" style={{ width: '100%', display: 'block', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0' }} />
 
                             {/* Employee Name */}
-                            <div style={{ position: 'absolute', top: '51%', left: '50%', transform: 'translate(-50%, -100%)', width: '100%', textAlign: 'center', color: '#000000', fontSize: 'clamp(16px, 3.2vw, 28px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', letterSpacing: '1px' }}>
+                            <div style={{ position: 'absolute', top: '51%', left: '50%', transform: 'translate(-50%, -100%)', width: '100%', textAlign: 'center', color: '#000000', fontSize: 'clamp(14px, 2.5vw, 22px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', letterSpacing: '1px' }}>
                                 {(user?.name || user?.userName || 'Employee Name').toUpperCase()}
                             </div>
 

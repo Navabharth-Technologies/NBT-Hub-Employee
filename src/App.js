@@ -258,23 +258,23 @@ function App() {
       case 'COURSES': return <Courses resumeCourseId={activeTabState?.resumeCourseId} clearState={() => { setActiveTabState(null); handleTabChange('HOME'); }} />;
       case 'THREAD': return <ThreadScreen onBack={() => setActiveTab('HOME')} />;
       case 'TICKET': return <TicketScreen onBack={() => handleTabChange('HOME')} />;
-      case 'LEAVE': return <LeaveScreen onBack={() => setActiveTab('HOME')} onNavigate={handleTabChange} startWithForm={activeTabState?.showForm} />;
-      case 'ATTENDANCE': return <AttendanceDashboard onBack={() => setActiveTab('HOME')} onNavigate={handleTabChange} />;
+      case 'LEAVE': return <LeaveScreen onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} startWithForm={activeTabState?.showForm} />;
+      case 'ATTENDANCE': return <AttendanceDashboard onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} />;
 
-      case 'FUN': return <FunQuizScreen onBack={() => setActiveTab('HOME')} />;
+      case 'FUN': return <FunQuizScreen onBack={() => handleTabChange('HOME')} />;
       case 'PROFILE': return <ProfileScreen isNewJoinee={isNewJoinee} onNavigate={handleTabChange} />;
-      case 'BIRTHDAYS': return <BirthdayScreen onBack={() => setActiveTab('HOME')} />;
-      case 'CALENDAR': return <CalendarScreen onBack={() => setActiveTab('HOME')} />;
-      case 'FOCUS_LOGS': return <FocusLogs onBack={() => setActiveTab('HOME')} />;
-      case 'AWARDS': return <AwardsScreen onBack={() => setActiveTab('HOME')} />;
-      case 'REPORTS': return <Reports onBack={() => setActiveTab('HOME')} onNavigate={setActiveTab} />;
-      case 'PAYSLIP': return <PayslipScreen onBack={() => setActiveTab('PROFILE')} />;
-      case 'EXPERIENCE_LETTER': return <ServiceCertificateScreen onBack={() => setActiveTab('PROFILE')} />;
+      case 'BIRTHDAYS': return <BirthdayScreen onBack={() => handleTabChange('HOME')} />;
+      case 'CALENDAR': return <CalendarScreen onBack={() => handleTabChange('HOME')} />;
+      case 'FOCUS_LOGS': return <FocusLogs onBack={() => handleTabChange('HOME')} />;
+      case 'AWARDS': return <AwardsScreen onBack={() => handleTabChange('HOME')} />;
+      case 'REPORTS': return <Reports onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} />;
+      case 'PAYSLIP': return <PayslipScreen onBack={() => handleTabChange('PROFILE')} />;
+      case 'EXPERIENCE_LETTER': return <ServiceCertificateScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'RESIGNATION':
-      case 'RESIGNATION_LETTER': return <ResignationScreen onBack={() => setActiveTab('PROFILE')} />;
-      case 'DOCUMENTS': return <DocumentsScreen onBack={() => setActiveTab('PROFILE')} />;
-      case 'SERVICE_CERTIFICATE': return <ServiceCertificateScreen onBack={() => setActiveTab('PROFILE')} />;
-      case 'ATTENDANCE_DETAIL': return <EmployeeAttendanceDetail employeeId={activeTabState?.employeeId} onBack={() => setActiveTab('ATTENDANCE')} />;
+      case 'RESIGNATION_LETTER': return <ResignationScreen onBack={() => handleTabChange('PROFILE')} />;
+      case 'DOCUMENTS': return <DocumentsScreen onBack={() => handleTabChange('PROFILE')} />;
+      case 'SERVICE_CERTIFICATE': return <ServiceCertificateScreen onBack={() => handleTabChange('PROFILE')} />;
+      case 'ATTENDANCE_DETAIL': return <EmployeeAttendanceDetail employeeId={activeTabState?.employeeId} onBack={() => handleTabChange('ATTENDANCE')} />;
 
       default: return <Dashboard setActiveTab={setActiveTab} />;
     }
