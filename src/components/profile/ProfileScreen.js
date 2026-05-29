@@ -12,6 +12,25 @@ import {
 import { getTheme } from '../../constants/Theme';
 import BackButton from '../BackButton';
 
+const formatDOB = (val) => {
+  if (!val || val === 'Not Provided' || val === 'Add Date of Birth') return val;
+  const s = String(val).trim();
+  // Already in DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  // ISO format YYYY-MM-DD or YYYY-MM-DDT...
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  // Try parsing as date object
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return s;
+};
+
 export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
@@ -29,7 +48,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const [isEditingAbout, setIsEditingAbout] = useState(false);
   const [phone, setPhone] = useState(user?.phone_number || 'Add Phone Number');
   const [aboutMe, setAboutMe] = useState(user?.about_me || 'Write a short introduction about yourself');
-  const [dob, setDob] = useState(user?.date_of_birth || 'Add Date of Birth');
+  const [dob, setDob] = useState(() => {
+    const rawDob = user?.date_of_birth || user?.dob;
+    return rawDob ? formatDOB(rawDob) : 'Add Date of Birth';
+  });
   const [isEditingDob, setIsEditingDob] = useState(false);
   const [teamName, setTeamName] = useState(user?.team || user?.team_name || user?.process || 'Loading...');
   const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
@@ -158,7 +180,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     if (user) {
       if (user.phone_number) setPhone(user.phone_number);
       if (user.about_me) setAboutMe(user.about_me);
-      if (user.date_of_birth) setDob(user.date_of_birth);
+      if (user.date_of_birth) setDob(formatDOB(user.date_of_birth));
       const img = user.profileImage || user.profile_image || user.profilePicture || user.profile_picture || user.avatar || user.profile_pic;
       if (img) {
         const src = resolveImagePath(img);
@@ -210,7 +232,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       if (resp.ok) {
         const data = await resp.json();
         if (data.phone_number) setPhone(data.phone_number);
-        if (data.date_of_birth) setDob(data.date_of_birth);
+        if (data.date_of_birth) setDob(formatDOB(data.date_of_birth));
         if (data.about_me) setAboutMe(data.about_me);
         if (data.designation) setDesignation(data.designation);
         const jd = data.joining_date || data.joiningDate || data.doj;
@@ -226,7 +248,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         const metaList = await metaResp.json();
         const rawMeta = Array.isArray(metaList) ? metaList[0] : metaList;
         if (rawMeta) {
-          if (rawMeta.dob) setDob(rawMeta.dob);
+          if (rawMeta.dob) setDob(formatDOB(rawMeta.dob));
           if (rawMeta.contact_no) setPhone(rawMeta.contact_no);
           if (rawMeta.designation) setDesignation(rawMeta.designation);
           if (rawMeta.process) setTeamName(rawMeta.process);
@@ -395,30 +417,39 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   };
 
   const handleVerifyOTP = async () => {
-    // Client-side verification to unlock the password fields as per the UI flow requirement
-    if (passData.otp && passData.otp.length === 6) {
-      setOtpVerified(true);
-      triggerToast('Authorization code accepted locally. Proceed to reset.');
-    } else {
-      triggerToast('Please enter a valid 6-digit code', 'error');
+    if (!passData.otp || passData.otp.length !== 6) {
+      return triggerToast('Please enter a valid 6-digit code', 'error');
+    }
+
+    try {
+      const res = await fetch(API_ENDPOINTS.VERIFY_OTP, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, otp: passData.otp })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setOtpVerified(true);
+        triggerToast('OTP verified successfully. Proceed to reset password.');
+      } else {
+        triggerToast(data.error || data.message || 'Verification failed. Invalid OTP.', 'error');
+      }
+    } catch (err) {
+      triggerToast('Connection Error. Failed to verify OTP.', 'error');
     }
   };
 
   const validatePassword = (password) => {
-    // Requires: length >= 6, first character must be a special character
-    if (!password || password.length < 6) return false;
-    const specialCharRegex = /^[^a-zA-Z0-9\s]/;
-    return specialCharRegex.test(password);
+    return password && password.length === 6;
   };
 
   const handleResetWithOTP = async () => {
     if (!passData.otp || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
-    if (/^\d+$/.test(passData.new)) {
-      return triggerToast('invalid numbers', 'error');
-    }
     if (!validatePassword(passData.new)) {
-      return triggerToast('Password must be at least 6 characters and the first character must be a special character.', 'error');
+      return triggerToast('Password must be exactly 6 characters.', 'error');
     }
 
     try {
@@ -448,11 +479,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
     if (!passData.old || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
     if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
-    if (/^\d+$/.test(passData.new)) {
-      return triggerToast('invalid numbers', 'error');
-    }
     if (!validatePassword(passData.new)) {
-      return triggerToast('Password must be at least 6 characters and the first character must be a special character.', 'error');
+      return triggerToast('Password must be exactly 6 characters.', 'error');
     }
 
     try {
@@ -910,7 +938,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                           </div>
                           {f.key === 'new' && (
                             <div style={{ fontSize: '11px', color: '#3863a8', marginTop: '6px', fontWeight: '800', paddingLeft: '4px', lineHeight: '1.4' }}>
-                              Password must be at least 6 characters and the first character must be a special character.
+                              Password must be exactly 6 characters.
                             </div>
                           )}
                         </div>
@@ -977,7 +1005,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                               </div>
                               {f.key === 'new' && (
                                 <div style={{ fontSize: '11px', color: '#3863a8', marginTop: '6px', fontWeight: '800', paddingLeft: '4px', lineHeight: '1.4' }}>
-                                  Password must be at least 6 characters and the first character must be a special character.
+                                  Password must be exactly 6 characters.
                                 </div>
                               )}
                             </div>

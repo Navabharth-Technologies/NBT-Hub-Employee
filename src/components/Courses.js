@@ -319,7 +319,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             const courseName = selectedCourse?.title || 'COURSE';
             const currentDate = new Date().toLocaleDateString('en-GB');
 
-            ctx.font = 'italic bold 115px "Georgia", "Times New Roman", serif';
+            ctx.font = 'italic bold 75px "Georgia", "Times New Roman", serif';
             ctx.fillStyle = '#000000';
             ctx.textAlign = 'center';
             ctx.fillText(userName.toUpperCase(), image.width / 2, 725);
@@ -332,7 +332,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             ctx.font = 'bold 20px Arial, sans-serif';
             ctx.fillStyle = '#1e3a8a';
             ctx.textAlign = 'left';
-            ctx.fillText(currentDate, 400, 1142);
+            ctx.fillText(currentDate, image.width * 0.285, 1142);
 
             const imgData = canvas.toDataURL('image/png', 1.0);
             const pdf = new jsPDF('landscape', 'px', [canvas.width, canvas.height]);
@@ -688,7 +688,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                             <img src={certificateImg} alt="Certificate of Achievement" style={{ width: '100%', display: 'block', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0' }} />
 
                             {/* Employee Name */}
-                            <div style={{ position: 'absolute', top: '51%', left: '50%', transform: 'translate(-50%, -100%)', width: '100%', textAlign: 'center', color: '#000000', fontSize: 'clamp(22px, 5vw, 44px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', letterSpacing: '1px' }}>
+                            <div style={{ position: 'absolute', top: '51%', left: '50%', transform: 'translate(-50%, -100%)', width: '100%', textAlign: 'center', color: '#000000', fontSize: 'clamp(16px, 3.2vw, 28px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', letterSpacing: '1px' }}>
                                 {(user?.name || user?.userName || 'Employee Name').toUpperCase()}
                             </div>
 

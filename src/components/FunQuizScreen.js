@@ -66,6 +66,14 @@ const formatCorrectAnswerText = (currentQ) => {
 const FunQuizScreen = ({ onBack }) => {
   const { user } = useAuth();
 
+  const getQuizStorageKey = () => {
+    const rawUid = user?.employee_id || user?.userId || user?.id || user?.employeeId || user?.uid || 'anonymous';
+    const uid = String(rawUid).includes(',')
+      ? String(rawUid).split(',')[0].split(':')[0].trim()
+      : String(rawUid).split(':')[0].trim();
+    return `quiz_user_answers_${uid}`;
+  };
+
   const [questions, setQuestions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -109,7 +117,7 @@ const FunQuizScreen = ({ onBack }) => {
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.data || []);
-        const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+        const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
 
         let completions = [];
         if (compRes && compRes.ok) {
@@ -135,75 +143,26 @@ const FunQuizScreen = ({ onBack }) => {
           const pointsReward = getProp(item, 'points_reward');
           const quizId = getProp(item, 'quiz_id') || id || 1;
 
-          let userSelected = getProp(item, 'user_selected_letter') ||
-                             getProp(item, 'selected_ans') ||
-                             getProp(item, 'selected_answer') ||
-                             getProp(item, 'user_answer') ||
-                             getProp(item, 'selected_option') ||
-                             getProp(item, 'user_selected') ||
-                             getProp(item, 'user_choice') ||
-                             getProp(item, 'userChoice') ||
-                             getProp(item, 'selectedOption') ||
-                             null;
+          // Scope answer presence strictly to this logged-in user's completions and user-specific local storage
+          const userSpecificStoredAnswer = storedAnswers[id];
+          const userSpecificCompletion = completions.find(c => {
+            const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
+            return String(cQuizId) === String(id);
+          });
 
-          // Normalize: if backend returns full text like "Option A" or "A - Tigger", extract just the letter
-          if (userSelected && String(userSelected).trim().length > 1) {
-            const letterMatch = String(userSelected).trim().match(/^(?:option[_ -]?)?([A-Da-d])\b/i);
-            if (letterMatch) {
-              userSelected = letterMatch[1].toUpperCase();
-            } else {
-              // Check if it matches one of the option texts exactly
-              const matchedOpt = [
-                { letter: 'A', text: optA },
-                { letter: 'B', text: optB },
-                { letter: 'C', text: optC },
-                { letter: 'D', text: optD }
-              ].find(o => String(o.text).trim().toLowerCase() === String(userSelected).trim().toLowerCase());
-              if (matchedOpt) {
-                userSelected = matchedOpt.letter;
-              }
-            }
-          }
+          const isReallyAnswered = !!(userSpecificStoredAnswer || userSpecificCompletion);
 
-          if (!userSelected && storedAnswers[id]) {
-            userSelected = storedAnswers[id];
-          }
-
-          if (!userSelected) {
-            const comp = completions.find(c => {
-              const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
-              return String(cQuizId) === String(id);
-            });
-            if (comp) {
-              userSelected = getProp(comp, 'selected_ans') || getProp(comp, 'selected_option') || getProp(comp, 'user_answer') || getProp(comp, 'user_selected_letter') || getProp(comp, 'answer') || null;
+          let userSelected = null;
+          if (isReallyAnswered) {
+            userSelected = userSpecificStoredAnswer || null;
+            if (!userSelected && userSpecificCompletion) {
+              userSelected = getProp(userSpecificCompletion, 'selected_ans') || getProp(userSpecificCompletion, 'selected_option') || getProp(userSpecificCompletion, 'user_answer') || getProp(userSpecificCompletion, 'user_selected_letter') || getProp(userSpecificCompletion, 'answer') || null;
               // Normalize completion data too
               if (userSelected && String(userSelected).trim().length > 1) {
                 const letterMatch2 = String(userSelected).trim().match(/^(?:option[_ -]?)?([A-Da-d])\b/i);
                 if (letterMatch2) {
                   userSelected = letterMatch2[1].toUpperCase();
                 }
-              }
-            }
-          }
-
-          // Fallback: preserve user selection from current questions state (covers case where localStorage was cleared)
-          if (!userSelected) {
-            const existingQ = questions.find(q => String(q.id) === String(id));
-            if (existingQ && existingQ.user_selected_letter) {
-              userSelected = existingQ.user_selected_letter;
-            }
-          }
-
-          // Deep scan fallback: if backend returned the selected answer in ANY property, try to detect it
-          const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
-          const hasAnswered = getProp(item, 'has_answered') || false;
-          if (!userSelected && hasAnswered) {
-            const validLetters = ['A', 'B', 'C', 'D'];
-            for (const key of Object.keys(item)) {
-              const val = String(item[key] || '').trim().toUpperCase();
-              if (validLetters.includes(val) && !['correct_answer', 'correct_option', 'correct', 'answer', 'id', 'quiz_id'].includes(key.toLowerCase())) {
-                userSelected = val;
-                break;
               }
             }
           }
@@ -223,7 +182,8 @@ const FunQuizScreen = ({ onBack }) => {
             }
           }
 
-
+          const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
+          const hasAnswered = isReallyAnswered;
 
           let previousResult = null;
           if (hasAnswered) {
@@ -431,9 +391,9 @@ const FunQuizScreen = ({ onBack }) => {
       const isActuallyCorrect = checkIfCorrect(optObj, { correct_answer: finalCorrectAnswer, options: currentQ.options });
 
       // Save user selected letter locally
-      const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+      const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
       storedAnswers[currentQ.id] = selectedOption;
-      localStorage.setItem('quiz_user_answers', JSON.stringify(storedAnswers));
+      localStorage.setItem(getQuizStorageKey(), JSON.stringify(storedAnswers));
 
       setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
         ...q,
@@ -530,11 +490,21 @@ const FunQuizScreen = ({ onBack }) => {
       }
 
       showSuccessState(totalPoints);
-      setTimeout(() => setQuizActive(false), 1500);
+      setTimeout(() => {
+        setQuizActive(false);
+        if (typeof onBack === 'function') {
+          onBack();
+        }
+      }, 1500);
     } catch (err) {
       console.error("Batch submit failed:", err);
       showSuccessState(0);
-      setTimeout(() => setQuizActive(false), 1500);
+      setTimeout(() => {
+        setQuizActive(false);
+        if (typeof onBack === 'function') {
+          onBack();
+        }
+      }, 1500);
     } finally {
       setIsSubmitting(false);
     }
@@ -560,7 +530,7 @@ const FunQuizScreen = ({ onBack }) => {
     },
     bottomSection: { backgroundColor: 'white', borderRadius: '24px', padding: isMobile ? '20px' : '30px', border: '1px solid #eef2f3' },
     option: (optObj, isAnswered) => {
-      const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+      const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
       const userPicked = currentQ?.user_selected_letter || selectedOption || storedAnswers[currentQ?.id];
       const normalizedUserPicked = userPicked ? String(userPicked).trim().toUpperCase() : null;
       const isUserChoice = isAnswered
@@ -937,7 +907,7 @@ const FunQuizScreen = ({ onBack }) => {
                         {currentQ.previous_result === 'correct' ?
                           'Excellent! You answered this correctly.' :
                           (() => {
-                            const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
+                            const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
                             const userPicked = currentQ.user_selected_letter || selectedOption || storedAnswers[currentQ.id];
                             const normalizedPicked = userPicked ? String(userPicked).trim().toUpperCase() : null;
                             const opt = currentQ.options.find(o =>

@@ -91,12 +91,25 @@ export const checkAuthOnce = () => {
                 }
             } catch (e) {}
 
-            // Single server-side validation request to an endpoint that enforces Auth
-            const res = await fetch(API_ENDPOINTS.MY_LEAVES_GET(userId), {
-                headers: { 'Authorization': `Bearer ${clean}` }
-            });
-            _authResult = res.ok;
-            return _authResult;
+            // Single server-side validation request to an endpoint that enforces Auth (with 3s timeout)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            try {
+                const res = await fetch(API_ENDPOINTS.MY_LEAVES_GET(userId), {
+                    headers: { 'Authorization': `Bearer ${clean}` },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                _authResult = res.ok;
+                return _authResult;
+            } catch (fetchErr) {
+                clearTimeout(timeoutId);
+                console.warn("Auth validation server request failed or timed out. Falling back to client JWT check.", fetchErr);
+                // Fall back to client-side validity to prevent page hang or forced logout under poor networks
+                _authResult = true;
+                return true;
+            }
         } catch {
             _authResult = false;
             return false;

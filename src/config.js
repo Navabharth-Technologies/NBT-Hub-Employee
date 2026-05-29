@@ -130,6 +130,7 @@ export const API_ENDPOINTS = {
   SUGGESTIONS: `${BASE_URL}/api/suggestions`,
   MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my${userId ? `?userId=${String(userId).split(':')[0]}` : ''}`,
   REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`,
+  VERIFY_OTP: `${BASE_URL}/api/auth/verify-otp`,
   RESET_PASSWORD_OTP: `${BASE_URL}/api/auth/reset-password`,
   CHANGE_PASSWORD: `${BASE_URL}/api/profile/update-password`
 };

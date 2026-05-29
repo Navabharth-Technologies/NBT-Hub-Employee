@@ -530,6 +530,21 @@ export default function DocumentsScreen({ onBack }) {
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
       if (/[^a-zA-Z\s]/.test(value)) error = 'Special characters are not allowed';
+    } else if (key === 'dob') {
+      if (value && value !== 'Not Provided' && value !== 'Add Date of Birth') {
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+          error = 'Format must be DD/MM/YYYY (e.g., 08/09/2002)';
+        } else {
+          const parts = value.split('/');
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const year = parseInt(parts[2], 10);
+          const d = new Date(year, month - 1, day);
+          if (isNaN(d.getTime()) || d.getDate() !== day || d.getMonth() + 1 !== month || d.getFullYear() !== year) {
+            error = 'Invalid Date';
+          }
+        }
+      }
     } else if (key === 'department') {
       if (/[0-9]/.test(value)) error = 'Numeric values are not allowed in Department';
       if (/[^a-zA-Z\s\&\-\/\.]/.test(value)) error = 'Only alphabetic and valid special characters allowed';
@@ -614,6 +629,8 @@ export default function DocumentsScreen({ onBack }) {
     let cleanValue = value;
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
+    } else if (key === 'dob') {
+      cleanValue = value.replace(/[^0-9/]/g, ''); // Allow only numbers and slashes
     } else if (key === 'department') {
       cleanValue = value.replace(/[^a-zA-Z\s\&\-\/\.]/g, ''); // Block numbers, allow basic special chars
 
@@ -650,6 +667,7 @@ export default function DocumentsScreen({ onBack }) {
 
     // Length caps
     if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 10) return;
+    if (key === 'dob' && cleanValue.length > 10) return;
     if (key === 'aadhar_number' && cleanValue.length > 12) return;
     if (key === 'age' && cleanValue.length > 2) return;
     if (key === 'edu_completion_year' && cleanValue.length > 4) return;
@@ -791,6 +809,16 @@ export default function DocumentsScreen({ onBack }) {
             // Convert "Yes"/"No" strings to booleans for fields starting with 'has_'
             if (field.key.startsWith('has_')) {
               val = (val === 'Yes');
+            }
+            // Convert DOB to ISO format (YYYY-MM-DD) before saving to backend
+            if (field.key === 'dob' && val && val !== 'Not Provided' && val !== 'Add Date of Birth') {
+              if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+                const parts = val.split('/');
+                val = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              } else if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
+                const parts = val.split('-');
+                val = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              }
             }
             sanitizedForm[field.key] = val;
           }
