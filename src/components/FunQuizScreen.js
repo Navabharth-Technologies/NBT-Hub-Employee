@@ -126,8 +126,8 @@ const FunQuizScreen = ({ onBack }) => {
           const legacyAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
           if (Object.keys(legacyAnswers).length > 0) {
             const hasRelevantLegacy = list.some(item => {
-              const qId = item.id || Object.keys(item).find(k => k.toLowerCase() === 'id');
-              return legacyAnswers[item[qId]] !== undefined;
+              const qId = item.id || (Object.keys(item).find(k => k.toLowerCase() === 'id') ? item[Object.keys(item).find(k => k.toLowerCase() === 'id')] : null);
+              return qId && legacyAnswers[qId] !== undefined;
             });
             if (hasRelevantLegacy) {
               storedAnswers = legacyAnswers;

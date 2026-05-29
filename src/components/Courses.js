@@ -13,7 +13,10 @@ import certificateImg from '../assets/certificate_final.png';
 export default function CourseScreen({ resumeCourseId, clearState }) {
     const { user } = useAuth();
 
-    const uid = user?.id || user?.userId || user?.empId || user?.employee_id || 'unknown';
+    const rawUid = user?.employee_id || user?.userId || user?.id || user?.employeeId || user?.uid || 'anonymous';
+    const uid = String(rawUid).includes(',')
+        ? String(rawUid).split(',')[0].split(':')[0].trim()
+        : String(rawUid).split(':')[0].trim();
     const lsKey = `courseProgressRecords_${uid}`;
 
     const [winWidth, setWinWidth] = useState(window.innerWidth);
@@ -37,7 +40,18 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
     // Persistent storage for course progress
     const [courseProgressMap, setCourseProgressMap] = useState(() => {
-        const saved = localStorage.getItem(lsKey);
+        let saved = localStorage.getItem(lsKey);
+        if (!saved) {
+            // Migration: Try old un-normalized key
+            const oldKey = `courseProgressRecords_${user?.id || user?.userId || user?.empId || user?.employee_id || 'unknown'}`;
+            if (oldKey !== lsKey) {
+                const oldSaved = localStorage.getItem(oldKey);
+                if (oldSaved) {
+                    saved = oldSaved;
+                    localStorage.setItem(lsKey, oldSaved);
+                }
+            }
+        }
         return saved ? JSON.parse(saved) : {};
     });
 
@@ -53,8 +67,23 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
     }, []);
 
     useEffect(() => {
-        localStorage.setItem(lsKey, JSON.stringify(courseProgressMap));
-    }, [courseProgressMap, lsKey]);
+        if (!lsKey.includes('unknown') && !lsKey.includes('anonymous')) {
+            let saved = localStorage.getItem(lsKey);
+            if (!saved) {
+                const oldKey = `courseProgressRecords_${user?.id || user?.userId || user?.empId || user?.employee_id || 'unknown'}`;
+                if (oldKey !== lsKey) {
+                    const oldSaved = localStorage.getItem(oldKey);
+                    if (oldSaved) {
+                        saved = oldSaved;
+                        localStorage.setItem(lsKey, oldSaved);
+                    }
+                }
+            }
+            if (saved) {
+                setCourseProgressMap(JSON.parse(saved));
+            }
+        }
+    }, [lsKey, user]);
 
     // Initialize completion states when selected course changes
     useEffect(() => {
@@ -228,10 +257,12 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             }
 
             next.progress = Math.min(overallProgress, 100);
-            return {
+            const newMap = {
                 ...prev,
                 [course.id]: next
             };
+            localStorage.setItem(lsKey, JSON.stringify(newMap));
+            return newMap;
         });
     };
 
@@ -328,18 +359,18 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             ctx.fillText(userName.toUpperCase(), image.width / 2, image.height * 0.51);
 
             // 2. Course Name (Middle-aligned at 60.5%)
-            ctx.font = 'bold 40px "Georgia", "Times New Roman", serif';
+            ctx.font = 'bold 60px "Georgia", "Times New Roman", serif';
             ctx.fillStyle = '#1e3a8a';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(courseName, image.width / 2, image.height * 0.605);
+            ctx.fillText(courseName, image.width / 2, image.height * 0.616);
 
-            // 3. Date (Middle-aligned at 80.8%, Left at 28%)
-            ctx.font = 'bold 22px Arial, sans-serif';
+            // 3. Date (Middle-aligned at 86.5%, Left at 28%)
+            ctx.font = 'bold 30px Arial, sans-serif';
             ctx.fillStyle = '#1e3a8a';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(currentDate, image.width * 0.28, image.height * 0.808);
+            ctx.fillText(currentDate, image.width * 0.27, image.height * 0.824);
 
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const pdf = new jsPDF('landscape', 'px', [canvas.width, canvas.height]);
@@ -719,7 +750,6 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         <div style={s.container}>
             <div style={s.main}>
                 <div style={s.headerSection}>
-                    {clearState && <BackButton onClick={() => clearState()} />}
                     <h1 style={s.title}>Course</h1>
                 </div>
                 <div style={s.grid}>
