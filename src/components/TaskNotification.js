@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, X, Play, Clock } from 'lucide-react';
+import { Bell, X, Play, Clock, Zap, Award } from 'lucide-react';
 import { useAuth, checkAuthOnce } from '../context/AuthContext';
 import { API_ENDPOINTS } from '../config';
 
@@ -412,66 +412,85 @@ const TaskNotification = ({ onOpenTask }) => {
                         setHasUnread(false);
                       }}
                       style={{
-                        background: isRead ? '#ffffff' : '#eff6ff',
+                        background: isRead ? '#ffffff' : '#f0f7ff',
                         padding: '16px',
-                        borderRadius: '24px',
-                        border: isRead ? '1px solid #f1f5f9' : '1.5px solid #dbeafe',
+                        borderRadius: '20px',
+                        border: isRead ? '1.5px solid #f1f5f9' : '1.5px solid #3B599820',
+                        boxShadow: isRead ? 'none' : '0 8px 20px rgba(59, 89, 152, 0.06)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative',
+                        overflow: 'hidden',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '15px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        position: 'relative'
+                        gap: '12px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isRead ? '#fafbfc' : '#e8f2ff';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = isRead ? '#ffffff' : '#f0f7ff';
+                        e.currentTarget.style.transform = 'translateX(0)';
                       }}
                     >
                       {/* Left Icon Box */}
                       <div style={{
-                        width: '46px',
-                        height: '46px',
-                        borderRadius: '16px',
-                        backgroundColor: isRead ? '#f1f5f9' : '#3B5998',
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '12px',
+                        backgroundColor: notif.type === 'QUIZ' ? '#0d676c' : (!isRead ? '#3B5998' : '#f1f5f9'),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        flexShrink: 0
+                        color: (!isRead || notif.type === 'QUIZ') ? 'white' : '#94a3b8',
+                        flexShrink: 0,
+                        transition: 'all 0.3s ease'
                       }}>
-                        <Bell size={20} fill={isRead ? 'none' : 'white'} color={isRead ? '#94a3b8' : 'white'} />
+                        {notif.type === 'QUIZ' ? <Zap size={18} fill="white" /> : notif.type === 'AWARD' ? <Award size={18} /> : <Bell size={18} fill={!isRead ? 'white' : 'transparent'} />}
                       </div>
 
                       {/* Text details */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ 
-                          fontWeight: isRead ? '700' : '900', 
-                          fontSize: '13px', 
-                          color: isRead ? '#64748b' : '#0B1E3F',
-                          marginBottom: '4px'
-                        }}>
-                          {notif.title}
-                        </div>
-                        <p style={{ 
-                          fontSize: '12px', 
-                          color: isRead ? '#94a3b8' : '#334e81', 
-                          fontWeight: isRead ? '500' : '700',
-                          lineHeight: '1.4', 
-                          margin: 0,
+                        <h4 style={{ 
+                          margin: 0, 
+                          fontSize: '14px', 
+                          fontWeight: !isRead ? '1000' : '500', 
+                          color: !isRead ? '#0B1E3F' : '#64748b', 
+                          marginBottom: '2px',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {notif.description}
-                        </p>
+                          textOverflow: 'ellipsis',
+                          transition: 'all 0.3s ease'
+                        }}>{notif.title}</h4>
+                        <p style={{ 
+                          margin: 0, 
+                          fontSize: '12px', 
+                          color: !isRead ? '#3B5998' : '#94a3b8', 
+                          fontWeight: !isRead ? '800' : '400', 
+                          lineHeight: '1.4',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          transition: 'all 0.3s ease'
+                        }}>{notif.description}</p>
                       </div>
 
                       {/* Unread Blue dot */}
                       {!isRead && (
-                        <div style={{
-                          width: '10px',
-                          height: '10px',
-                          backgroundColor: '#3b82f6',
-                          borderRadius: '50%',
-                          flexShrink: 0,
-                          marginLeft: '5px'
-                        }} />
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          style={{
+                            width: '10px',
+                            height: '10px',
+                            backgroundColor: '#3B5998',
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            boxShadow: '0 0 10px rgba(59, 89, 152, 0.4)'
+                          }}
+                        />
                       )}
                     </div>
                   </div>

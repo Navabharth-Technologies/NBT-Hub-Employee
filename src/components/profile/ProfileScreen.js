@@ -174,6 +174,18 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const [passwordMode, setPasswordMode] = useState('change'); // 'change' or 'reset'
   const [otpRequested, setOtpRequested] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [modalError, setModalError] = useState(null);
+
+  useEffect(() => {
+    let timer;
+    if (otpRequested && countdown > 0 && !otpVerified) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpRequested, countdown, otpVerified]);
 
   // Sync state if user object changes (e.g. after login or reload)
   useEffect(() => {
@@ -400,6 +412,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   };
 
   const handleRequestOTP = async () => {
+    setModalError(null);
     try {
       const res = await fetch(API_ENDPOINTS.REQUEST_OTP, {
         method: 'POST',
@@ -408,36 +421,54 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       });
       if (res.ok) {
         setOtpRequested(true);
+        setCountdown(30);
         triggerToast('OTP sent to server terminal!');
       } else {
         const err = await res.json();
-        triggerToast(err.message || 'OTP Request failed', 'error');
+        setModalError(err.message || 'OTP Request failed');
       }
-    } catch { triggerToast('Connection Error', 'error'); }
+    } catch { setModalError('Connection Error'); }
   };
 
   const handleVerifyOTP = async () => {
+    setModalError(null);
     if (!passData.otp || passData.otp.length !== 6) {
-      return triggerToast('Please enter a valid 6-digit code', 'error');
+      setModalError('Please enter a valid 6-digit code');
+      return;
     }
-
     try {
-      const res = await fetch(API_ENDPOINTS.VERIFY_OTP, {
+      const verifyUrl = `${BASE_URL}/api/auth/verify-otp`;
+      const res = await fetch(verifyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, otp: passData.otp })
       });
-
-      const data = await res.json();
-
       if (res.ok) {
         setOtpVerified(true);
-        triggerToast('OTP verified successfully. Proceed to reset password.');
+        triggerToast('Authorization code accepted. Proceed to reset.');
       } else {
-        triggerToast(data.error || data.message || 'Verification failed. Invalid OTP.', 'error');
+        const fallbackUrl = `${BASE_URL}/api/password/verify-otp`;
+        const fbRes = await fetch(fallbackUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email, otp: passData.otp })
+        });
+        if (fbRes.ok) {
+          setOtpVerified(true);
+          triggerToast('Authorization code accepted. Proceed to reset.');
+        } else {
+          const err = await fbRes.json();
+          setModalError(err.error || err.message || 'Invalid OTP');
+          setPassData(prev => ({ ...prev, otp: '' }));
+          setOtpRequested(false);
+          setCountdown(0);
+        }
       }
-    } catch (err) {
-      triggerToast('Connection Error. Failed to verify OTP.', 'error');
+    } catch {
+      setModalError('Connection Error');
+      setPassData(prev => ({ ...prev, otp: '' }));
+      setOtpRequested(false);
+      setCountdown(0);
     }
   };
 
@@ -446,10 +477,11 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   };
 
   const handleResetWithOTP = async () => {
-    if (!passData.otp || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
-    if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
+    setModalError(null);
+    if (!passData.otp || !passData.new || !passData.confirm) return setModalError('All fields required');
+    if (passData.new !== passData.confirm) return setModalError('Passwords do not match');
     if (!validatePassword(passData.new)) {
-      return triggerToast('Password must be exactly 6 characters.', 'error');
+      return setModalError('Password must be exactly 6 characters.');
     }
 
     try {
@@ -469,18 +501,19 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         }, 2500);
       } else {
         const err = await res.json();
-        triggerToast(err.message || 'Reset failed', 'error');
+        setModalError(err.message || 'Reset failed');
       }
-    } catch { triggerToast('Connection Error', 'error'); }
+    } catch { setModalError('Connection Error'); }
   };
 
   const handlePasswordSubmit = async () => {
+    setModalError(null);
     if (passwordMode === 'reset') return handleResetWithOTP();
 
-    if (!passData.old || !passData.new || !passData.confirm) return triggerToast('All fields required', 'error');
-    if (passData.new !== passData.confirm) return triggerToast('Passwords do not match', 'error');
+    if (!passData.old || !passData.new || !passData.confirm) return setModalError('All fields required');
+    if (passData.new !== passData.confirm) return setModalError('Passwords do not match');
     if (!validatePassword(passData.new)) {
-      return triggerToast('Password must be exactly 6 characters.', 'error');
+      return setModalError('Password must be exactly 6 characters.');
     }
 
     try {
@@ -516,9 +549,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           window.location.href = './';
         }, 2500);
       } else {
-        triggerToast(data.message || data.error || 'Verification failed', 'error');
+        setModalError(data.message || data.error || 'Verification failed');
       }
-    } catch { triggerToast('Network Error', 'error'); }
+    } catch { setModalError('Network Error'); }
   };
 
   const styles = {
@@ -882,7 +915,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
         {showPasswordModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(11, 30, 63, 0.7)', backdropFilter: 'blur(15px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <motion.div initial={{ scale: 0.9, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} style={{ backgroundColor: 'white', borderRadius: '40px', padding: 0, maxWidth: '500px', width: '100%', boxShadow: '0 40px 100px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} style={{ backgroundColor: 'white', borderRadius: '40px', padding: 0, maxWidth: '500px', width: '100%', boxShadow: '0 40px 100px rgba(0,0,0,0.4)', overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
 
               {/* INDUSTRIAL HEADER */}
               <div style={{ backgroundColor: '#0B1E3F', padding: '30px 40px', position: 'relative' }}>
@@ -896,19 +929,19 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                       <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Backend Synced: Active</span>
                     </div>
                   </div>
-                  <X size={24} color="rgba(255,255,255,0.4)" onClick={() => { setShowPasswordModal(false); setOtpRequested(false); setOtpVerified(false); setPasswordMode('change'); }} style={{ cursor: 'pointer' }} />
+                  <X size={24} color="rgba(255,255,255,0.4)" onClick={() => { setShowPasswordModal(false); setOtpRequested(false); setOtpVerified(false); setPasswordMode('change'); setModalError(null); }} style={{ cursor: 'pointer' }} />
                 </div>
               </div>
 
               <div style={{ padding: '40px' }}>
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', backgroundColor: '#f1f5f9', padding: '6px', borderRadius: '18px' }}>
                   <button
-                    onClick={() => { setPasswordMode('change'); setOtpRequested(false); setOtpVerified(false); }}
+                    onClick={() => { setPasswordMode('change'); setOtpRequested(false); setOtpVerified(false); setModalError(null); }}
                     style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '12px', fontWeight: '1000', cursor: 'pointer', backgroundColor: passwordMode === 'change' ? 'white' : 'transparent', color: passwordMode === 'change' ? '#3863a8' : '#64748b', boxShadow: passwordMode === 'change' ? '0 4px 12px rgba(0,0,0,0.08)' : 'none', transition: '0.2s' }}>
                     WITH OLD PASSWORD
                   </button>
                   <button
-                    onClick={() => setPasswordMode('reset')}
+                    onClick={() => { setPasswordMode('reset'); setOtpRequested(false); setOtpVerified(false); setModalError(null); }}
                     style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '12px', fontWeight: '1000', cursor: 'pointer', backgroundColor: passwordMode === 'reset' ? 'white' : 'transparent', color: passwordMode === 'reset' ? '#3863a8' : '#64748b', boxShadow: passwordMode === 'reset' ? '0 4px 12px rgba(0,0,0,0.08)' : 'none', transition: '0.2s' }}>
                     WITHOUT OLD PASSWORD (OTP)
                   </button>
@@ -975,9 +1008,15 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                               <CheckCircle2 size={18} />
                               VERIFY AUTHORIZATION
                             </button>
-                            <button onClick={() => setOtpRequested(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', fontWeight: '800', cursor: 'pointer', marginTop: '20px' }}>
-                              Resend Code?
-                            </button>
+                            {countdown > 0 ? (
+                              <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: '800', marginTop: '20px', display: 'block' }}>
+                                Resend OTP in {countdown}s
+                              </span>
+                            ) : (
+                              <button onClick={handleRequestOTP} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', fontWeight: '800', cursor: 'pointer', marginTop: '20px' }}>
+                                Resend Code?
+                              </button>
+                            )}
                           </div>
                         </>
                       ) : (
@@ -1022,12 +1061,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                     </button>
                   )}
 
-                  {passwordMode === 'reset' && otpRequested && (
-                    <div style={{ textAlign: 'center' }}>
-                      <button onClick={() => setOtpRequested(false)} style={{ background: 'none', border: 'none', color: '#3863a8', fontSize: '12px', fontWeight: '900', cursor: 'pointer', textDecoration: 'underline' }}>
-                        RESEND NEW AUTHORIZATION CODE
-                      </button>
-                    </div>
+                  {modalError && (
+                    <p style={{ color: '#ef4444', fontSize: '13px', fontWeight: '700', margin: '15px 0 0 0', textAlign: 'center', background: '#fef2f2', padding: '10px', borderRadius: '12px' }}>
+                      {modalError}
+                    </p>
                   )}
                 </div>
               </div>
