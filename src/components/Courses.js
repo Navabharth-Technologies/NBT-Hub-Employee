@@ -300,7 +300,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
         iframeContainer: { width: '100%', maxWidth: '960px', aspectRatio: '16/9', maxHeight: winWidth < 768 ? '300px' : '400px', borderRadius: '35px', overflow: 'hidden', backgroundColor: 'black', boxShadow: '0 30px 60px rgba(0,0,0,0.1)', margin: '0 auto' },
         pdfContainer: { width: '100%', minHeight: winWidth < 768 ? '400px' : '650px', borderRadius: '35px', border: '1.2px solid #f1f5f9', backgroundColor: 'white', boxShadow: '0 30px 60px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' },
-        finishBtn: { width: '100%', backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '18px 40px', borderRadius: '25px', fontWeight: '900', marginTop: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 25px rgba(11, 30, 63, 0.2)' },
+        finishBtn: { width: 'auto', backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '14px 40px', borderRadius: '25px', fontWeight: '900', marginTop: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 25px rgba(11, 30, 63, 0.2)', margin: '30px auto 0' },
         disabledBtn: { backgroundColor: '#94a3b8', color: '#cbd5e1', cursor: 'not-allowed', opacity: 0.6 },
 
         // CONGRATS POPUP
