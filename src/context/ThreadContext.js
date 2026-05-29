@@ -69,8 +69,14 @@ export const ThreadProvider = ({ children }) => {
           const rawUserReactions = t.user_reactions || t.userReactions || {};
           
           const nameToEmoji = {
-            'heart': '❤️', 'thumbsup': '👍', 'cake': '🎂', 'fire': '🔥', 'clap': '👏',
-            'thumbs_up': '👍', 'heart_eyes': '😍', 'laughing': '😂', 'shocked': '😮'
+            'heart': '❤️', 'love': '❤️',
+            'thumbsup': '👍', 'thumbs_up': '👍', 'thumb': '👍',
+            'cake': '🎂', 'birthday': '🎂',
+            'fire': '🔥', 'lit': '🔥',
+            'clap': '👏', 'clapping': '👏',
+            'laugh': '😂', 'laughing': '😂', 'haha': '😂',
+            'shocked': '😮', 'wow': '😮',
+            'heart_eyes': '😍'
           };
           
           const reactions = {};
@@ -219,14 +225,25 @@ export const ThreadProvider = ({ children }) => {
 
   // Complete bidirectional emoji maps — shared across optimistic + API layers
   const NAME_TO_EMOJI = {
-    'heart': '❤️', 'thumbsup': '👍', 'thumbs_up': '👍', 'cake': '🎂',
-    'fire': '🔥', 'clap': '👏', 'laughing': '😂', 'shocked': '😮',
+    'heart': '❤️', 'love': '❤️',
+    'thumbsup': '👍', 'thumbs_up': '👍', 'thumb': '👍',
+    'shocked': '😮', 'wow': '😮',
+    'laugh': '😂', 'laughing': '😂', 'haha': '😂',
+    'fire': '🔥', 'lit': '🔥',
+    'clap': '👏', 'clapping': '👏',
+    'cake': '🎂', 'birthday': '🎂',
     'heart_eyes': '😍'
   };
-  // Use exact strings expected by the backend schema (especially thumbs_up)
+  // Use exact strings expected by the backend schema (mapping emoji to normalized name)
   const EMOJI_TO_NAME = {
-    '❤️': 'heart', '👍': 'thumbs_up', '🎂': 'cake', '🔥': 'fire',
-    '👏': 'clap', '😂': 'laughing', '😮': 'shocked', '😍': 'heart_eyes'
+    '❤️': 'heart',
+    '👍': 'thumbsup',
+    '😮': 'shocked',
+    '😂': 'laugh',
+    '🔥': 'fire',
+    '👏': 'clap',
+    '🎂': 'cake',
+    '😍': 'heart_eyes'
   };
 
   const toggleReaction = async (threadId, userId, type = 'like') => {
