@@ -153,24 +153,15 @@ const FunQuizScreen = ({ onBack }) => {
           return foundKey ? obj[foundKey] : null;
         };
 
-        const alreadyCompleted = completions.some(c => {
-          const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
-          const cDate = getProp(c, 'completion_date') || getProp(c, 'created_at') || getProp(c, 'date') || getProp(c, 'timestamp');
-          const formattedCDate = cDate ? String(cDate).split('T')[0].replace(/-/g, '/') : '';
-
-          return (
-            formattedCDate === todayStr ||
-            formattedCDate === todayStrHyphen.replace(/-/g, '/') ||
-            list.some(item => {
-              const qId = getProp(item, 'id');
-              const qQuizId = getProp(item, 'quiz_id') || qId;
-              return String(qQuizId) === String(cQuizId) || String(qId) === String(cQuizId);
-            })
-          );
-        }) || (list.length > 0 && list.every(item => {
-          const qId = getProp(item, 'id');
-          return storedAnswers[qId] !== undefined;
-        }));
+        const alreadyCompleted = list.length > 0 && list.every(item => {
+          const id = getProp(item, 'id');
+          const userSpecificStoredAnswer = storedAnswers[id];
+          const userSpecificCompletion = completions.find(c => {
+            const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
+            return String(cQuizId) === String(id);
+          });
+          return !!(userSpecificStoredAnswer || userSpecificCompletion);
+        });
 
         setIsQuizCompleted(alreadyCompleted);
 
@@ -844,16 +835,15 @@ const FunQuizScreen = ({ onBack }) => {
                 </div>
 
                 <button
-                  disabled={isQuizCompleted}
                   onClick={handleStartToday}
                   style={{
                     ...s.heroBtn,
                     marginTop: '25px',
-                    backgroundColor: isQuizCompleted ? '#94a3b8' : '#0d676c',
-                    cursor: isQuizCompleted ? 'not-allowed' : 'pointer'
+                    backgroundColor: '#0d676c',
+                    cursor: 'pointer'
                   }}
                 >
-                  {isQuizCompleted ? 'Already Attended' : 'Start Quiz'}
+                  Start Quiz
                 </button>
               </div>
 

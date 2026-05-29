@@ -776,9 +776,8 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                                 <div style={s.courseContent}>
                                     <div style={s.levelBadge}>{course.level || 'Expert'}</div>
                                     <h2 style={s.courseTitle}>{course.title}</h2>
-                                    <div style={{ fontSize: '16px', color: '#64748b', display: 'flex', justifyContent: 'space-between', marginBottom: '18px', fontWeight: '700' }}>
+                                    <div style={{ fontSize: '16px', color: '#64748b', display: 'flex', justifyContent: 'flex-start', marginBottom: '18px', fontWeight: '700' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={18} /> {course.duration || '2h 15m'}</span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Star size={18} color="#f59e0b" fill="#f59e0b" /> {course.rating || '4.9'}</span>
                                     </div>
                                     <div style={s.progressBar(0)}><div style={s.progressFill(progress)} /></div>
                                     <div style={{ fontSize: '14px', color: (progress >= 100) ? '#16a34a' : '#94a3b8', fontWeight: '800', marginBottom: '30px', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>

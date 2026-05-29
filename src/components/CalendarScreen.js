@@ -24,16 +24,7 @@ const CalendarScreen = ({ onBack }) => {
       if (resp && resp.ok) {
         data = await resp.json();
       } else {
-        // DEMO SAFETY FALLBACK: Load high-quality mock holidays if backend is unreachable
-        console.warn("[Demo Mode] Holiday API unreachable. Loading demo-safe calendar.");
-        data = [
-          { id: 'h1', name: 'Makara Sankranthi', date: '2026-01-15' },
-          { id: 'h2', name: 'Republic Day', date: '2026-01-26' },
-          { id: 'h3', name: 'Maha Shivratri', date: '2026-02-15' },
-          { id: 'h4', name: 'Ugadi', date: '2026-03-19' },
-          { id: 'h5', name: 'Good Friday', date: '2026-04-03' },
-          { id: 'h6', name: 'Eid al-Fitr', date: '2026-04-10' }
-        ];
+        console.warn("Holiday API unreachable or returned an error. No data loaded.");
       }
 
       const holidayList = Array.isArray(data) ? data : (data?.value || data?.data || []);
