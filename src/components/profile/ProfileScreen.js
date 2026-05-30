@@ -1068,15 +1068,6 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                   )}
                 </div>
               </div>
-
-              {/* TECHNICAL FOOTER */}
-              <div style={{ backgroundColor: '#f8fafc', padding: '20px 40px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>AES-256 ENCRYPTION</span>
-                </div>
-                <span style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: '800' }}>NBT SECURITY v4.0</span>
-              </div>
             </motion.div>
           </div>
         )}
