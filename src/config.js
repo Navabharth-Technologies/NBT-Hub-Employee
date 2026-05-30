@@ -74,6 +74,8 @@ export const API_ENDPOINTS = {
   UPDATE_TICKET: (id) => `${BASE_URL}/api/support-tickets/${id}`,
   SUPPORT_AGENTS: `${BASE_URL}/api/support-agents`,
   COURSES: `${BASE_URL}/api/courses`,
+  USER_COURSES: `${BASE_URL}/api/user-courses`,
+  COURSE_PROGRESS: `${BASE_URL}/api/courses/progress`,
   NEW_JOINEE_DETAIL: (id) => `${BASE_URL}/api/new-joinees/${String(id || '').split(':')[0]}`,
   NEW_JOINEE_COURSES: (id) => `${BASE_URL}/api/newjoinee-courses?joineeId=${String(id || '').split(':')[0]}`,
   NEW_JOINEE_COURSES_BASE: `${BASE_URL}/api/newjoinee-courses`,
