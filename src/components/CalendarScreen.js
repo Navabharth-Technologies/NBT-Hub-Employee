@@ -144,11 +144,10 @@ const CalendarScreen = ({ onBack }) => {
 
   return (
     <div style={s.container}>
-      <div style={{ marginBottom: '20px' }}>
-        <BackButton onClick={onBack} />
-      </div>
-
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={{ ...s.headerCard, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: winWidth < 768 ? '20px' : '30px', left: winWidth < 768 ? '20px' : '30px', zIndex: 10 }}>
+          <BackButton onClick={onBack} />
+        </div>
         <div style={s.iconBox}>
           <CalendarIcon size={40} strokeWidth={1.5} />
         </div>

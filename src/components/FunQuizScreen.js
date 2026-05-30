@@ -643,7 +643,7 @@ const FunQuizScreen = ({ onBack }) => {
       {/* Leaderboard Table Header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr',
+        gridTemplateColumns: '2fr 1fr',
         gap: '10px',
         padding: '12px 10px',
         borderBottom: '2px solid #f1f5f9',
@@ -654,8 +654,7 @@ const FunQuizScreen = ({ onBack }) => {
         letterSpacing: '0.5px'
       }}>
         <span>Name</span>
-        <span style={{ textAlign: 'center' }}>Quiz Points</span>
-        <span style={{ textAlign: 'right' }}>TOTAL</span>
+        <span style={{ textAlign: 'right' }}>Quiz Points</span>
       </div>
 
       <div style={{
@@ -694,7 +693,7 @@ const FunQuizScreen = ({ onBack }) => {
             return (
               <div key={i} style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr',
+                gridTemplateColumns: '2fr 1fr',
                 gap: '10px',
                 alignItems: 'center',
                 padding: '14px 10px',
@@ -714,12 +713,8 @@ const FunQuizScreen = ({ onBack }) => {
                   <div style={{ fontSize: '11px', fontWeight: '800', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{p.name}</div>
                 </div>
 
-                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {String(p.quiz_points || p.score || 0)}
-                </div>
-
                 <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: '1000', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {String(p.score || 0)}
+                  {String(p.quiz_points || p.score || 0)}
                 </div>
               </div>
             );
