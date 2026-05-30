@@ -57,6 +57,7 @@ export const API_ENDPOINTS = {
   TEST_DB: `${BASE_URL}/api/test-db`,
   THREADS: `${BASE_URL}/api/threads`,
   THREAD_REACT: (id) => `${BASE_URL}/api/threads/${id}/react`,
+
   THREAD_REACTORS: (id, type) => `${BASE_URL}/api/threads/${id}/reactors${type ? `?type=${encodeURIComponent(type)}` : ''}`,
   THREAD_BADGE: (id) => `${BASE_URL}/api/threads/${id}/badge`,
   THREAD_COMMENT: (id) => `${BASE_URL}/api/threads/${id}/comment`,

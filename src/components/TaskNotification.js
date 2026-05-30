@@ -502,9 +502,7 @@ const TaskNotification = ({ onOpenTask }) => {
               )}
             </div>
 
-            <div style={{ padding: '12px', background: 'white', borderTop: '1px solid #f1f5f9', textAlign: 'center', fontSize: '11px', fontWeight: '1000', color: '#3B5998' }}>
-              Team Leader Oversight AI
-            </div>
+
           </motion.div>
         )}
       </AnimatePresence>

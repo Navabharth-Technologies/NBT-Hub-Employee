@@ -1,0 +1,119 @@
+﻿diff --git a/src/components/profile/ProfileScreen.js b/src/components/profile/ProfileScreen.js
+index 85fc147..e0dcd4d 100644
+--- a/src/components/profile/ProfileScreen.js
++++ b/src/components/profile/ProfileScreen.js
+@@ -804,45 +804,47 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
+         </div>
+ 
+ 
+-        <div style={styles.infoGrid}>
+-          <motion.div
+-            whileHover={{ y: -5 }}
+-            style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
+-            onClick={() => setShowPasswordModal(true)}
+-          >
+-            <div style={{ ...styles.iconCircle, backgroundColor: '#dbeafe' }}><Shield size={18} color="#1e40af" /></div>
+-            <div style={{ flex: 1 }}>
+-              <div style={{ ...styles.managerLabel, color: '#1e40af' }}>Security Settings</div>
+-              <div style={styles.infoValue}>UPDATE SECURITY PASSKEY</div>
+-            </div>
+-            <ChevronRight size={16} color="#1e40af" />
+-          </motion.div>
++        {!(isNewJoinee || user?.isNewJoinee) && (
++          <div style={styles.infoGrid}>
++            <motion.div
++              whileHover={{ y: -5 }}
++              style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
++              onClick={() => setShowPasswordModal(true)}
++            >
++              <div style={{ ...styles.iconCircle, backgroundColor: '#dbeafe' }}><Shield size={18} color="#1e40af" /></div>
++              <div style={{ flex: 1 }}>
++                <div style={{ ...styles.managerLabel, color: '#1e40af' }}>Security Settings</div>
++                <div style={styles.infoValue}>UPDATE SECURITY PASSKEY</div>
++              </div>
++              <ChevronRight size={16} color="#1e40af" />
++            </motion.div>
+ 
+-          <motion.div
+-            whileHover={{ y: -5 }}
+-            style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#fed7aa', backgroundColor: '#fff7ed' }}
+-            onClick={() => onNavigate?.('TICKET')}
+-          >
+-            <div style={{ ...styles.iconCircle, backgroundColor: '#ffedd5' }}><AlertCircle size={18} color="#f97316" /></div>
+-            <div style={{ flex: 1 }}>
+-              <div style={{ ...styles.managerLabel, color: '#f97316' }}>Support & Maintenance</div>
+-              <div style={styles.infoValue}>RAISE TECHNICAL TICKET</div>
+-            </div>
+-            <ChevronRight size={16} color="#f97316" />
+-          </motion.div>
++            <motion.div
++              whileHover={{ y: -5 }}
++              style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#fed7aa', backgroundColor: '#fff7ed' }}
++              onClick={() => onNavigate?.('TICKET')}
++            >
++              <div style={{ ...styles.iconCircle, backgroundColor: '#ffedd5' }}><AlertCircle size={18} color="#f97316" /></div>
++              <div style={{ flex: 1 }}>
++                <div style={{ ...styles.managerLabel, color: '#f97316' }}>Support & Maintenance</div>
++                <div style={styles.infoValue}>RAISE TECHNICAL TICKET</div>
++              </div>
++              <ChevronRight size={16} color="#f97316" />
++            </motion.div>
+ 
+-          {/* TENURITY CARD */}
+-          <div
+-            style={{ ...styles.infoCard, borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
+-          >
+-            <div style={{ ...styles.iconCircle, backgroundColor: '#dcfce7' }}><Clock size={18} color="#15803d" /></div>
+-            <div style={{ flex: 1 }}>
+-              <div style={{ ...styles.managerLabel, color: '#15803d' }}>Total Tenurity</div>
+-              <div style={styles.infoValue}>{calculateTenure(joiningDate)} Experience</div>
++            {/* TENURITY CARD */}
++            <div
++              style={{ ...styles.infoCard, borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
++            >
++              <div style={{ ...styles.iconCircle, backgroundColor: '#dcfce7' }}><Clock size={18} color="#15803d" /></div>
++              <div style={{ flex: 1 }}>
++                <div style={{ ...styles.managerLabel, color: '#15803d' }}>Total Tenurity</div>
++                <div style={styles.infoValue}>{calculateTenure(joiningDate)} Experience</div>
++              </div>
+             </div>
+-          </div>
+ 
+-        </div>
++          </div>
++        )}
+ 
+         {showPasswordModal && (
+           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(11, 30, 63, 0.7)', backdropFilter: 'blur(15px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+@@ -1001,18 +1003,20 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
+ 
+ 
+         {/* ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ HR DOCUMENTS SECTION ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+-        <div style={{ marginTop: '25px', marginBottom: '40px' }}>
+-          <div style={{ ...styles.sectionTitle, marginBottom: '20px' }}>HR Documents</div>
+-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'), gap: isMobile ? '15px' : '25px' }}>
+-            {[
+-              { id: 'slip', title: 'MONTHLY PAY SLIP', desc: 'Download salary statement', icon: <FileText size={22} />, color: '#16a34a', darkBorder: true },
+-              { id: 'exp', title: 'EXPERIENCE LETTER', desc: 'Apply for service certificate', icon: <Fingerprint size={22} />, color: '#2563eb', highlight: true },
+-              { id: 'res', title: 'RESIGNATION LETTER', desc: 'Submit formal exit notice', icon: <LogOut size={22} />, color: '#dc2626', darkBorder: true }
+-            ].map((doc, idx) => (
+-              <DocCard key={idx} doc={doc} onNavigate={onNavigate} />
+-            ))}
++        {!(isNewJoinee || user?.isNewJoinee) && (
++          <div style={{ marginTop: '25px', marginBottom: '40px' }}>
++            <div style={{ ...styles.sectionTitle, marginBottom: '20px' }}>HR Documents</div>
++            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'), gap: isMobile ? '15px' : '25px' }}>
++              {[
++                { id: 'slip', title: 'MONTHLY PAY SLIP', desc: 'Download salary statement', icon: <FileText size={22} />, color: '#16a34a', darkBorder: true },
++                { id: 'exp', title: 'EXPERIENCE LETTER', desc: 'Apply for service certificate', icon: <Fingerprint size={22} />, color: '#2563eb', highlight: true },
++                { id: 'res', title: 'RESIGNATION LETTER', desc: 'Submit formal exit notice', icon: <LogOut size={22} />, color: '#dc2626', darkBorder: true }
++              ].map((doc, idx) => (
++                <DocCard key={idx} doc={doc} onNavigate={onNavigate} />
++              ))}
++            </div>
+           </div>
+-        </div>
++        )}
+ 
+         <div style={styles.aboutSection}>
+           <div style={styles.sectionTitle}>

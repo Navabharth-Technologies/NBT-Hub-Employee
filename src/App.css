@@ -67,7 +67,7 @@ html, body {
 }
 
 .nav-item:hover {
-  transform: translateY(-5px);
+  opacity: 0.85;
 }
 
 .nav-item.active {

@@ -173,7 +173,7 @@ export default function EmployeeAttendanceDetail({ employeeId, onBack }) {
             <ShieldCheck size={16} color="#3B82F6" />
             <div>
               <div style={styles.statLabel}>POWERED BY</div>
-              <div style={styles.statValue}>Biometric API</div>
+              <div style={styles.statValue}>Biometric</div>
             </div>
           </div>
         </div>

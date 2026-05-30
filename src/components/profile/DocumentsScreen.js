@@ -210,7 +210,17 @@ export default function DocumentsScreen({ onBack }) {
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const isMobile = winWidth < 768;
   const isTablet = winWidth < 1100;
-  const [activeSection, setActiveSection] = useState('primary');
+  const VALID_SECTIONS = ['primary', 'hierarchy', 'contact', 'academic', 'finance', 'compliance', 'assets', 'exit'];
+  const [activeSection, setActiveSection] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nbt_profile_section');
+      return (saved && VALID_SECTIONS.includes(saved)) ? saved : 'primary';
+    } catch { return 'primary'; }
+  });
+  const changeSection = (id) => {
+    setActiveSection(id);
+    try { localStorage.setItem('nbt_profile_section', id); } catch {}
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [viewImage, setViewImage] = useState(null);
   const tabsRef = useRef(null);
@@ -345,6 +355,13 @@ export default function DocumentsScreen({ onBack }) {
       const endpoint = employeeId
         ? API_ENDPOINTS.EMPLOYEE_PROFILE(employeeId)
         : API_ENDPOINTS.MY_EMPLOYEE_PROFILE;
+
+      // Pre-fill from localStorage cache instantly (avoids blank screen on refresh)
+      const cacheKey = `nbt_profile_cache_${employeeId || user?.employee_id || user?.id}`;
+      try {
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (cached) setForm(prev => ({ ...prev, ...cached }));
+      } catch (_) {}
 
       const res = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -834,6 +851,12 @@ export default function DocumentsScreen({ onBack }) {
       if (res.ok) {
         setToast({ type: 'success', msg: 'Profile updated successfully!' });
         setIsEditing(false);
+        // Cache saved data to localStorage so it survives page refresh
+        try {
+          const cacheKey = `nbt_profile_cache_${uid}`;
+          const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+          localStorage.setItem(cacheKey, JSON.stringify({ ...existing, ...sanitizedForm }));
+        } catch (_) {}
         await loadDocs();
       } else {
         const err = await res.json();
@@ -1009,7 +1032,7 @@ export default function DocumentsScreen({ onBack }) {
                 return (
                   <button
                     key={sec.id}
-                    onClick={() => setActiveSection(sec.id)}
+                    onClick={() => changeSection(sec.id)}
                     style={{
                       padding: '10px 10px',
                       borderRadius: '12px',
@@ -1093,7 +1116,7 @@ export default function DocumentsScreen({ onBack }) {
                   <motion.button
                     key={sec.id}
                     whileHover={{ x: 4 }}
-                    onClick={() => setActiveSection(sec.id)}
+                    onClick={() => changeSection(sec.id)}
                     style={{
                       padding: '16px 32px',
                       borderRadius: '18px',

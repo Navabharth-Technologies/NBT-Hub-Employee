@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Trophy, Zap, ArrowLeft, CheckCircle, Info, ChevronRight, Check as CheckIcon, X as XIcon, Loader2
+  Trophy, Zap, ArrowLeft, CheckCircle, ChevronRight, Check as CheckIcon, X as XIcon, Loader2
 } from 'lucide-react';
-import { useAuth, checkAuthOnce } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../config';
-import BackButton from './BackButton';
+import BackButton from './BackButton'; // Clear dev-server compile cache
 
 const checkIfCorrect = (optObj, currentQ) => {
   if (!currentQ || !currentQ.correct_answer || !optObj) return false;
@@ -39,12 +39,12 @@ const checkIfCorrect = (optObj, currentQ) => {
     return cleaned !== '' && !isNaN(Number(cleaned));
   };
 
-  // Case 3: Match by text containment (only for non-numeric, longer strings)
+  // Case 3: Match by normalized exact equality (only for non-numeric, longer strings)
   if (
     !isNumeric(text) &&
     !isNumeric(correct) &&
     text.length > 2 &&
-    (correct.includes(text) || text.includes(correct))
+    (correct.replace(/[^a-z0-9]/g, '') === text.replace(/[^a-z0-9]/g, ''))
   ) {
     return true;
   }
@@ -54,25 +54,24 @@ const checkIfCorrect = (optObj, currentQ) => {
 
 const formatCorrectAnswerText = (currentQ) => {
   if (!currentQ || !currentQ.correct_answer) return 'Not available';
-  
+
   const correctOpt = currentQ.options.find(opt => checkIfCorrect(opt, currentQ));
   if (correctOpt) {
     return `Option ${correctOpt.letter} - ${correctOpt.text}`;
   }
-  
+
   return String(currentQ.correct_answer).trim();
+};
+
+const cleanNum = (val) => {
+  if (val === undefined || val === null || val === '') return 0;
+  const cleanStr = String(val).replace(/,/g, '').trim();
+  const num = Number(cleanStr);
+  return isNaN(num) ? 0 : num;
 };
 
 const FunQuizScreen = ({ onBack }) => {
   const { user } = useAuth();
-
-  const getQuizStorageKey = () => {
-    const rawUid = user?.employee_id || user?.userId || user?.id || user?.employeeId || user?.uid || 'anonymous';
-    const uid = String(rawUid).includes(',')
-      ? String(rawUid).split(',')[0].split(':')[0].trim()
-      : String(rawUid).split(':')[0].trim();
-    return `quiz_user_answers_${uid}`;
-  };
 
   const [questions, setQuestions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -80,13 +79,12 @@ const FunQuizScreen = ({ onBack }) => {
   const [isQuestionsLoading, setIsQuestionsLoading] = useState(true);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
+  const [userLifetimeScore, setUserLifetimeScore] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionFeedback, setSubmissionFeedback] = useState({ show: false, points: 0 });
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [quizActive, setQuizActive] = useState(false);
   const [showFullList, setShowFullList] = useState(false);
-  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
-  const currentQ = questions[currentIdx];
 
   const showSuccessState = (pts) => {
     setSubmissionFeedback({ show: true, points: pts });
@@ -104,37 +102,16 @@ const FunQuizScreen = ({ onBack }) => {
 
   const fetchQuestions = async () => {
     try {
-      const authOk = await checkAuthOnce();
-      if (!authOk) {
-        setIsQuestionsLoading(false);
-        return;
-      }
       const token = localStorage.getItem('token');
       const [res, compRes] = await Promise.all([
         fetch(`${BASE_URL}/api/fun-quizzes`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }),
-        fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
+        Promise.resolve({ ok: false }) // fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers: { 'Authorization': `Bearer ${token?.trim()}` } }).catch(() => null)
       ]);
 
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.data || []);
-        const uidKey = getQuizStorageKey();
-        let storedAnswers = JSON.parse(localStorage.getItem(uidKey) || '{}');
-        
-        // Migration: If no answers found for this user, check legacy key to prevent re-attending
-        if (Object.keys(storedAnswers).length === 0) {
-          const legacyAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
-          if (Object.keys(legacyAnswers).length > 0) {
-            const hasRelevantLegacy = list.some(item => {
-              const qId = item.id || (Object.keys(item).find(k => k.toLowerCase() === 'id') ? item[Object.keys(item).find(k => k.toLowerCase() === 'id')] : null);
-              return qId && legacyAnswers[qId] !== undefined;
-            });
-            if (hasRelevantLegacy) {
-              storedAnswers = legacyAnswers;
-              localStorage.setItem(uidKey, JSON.stringify(legacyAnswers));
-            }
-          }
-        }
+        const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
 
         let completions = [];
         if (compRes && compRes.ok) {
@@ -142,30 +119,14 @@ const FunQuizScreen = ({ onBack }) => {
           completions = Array.isArray(compData) ? compData : (compData.data || []);
         }
 
-        // Check if user has already completed the daily quiz (by today's date or matching quiz ID)
-        const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/');
-        const todayStrHyphen = new Date().toISOString().split('T')[0];
-
-        const getProp = (obj, key) => {
-          if (!obj) return null;
-          const target = key.toLowerCase();
-          const foundKey = Object.keys(obj).find(k => k.toLowerCase() === target);
-          return foundKey ? obj[foundKey] : null;
-        };
-
-        const alreadyCompleted = list.length > 0 && list.every(item => {
-          const id = getProp(item, 'id');
-          const userSpecificStoredAnswer = storedAnswers[id];
-          const userSpecificCompletion = completions.find(c => {
-            const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
-            return String(cQuizId) === String(id);
-          });
-          return !!(userSpecificStoredAnswer || userSpecificCompletion);
-        });
-
-        setIsQuizCompleted(alreadyCompleted);
-
         const mapped = list.filter(i => i !== null).map(item => {
+          // Helper to get property case-insensitively
+          const getProp = (obj, key) => {
+            if (!obj) return null;
+            const target = key.toLowerCase();
+            const foundKey = Object.keys(obj).find(k => k.toLowerCase() === target);
+            return foundKey ? obj[foundKey] : null;
+          };
 
           const id = getProp(item, 'id');
           const question = getProp(item, 'question') || '';
@@ -176,47 +137,33 @@ const FunQuizScreen = ({ onBack }) => {
           const pointsReward = getProp(item, 'points_reward');
           const quizId = getProp(item, 'quiz_id') || id || 1;
 
-          // Scope answer presence strictly to this logged-in user's completions and user-specific local storage
-          const userSpecificStoredAnswer = storedAnswers[id];
-          const userSpecificCompletion = completions.find(c => {
-            const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
-            return String(cQuizId) === String(id);
-          });
+          let userSelected = getProp(item, 'user_selected_letter') ||
+                             getProp(item, 'selected_ans') ||
+                             getProp(item, 'selected_answer') ||
+                             getProp(item, 'user_answer') ||
+                             getProp(item, 'selected_option') ||
+                             getProp(item, 'user_selected') ||
+                             getProp(item, 'user_choice') ||
+                             getProp(item, 'userChoice') ||
+                             getProp(item, 'selectedOption') ||
+                             null;
 
-          const isReallyAnswered = !!(userSpecificStoredAnswer || userSpecificCompletion);
-
-          let userSelected = null;
-          if (isReallyAnswered) {
-            userSelected = userSpecificStoredAnswer || null;
-            if (!userSelected && userSpecificCompletion) {
-              userSelected = getProp(userSpecificCompletion, 'selected_ans') || getProp(userSpecificCompletion, 'selected_option') || getProp(userSpecificCompletion, 'user_answer') || getProp(userSpecificCompletion, 'user_selected_letter') || getProp(userSpecificCompletion, 'answer') || null;
-              // Normalize completion data too
-              if (userSelected && String(userSelected).trim().length > 1) {
-                const letterMatch2 = String(userSelected).trim().match(/^(?:option[_ -]?)?([A-Da-d])\b/i);
-                if (letterMatch2) {
-                  userSelected = letterMatch2[1].toUpperCase();
-                }
-              }
-            }
+          if (!userSelected && storedAnswers[id]) {
+            userSelected = storedAnswers[id];
           }
 
-          // Normalize final value
-          if (userSelected) {
-            userSelected = String(userSelected).trim().toUpperCase();
-            if (!['A', 'B', 'C', 'D'].includes(userSelected)) {
-              // Last resort: match against option texts
-              const matchedFinal = [
-                { letter: 'A', text: optA },
-                { letter: 'B', text: optB },
-                { letter: 'C', text: optC },
-                { letter: 'D', text: optD }
-              ].find(o => String(o.text).trim().toLowerCase() === String(userSelected).toLowerCase());
-              userSelected = matchedFinal ? matchedFinal.letter : userSelected;
+          if (!userSelected) {
+            const comp = completions.find(c => {
+              const cQuizId = getProp(c, 'quiz_id') || getProp(c, 'question_id') || getProp(c, 'id');
+              return String(cQuizId) === String(id);
+            });
+            if (comp) {
+              userSelected = getProp(comp, 'selected_ans') || getProp(comp, 'selected_option') || getProp(comp, 'user_answer') || getProp(comp, 'user_selected_letter') || getProp(comp, 'answer') || null;
             }
           }
 
           const correctAns = getProp(item, 'correct_answer') || getProp(item, 'correct_option') || getProp(item, 'correct') || getProp(item, 'answer') || null;
-          const hasAnswered = alreadyCompleted || isReallyAnswered;
+          const hasAnswered = getProp(item, 'has_answered') || false;
 
           let previousResult = null;
           if (hasAnswered) {
@@ -286,60 +233,94 @@ const FunQuizScreen = ({ onBack }) => {
       return cleanKey && (cleanSId === cleanKey || cleanSName === cleanKey);
     });
   });
-  const userLifetimeScore = myLeaderboardData ? (myLeaderboardData.quiz_points || myLeaderboardData.quizPoints || 0) : 0;
-  const userQuizPoints = myLeaderboardData?.quiz_points || 0;
 
   const fetchScores = async () => {
     try {
-      const authOk = await checkAuthOnce();
-      if (!authOk) {
-        setIsQuestionsLoading(false);
-        setIsLoading(false);
-        return;
-      }
       const token = localStorage.getItem('token');
 
       const headers = { 'Authorization': `Bearer ${token?.trim()}` };
-      const [rRes, qRes] = await Promise.all([
+      const [rRes, qRes, fRes, dRes] = await Promise.all([
         fetch(`${BASE_URL}/api/rewards/leaderboard`, { headers }).catch(() => null),
-        fetch(`${BASE_URL}/api/quizzes/leaderboard`, { headers }).catch(() => null)
+        fetch(`${BASE_URL}/api/quizzes/leaderboard`, { headers }).catch(() => null),
+        fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
+        fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null)
       ]);
 
       const rData = rRes && rRes.ok ? await rRes.json() : [];
       const qData = qRes && qRes.ok ? await qRes.json() : [];
+      const fData = fRes && fRes.ok ? await fRes.json() : [];
+      const dData = dRes && dRes.ok ? await dRes.json() : [];
 
       const rList = Array.isArray(rData) ? rData : (rData.data || []);
       const qList = Array.isArray(qData) ? qData : (qData.data || []);
+      const fList = Array.isArray(fData) ? fData : (fData.data || []);
+      const dList = Array.isArray(dData) ? dData : (dData.data || []);
 
       const mergedMap = new Map();
 
       // Process Quiz points
       qList.forEach(q => {
-        const rawId = String(q.employee_id || q.user_id || q.id || '');
-        if (!rawId) return;
-        const id = rawId.split(':')[0].trim();
-        const pts = Number(q.total_score || q.quiz_score || q.total_quiz_points || q.points || 0);
+        const id = String(q.employee_id || q.user_id || q.id || '');
+        if (!id) return;
         mergedMap.set(id, {
           id,
           name: q.name || q.employee_name || `Employee ${id}`,
-          quizPoints: isNaN(pts) ? 0 : pts,
+          quizPoints: cleanNum(q.totalPointsNum || q.quizPointsNum || q.total_score || q.quiz_score || q.total_quiz_points || q.points || 0),
           rewardPoints: 0
         });
       });
 
+      // Process Fun Quiz points
+      fList.forEach(f => {
+        const id = String(f.employee_id || f.user_id || f.id || f.userId || '');
+        if (!id) return;
+        const pts = cleanNum(f.totalPointsNum || f.quizPointsNum || f.total_score || f.quiz_score || f.total_quiz_points || f.points || f.score || 0);
+        const existing = mergedMap.get(id);
+        if (existing) {
+          existing.quizPoints = Math.max(existing.quizPoints, pts);
+        } else {
+          mergedMap.set(id, {
+            id,
+            name: f.name || f.employee_name || `Employee ${id}`,
+            quizPoints: pts,
+            rewardPoints: 0
+          });
+        }
+      });
+
+      // Process Daily Quiz points
+      dList.forEach(d => {
+        const id = String(d.employee_id || d.user_id || d.id || d.userId || '');
+        if (!id) return;
+        const pts = cleanNum(d.totalPointsNum || d.quizPointsNum || d.total_score || d.quiz_score || d.total_quiz_points || d.points || d.score || 0);
+        const existing = mergedMap.get(id);
+        if (existing) {
+          existing.quizPoints = Math.max(existing.quizPoints, pts);
+        } else {
+          mergedMap.set(id, {
+            id,
+            name: d.name || d.employee_name || `Employee ${id}`,
+            quizPoints: pts,
+            rewardPoints: 0
+          });
+        }
+      });
+
       // Process Reward points
       rList.forEach(r => {
-        const rawId = String(r.employee_id || r.user_id || r.id || '');
-        if (!rawId) return;
-        const id = rawId.split(':')[0].trim();
+        const id = String(r.employee_id || r.user_id || r.id || '');
+        if (!id) return;
         const existing = mergedMap.get(id) || {
           id,
           name: r.name || r.employee_name || `Employee ${id}`,
           quizPoints: 0,
           rewardPoints: 0
         };
-        const pts = Number(r.points || r.total_points || r.reward_points || 0);
-        existing.rewardPoints = isNaN(pts) ? 0 : pts;
+        // In rewards leaderboard, points/total_points represents the grand total (reward points + quiz points).
+        // We isolate the reward points by checking reward-specific fields or by subtracting quiz points.
+        const totalPointsVal = cleanNum(r.totalPointsNum || r.points || r.total_points || 0);
+        const rewardPointsVal = cleanNum(r.rewardPointsNum || r.reward_points || r.total_reward_points || r.rewardPoints || 0);
+        existing.rewardPoints = rewardPointsVal > 0 ? rewardPointsVal : Math.max(0, totalPointsVal - existing.quizPoints);
         mergedMap.set(id, existing);
       });
 
@@ -357,6 +338,44 @@ const FunQuizScreen = ({ onBack }) => {
       }).sort((a, b) => b.score - a.score).map((u, i) => ({ ...u, rank: i + 1 }));
 
       setLeaderboard(list);
+
+      // Fetch user's actual rewards total (previous score) from rewards endpoints
+      const uid = user?.employee_id || user?.userId || user?.id;
+      const safeUid = String(uid || '').split(':')[0].trim();
+      const myRes = await fetch(`${BASE_URL}/api/rewards/my?userId=${safeUid}`, { headers }).catch(() => null);
+      let myAwardsTotal = 0;
+      let historyList = [];
+      if (myRes && myRes.ok) {
+        const data = await myRes.json();
+        const list = Array.isArray(data) ? data : (data.history || data.awards || data.data || []);
+        myAwardsTotal = cleanNum(data.totalPointsNum || data.totalPoints || data.total_points || 0);
+        historyList = list;
+      }
+      
+      const historyTotal = historyList.reduce((sum, item) => sum + cleanNum(item.points || item.rep || 0), 0);
+      
+      // Find current user's leaderboard score
+      const myEntry = list.find(s => {
+        const cleanSId = String(s.id || '').split(':')[0].trim().toLowerCase();
+        const cleanSName = String(s.name || '').split(':')[0].trim().toLowerCase();
+        const possibleUserKeys = [
+          user?.employee_id,
+          user?.userId,
+          user?.id,
+          user?.uid,
+          user?.email,
+          user?.name,
+          user?.employee_name
+        ];
+        return possibleUserKeys.some(key => {
+          const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+          return cleanKey && (cleanSId === cleanKey || cleanSName === cleanKey);
+        });
+      });
+      const leaderboardScore = myEntry ? myEntry.score : 0;
+
+      const finalPrevScore = Math.max(myAwardsTotal, historyTotal, leaderboardScore);
+      setUserLifetimeScore(finalPrevScore);
     } catch (err) {
       console.error("Leaderboard Sync failed:", err);
     } finally {
@@ -366,13 +385,10 @@ const FunQuizScreen = ({ onBack }) => {
   };
 
   const handleStartToday = () => {
-  // Never clear stored answers — they are the persistent record of user choices
-  setSelectedOption(null);
-  setQuizActive(true);
-  setCurrentIdx(0);
-  // Re-fetch questions to ensure fresh data from backend
-  fetchQuestions();
-};
+    setQuizActive(true);
+    setCurrentIdx(0);
+    setSelectedOption(null);
+  };
 
   useEffect(() => {
     fetchQuestions();
@@ -381,7 +397,7 @@ const FunQuizScreen = ({ onBack }) => {
 
   useEffect(() => {
     const activeQ = questions[currentIdx];
-    setSelectedOption(activeQ?.user_selected_letter || null);
+    setSelectedOption(activeQ?.has_answered ? (activeQ?.user_selected_letter || null) : null);
   }, [currentIdx, questions]);
 
   const handleSubmit = async () => {
@@ -390,8 +406,6 @@ const FunQuizScreen = ({ onBack }) => {
     if (currentQ.has_answered) return;
 
     try {
-      const authOk = await checkAuthOnce();
-      if (!authOk) return;
       const token = localStorage.getItem('token');
       const res = await fetch(API_ENDPOINTS.QUIZ_ANSWER(currentQ.id), {
         method: 'POST',
@@ -424,9 +438,9 @@ const FunQuizScreen = ({ onBack }) => {
       const isActuallyCorrect = checkIfCorrect(optObj, { correct_answer: finalCorrectAnswer, options: currentQ.options });
 
       // Save user selected letter locally
-      const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
+      const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
       storedAnswers[currentQ.id] = selectedOption;
-      localStorage.setItem(getQuizStorageKey(), JSON.stringify(storedAnswers));
+      localStorage.setItem('quiz_user_answers', JSON.stringify(storedAnswers));
 
       setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
         ...q,
@@ -440,10 +454,10 @@ const FunQuizScreen = ({ onBack }) => {
       fetchScores();
     } catch (err) {
       console.error("Failed to log answer to database:", err);
-      
+
       const optObj = currentQ.options.find(o => o.letter === selectedOption);
       const isCorrect = checkIfCorrect(optObj, currentQ);
-      
+
       setQuestions(prev => prev.map((q, i) => i === currentIdx ? {
         ...q,
         has_answered: true,
@@ -456,11 +470,6 @@ const FunQuizScreen = ({ onBack }) => {
   const handleSendTotalResults = async () => {
     setIsSubmitting(true);
     try {
-      const authOk = await checkAuthOnce();
-      if (!authOk) {
-        setIsSubmitting(false);
-        return;
-      }
       const token = localStorage.getItem('token');
 
       // Calculate final summary locally
@@ -523,29 +532,17 @@ const FunQuizScreen = ({ onBack }) => {
       }
 
       showSuccessState(totalPoints);
-      setTimeout(() => {
-        if (typeof onBack === 'function') {
-          onBack();
-        } else {
-          setQuizActive(false);
-        }
-      }, 1500);
+      setTimeout(() => setQuizActive(false), 1500);
     } catch (err) {
       console.error("Batch submit failed:", err);
       showSuccessState(0);
-      setTimeout(() => {
-        if (typeof onBack === 'function') {
-          onBack();
-        } else {
-          setQuizActive(false);
-        }
-      }, 1500);
+      setTimeout(() => setQuizActive(false), 1500);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
+  const currentQ = questions[currentIdx];
 
   const s = {
     container: { minHeight: '100vh', backgroundColor: '#F8F9FA', padding: isMobile ? '15px' : '30px', fontFamily: '"Nunito", "Segoe UI", sans-serif' },
@@ -565,11 +562,10 @@ const FunQuizScreen = ({ onBack }) => {
     },
     bottomSection: { backgroundColor: 'white', borderRadius: '24px', padding: isMobile ? '20px' : '30px', border: '1px solid #eef2f3' },
     option: (optObj, isAnswered) => {
-      const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
+      const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
       const userPicked = currentQ?.user_selected_letter || selectedOption || storedAnswers[currentQ?.id];
-      const normalizedUserPicked = userPicked ? String(userPicked).trim().toUpperCase() : null;
       const isUserChoice = isAnswered
-        ? (String(optObj.letter).toUpperCase() === normalizedUserPicked)
+        ? (optObj.letter === userPicked)
         : (optObj.letter === selectedOption);
       const isActuallyCorrect = checkIfCorrect(optObj, currentQ);
 
@@ -749,45 +745,29 @@ const FunQuizScreen = ({ onBack }) => {
       <AnimatePresence>
         {submissionFeedback.show && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
             style={{
               position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-              backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-              zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+              backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
+              zIndex: 10000, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: '20px'
             }}
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 20 }}
-              style={{
-                backgroundColor: 'white', padding: '40px', borderRadius: '30px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.2)', display: 'flex',
-                flexDirection: 'column', alignItems: 'center', gap: '20px',
-                maxWidth: '400px', width: '90%'
-              }}
-            >
-              <div style={{ padding: '25px', borderRadius: '50%', backgroundColor: '#dcfce7', border: '3px solid #22c55e' }}>
-                <CheckCircle size={60} color="#15803d" />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <h1 style={{ fontSize: '28px', fontWeight: '1000', color: '#0B1E3F', margin: '0 0 10px 0' }}>Success!</h1>
-                <p style={{ fontSize: '18px', fontWeight: '900', color: '#15803d', margin: 0 }}>+{submissionFeedback.points} REP Points Earned</p>
-                <div style={{ marginTop: '20px', fontSize: '14px', color: '#64748b', fontWeight: '800' }}>Returning to dashboard...</div>
-              </div>
-            </motion.div>
+            <div style={{ padding: '30px', borderRadius: '40px', backgroundColor: '#dcfce7', border: '2px solid #22c55e' }}>
+              <CheckCircle size={80} color="#15803d" />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <h1 style={{ fontSize: '32px', fontWeight: '1000', color: '#0B1E3F', margin: '0 0 8px 0' }}>Success!</h1>
+              <p style={{ fontSize: '18px', fontWeight: '800', color: '#15803d', margin: 0 }}>+{submissionFeedback.points} REP Points Stored</p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {!quizActive && (
-        <>
-          <div style={{ marginBottom: '20px' }}>
-            <BackButton onClick={onBack} />
-          </div>
-          <div style={s.layout}>
+        <div style={s.layout}>
             {/* LEFT COLUMN: HERO + PAST QUIZZES */}
           <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '25px' }}>
             {/* HERO SECTION */}
@@ -810,7 +790,7 @@ const FunQuizScreen = ({ onBack }) => {
 
                   <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }}>Points Remaining</div>
-                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{isQuizCompleted ? 0 : questions.filter(q => !q.has_answered).reduce((sum, q) => sum + (q.points_reward || 0), 0)}</div>
+                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{questions.filter(q => !q.has_answered).reduce((sum, q) => sum + (q.points_reward || 0), 0)}</div>
                   </div>
 
                   {/* Session score calculation */}
@@ -821,30 +801,19 @@ const FunQuizScreen = ({ onBack }) => {
                       <>
                         <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e40af', textTransform: 'uppercase' }}>Overall Score</div>
-                          <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{userLifetimeScore}</div>
+                          <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{userLifetimeScore + newSessionPoints}</div>
                         </div>
 
-                        <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: '900', color: '#15803d', textTransform: 'uppercase' }}>Session Score</div>
                           <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{sessionScoreForDisplay}</div>
                         </div>
-
                       </>
                     );
                   })()}
                 </div>
 
-                <button
-                  onClick={handleStartToday}
-                  style={{
-                    ...s.heroBtn,
-                    marginTop: '25px',
-                    backgroundColor: '#0d676c',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Start Quiz
-                </button>
+                <button onClick={handleStartToday} style={{ ...s.heroBtn, marginTop: '25px' }}>Start Quiz</button>
               </div>
 
               {/* Default Monster Graphic for Landing */}
@@ -855,7 +824,6 @@ const FunQuizScreen = ({ onBack }) => {
 
           {renderedLeaderboard}
         </div>
-        </>
       )}
 
       {/* BRAIN TEASER / QUIZ AREA (NEW SCREEN) */}
@@ -952,16 +920,10 @@ const FunQuizScreen = ({ onBack }) => {
                         {currentQ.previous_result === 'correct' ?
                           'Excellent! You answered this correctly.' :
                           (() => {
-                            const storedAnswers = JSON.parse(localStorage.getItem(getQuizStorageKey()) || '{}');
+                            const storedAnswers = JSON.parse(localStorage.getItem('quiz_user_answers') || '{}');
                             const userPicked = currentQ.user_selected_letter || selectedOption || storedAnswers[currentQ.id];
-                            const normalizedPicked = userPicked ? String(userPicked).trim().toUpperCase() : null;
-                            const opt = currentQ.options.find(o =>
-                              String(o.letter).toUpperCase() === normalizedPicked ||
-                              String(o.text).trim().toLowerCase() === String(userPicked || '').trim().toLowerCase()
-                            );
-                            const displayLetter = opt ? opt.letter : (normalizedPicked || 'Unknown');
-                            const displayText = opt ? ` - ${opt.text}` : '';
-                            return `Incorrect. You selected: ${displayLetter}${displayText}. The correct answer was: ${formatCorrectAnswerText(currentQ)}`;
+                            const opt = currentQ.options.find(o => o.letter === userPicked);
+                            return `Incorrect. You selected: Option ${userPicked || 'Unknown'}${opt ? ' - ' + opt.text : ''}. The correct answer was: ${formatCorrectAnswerText(currentQ)}`;
                           })()}
                       </span>
                     </div>

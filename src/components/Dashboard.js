@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { safeSetItem } from '../context/AuthContext';
-import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
+
 
 const Dashboard = ({ setActiveTab }) => {
   const { user } = useAuth();
@@ -685,7 +685,7 @@ const Dashboard = ({ setActiveTab }) => {
 
       if (res.ok) {
         const responseData = await res.json().catch(() => ({}));
-        setNotificationFeedback('✅ Tasks saved to database!');
+        setNotificationFeedback('✅ Task Updated Successfully!');
         setTimeout(() => fetchTaskHistory(), 1000);
       } else {
         const errText = await res.text();
@@ -1086,7 +1086,7 @@ const Dashboard = ({ setActiveTab }) => {
           </div>
         )}
       </div>
-      <SaturdayRequirementsPopover />
+
       {/* Finalize Task Modal */}
       <AnimatePresence>
         {showFinalizeModal && (

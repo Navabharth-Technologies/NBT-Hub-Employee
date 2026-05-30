@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
-import SaturdayRequirementsPopover from './SaturdayRequirementsPopover';
 
 // Resolve relative media paths (video/PDF) to absolute using the API base URL
 // Automatically corrects hardcoded localhost references to match the BASE_URL host

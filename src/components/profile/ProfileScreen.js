@@ -473,7 +473,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   };
 
   const validatePassword = (password) => {
-    return password && password.length === 6;
+    return password && password.length >= 6;
   };
 
   const handleResetWithOTP = async () => {
@@ -481,7 +481,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     if (!passData.otp || !passData.new || !passData.confirm) return setModalError('All fields required');
     if (passData.new !== passData.confirm) return setModalError('Passwords do not match');
     if (!validatePassword(passData.new)) {
-      return setModalError('Password must be exactly 6 characters.');
+      return setModalError('Password must be at least 6 characters.');
     }
 
     try {
@@ -513,7 +513,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     if (!passData.old || !passData.new || !passData.confirm) return setModalError('All fields required');
     if (passData.new !== passData.confirm) return setModalError('Passwords do not match');
     if (!validatePassword(passData.new)) {
-      return setModalError('Password must be exactly 6 characters.');
+      return setModalError('Password must be at least 6 characters.');
     }
 
     try {

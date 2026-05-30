@@ -676,7 +676,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
             <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '10px' }}><ShieldCheck size={18} color="#2260ff" /></div>
             <div>
               <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>VERIFIED BY</div>
-              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>Biometric API</div>
+              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e293b' }}>Biometric</div>
             </div>
           </div>
         </div>
