@@ -762,11 +762,11 @@ const Dashboard = ({ setActiveTab }) => {
     grid: { display: 'flex', flexDirection: 'column', gap: winWidth < 768 ? '12px' : '25px' },
     mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
     mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 1200 ? '1fr' : '1.1fr 1fr', gap: '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
-    yesterdayBox: { backgroundColor: '#ebf9f1', borderRadius: '30px', padding: '22px' },
+    taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
+    yesterdayBox: { backgroundColor: '#ebf9f1', borderRadius: '35px', padding: winWidth < 768 ? '20px' : '30px', minHeight: '120px' },
     yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontWeight: '1000', fontSize: '16px', marginBottom: '12px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: 'white', borderRadius: '30px', padding: '22px', border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px' },
+    todayBox: { backgroundColor: 'white', borderRadius: '35px', padding: winWidth < 768 ? '20px' : '30px', border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px', minHeight: '120px' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' },
     todayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#1E40AF', fontWeight: '1000', fontSize: '16px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
@@ -859,49 +859,63 @@ const Dashboard = ({ setActiveTab }) => {
 
 
         <div style={s.taskGrid}>
-                <div 
-                  onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                  style={{ ...s.yesterdayBox, cursor: 'pointer', position: 'relative' }}
-                >
+                <div style={{ ...s.yesterdayBox, position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={s.yesterdayLabel}>
                       <CheckCircle2 size={20} color="#16a34a" /> Yesterday
                     </div>
-                    {yesterdayTasks.length > 0 && (
-                      <div style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Clock size={12} />
-                        {(() => {
-                           // Use the MOST RECENT task's ID for the card timing
-                           const validTs = yesterdayTasks
-                             .map(t => typeof t === 'object' ? Number(t.id) : null)
-                             .filter(id => !isNaN(id) && id > 1000000000000);
-                           const latestId = validTs.length > 0 ? Math.max(...validTs) : null;
-                           return latestId
-                             ? new Date(latestId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                             : '';
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0' }}>
-                    {yesterdayTasks.slice(0, 3).map((t, i) => {
-                      const taskId = typeof t === 'object' ? Number(t.id) : null;
-                      const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
-                        ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                        : '';
-                      return (
-                        <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
-                          <CheckCircle2 size={12} color="#16a34a" />
-                          <span style={{ fontSize: '12px', color: '#475569' }}>
-                            {typeof t === 'string' ? t : t.text} 
-                            {timeStr && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>({timeStr})</span>}
-                          </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {yesterdayTasks.length > 0 && (
+                        <div style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Clock size={12} />
+                          {(() => {
+                             const validTs = yesterdayTasks
+                               .map(t => typeof t === 'object' ? Number(t.id) : null)
+                               .filter(id => !isNaN(id) && id > 1000000000000);
+                             const latestId = validTs.length > 0 ? Math.max(...validTs) : null;
+                             return latestId
+                               ? new Date(latestId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                               : '';
+                          })()}
                         </div>
-                      );
-                    })}
-                    {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
+                      )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
+                        style={{ ...s.editBtn, background: '#ebf9f1', border: '1.5px solid #bbf7d0', color: '#16a34a', padding: '6px 14px' }}
+                      >
+                        View All
+                      </button>
+                    </div>
                   </div>
-                  <div style={{...s.statusBadge, background: '#ebf9f1', color: '#16a34a' }}>{yesterdayStatus}</div>
+                  
+                  {yesterdayTasks.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0', flex: 1 }}>
+                      {yesterdayTasks.slice(0, 3).map((t, i) => {
+                        const taskId = typeof t === 'object' ? Number(t.id) : null;
+                        const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
+                          ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                          : '';
+                        return (
+                          <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
+                            <CheckCircle2 size={12} color="#16a34a" />
+                            <span style={{ fontSize: '12px', color: '#475569' }}>
+                              {typeof t === 'string' ? t : t.text} 
+                              {timeStr && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>({timeStr})</span>}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#16a34a', fontWeight: '800', fontSize: '14px', opacity: 0.9 }}>
+                      No data on yesterday
+                    </div>
+                  )}
+
+                  {yesterdayTasks.length > 0 && yesterdayStatus !== 'No Data' && (
+                    <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a', marginTop: 'auto' }}>{yesterdayStatus}</div>
+                  )}
                 </div>
 
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
