@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Cake, ChevronLeft, RefreshCcw } from 'lucide-react';
+import { Cake, ChevronLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
-import BackButton from './BackButton';
 
 const BirthdayScreen = ({ onBack }) => {
   const { user } = useAuth();
@@ -290,14 +289,27 @@ const BirthdayScreen = ({ onBack }) => {
 
   return (
     <div style={s.container}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-        <BackButton onClick={onBack} />
-      </div>
-
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
-        <div style={s.syncStatus}>
-          <RefreshCcw size={14} /> Data Synced With NBT Hub Profiles
-        </div>
+        <button
+          onClick={onBack}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            padding: '8px',
+            borderRadius: '12px',
+            backgroundColor: '#f8fafc',
+            border: '1.5px solid #e2e8f0',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            outline: 'none'
+          }}
+        >
+          <ChevronLeft size={20} color="#0B1E3F" strokeWidth={2.5} />
+        </button>
         <div style={s.cakeIcon}>
           <Cake size={32} strokeWidth={1.5} />
         </div>
