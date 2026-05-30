@@ -909,12 +909,12 @@ const Dashboard = ({ setActiveTab }) => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#16a34a', fontWeight: '800', fontSize: '14px', opacity: 0.9 }}>
-                      No data on yesterday
+                      No Report on Yesterday
                     </div>
                   )}
 
                   {yesterdayTasks.length > 0 && yesterdayStatus !== 'No Data' && (
-                    <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a', marginTop: 'auto' }}>{yesterdayStatus}</div>
+                    <div style={{...s.statusBadge, background: '#ebf9f1', color: '#16a34a', marginTop: 'auto' }}>{yesterdayStatus}</div>
                   )}
                 </div>
 
