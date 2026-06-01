@@ -74,12 +74,12 @@ const BirthdayScreen = ({ onBack }) => {
             list.forEach(item => {
               // Ensure we pick up the best available date (prefer date_of_birth for profile-synced DOBs)
               const bestDate = item.date_of_birth || item.dob || item.dateOfBirth || item.date || item.birthday;
-              const personName = item.name || item.emp_name || item.employee_name;
-              if (bestDate && personName && !combinedData.some(p => (p.name || '').toLowerCase() === (personName || '').toLowerCase())) {
+              const personName = item.name || item.emp_name || item.employee_name || item.userName;
+              if (personName && !combinedData.some(p => (p.name || '').toLowerCase() === (personName || '').toLowerCase())) {
                 combinedData.push({
                   ...item,
                   name: personName,
-                  date: bestDate
+                  date: bestDate || null
                 });
               }
             });
@@ -93,22 +93,26 @@ const BirthdayScreen = ({ onBack }) => {
       if (user) {
         const myName = user.name || user.employee_name || user.emp_name;
         const myDob = user.date_of_birth || user.dob || user.dateOfBirth;
-        if (myName && myDob) {
+        if (myName) {
           combinedData = combinedData.filter(p => (p.name || '').toLowerCase() !== myName.toLowerCase());
           combinedData.push({
             ...user,
             name: myName,
-            date: myDob
+            date: myDob || null
           });
         }
       }
 
 
 
-      // SORTING LOGIC: Passed Birthdays First (Jan-Dec chronological order)
+      // SORTING LOGIC: Passed Birthdays First (Jan-Dec chronological order), Missing Birthdays at the end
       const sorted = combinedData.sort((a, b) => {
-        const d1 = parseSafe(a.date || a.dob);
-        const d2 = parseSafe(b.date || b.dob);
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+
+        const d1 = parseSafe(a.date);
+        const d2 = parseSafe(b.date);
         if (d1.getMonth() !== d2.getMonth()) return d1.getMonth() - d2.getMonth();
         return d1.getDate() - d2.getDate();
       });
@@ -137,6 +141,7 @@ const BirthdayScreen = ({ onBack }) => {
 
 
   const getStatus = (dateStr) => {
+    if (!dateStr) return 'Not Added';
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const bDate = parseSafe(dateStr);
@@ -270,8 +275,8 @@ const BirthdayScreen = ({ onBack }) => {
       borderRadius: '12px',
       fontSize: '10px',
       fontWeight: '1000',
-      backgroundColor: status === 'Today' ? '#e11d48' : status === 'Upcoming' ? '#FDB913' : '#f1f5f9',
-      color: status === 'Today' ? 'white' : status === 'Upcoming' ? '#0B1E3F' : '#94a3b8',
+      backgroundColor: status === 'Today' ? '#e11d48' : status === 'Upcoming' ? '#FDB913' : status === 'Not Added' ? '#f1f5f9' : '#f8fafc',
+      color: status === 'Today' ? 'white' : status === 'Upcoming' ? '#0B1E3F' : status === 'Not Added' ? '#94a3b8' : '#64748b',
       letterSpacing: '0.8px'
     })
   };

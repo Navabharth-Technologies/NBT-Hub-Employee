@@ -267,7 +267,12 @@ const Dashboard = ({ setActiveTab }) => {
       }
 
       // Integrated Birthdays API Suite (Strictly following user endpoints)
-      const bEndpoints = [`${BASE_URL}/api/birthdays`, `${BASE_URL}/api/birthday-list`, `${BASE_URL}/api/employees/birthdays`];
+      const bEndpoints = [
+        `${BASE_URL}/api/users`,
+        `${BASE_URL}/api/birthdays`,
+        `${BASE_URL}/api/birthday-list`,
+        `${BASE_URL}/api/employees/birthdays`
+      ];
       let bData = [];
       for (const ep of bEndpoints) {
         try {
@@ -278,13 +283,28 @@ const Dashboard = ({ setActiveTab }) => {
             console.log(`[DOB Flow] Dashboard received raw data from ${ep}:`, raw);
             const list = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
             list.forEach(item => {
-              const bestDate = item.dob || item.dateOfBirth || item.date || item.birthday;
-              if (bestDate && !bData.some(p => (p.name || '').toLowerCase() === (item.name || '').toLowerCase())) {
-                bData.push({ ...item, date: bestDate });
+              const bestDate = item.date_of_birth || item.dob || item.dateOfBirth || item.date || item.birthday;
+              const personName = item.name || item.emp_name || item.employee_name;
+              if (bestDate && personName && !bData.some(p => (p.name || '').toLowerCase() === (personName || '').toLowerCase())) {
+                bData.push({ ...item, name: personName, date: bestDate });
               }
             });
           }
         } catch (e) {}
+      }
+
+      // Ensure the current user is always included with their latest profile DOB
+      if (user) {
+        const myName = user.name || user.employee_name || user.emp_name;
+        const myDob = user.date_of_birth || user.dob || user.dateOfBirth;
+        if (myName && myDob) {
+          bData = bData.filter(p => (p.name || '').toLowerCase() !== myName.toLowerCase());
+          bData.push({
+            ...user,
+            name: myName,
+            date: myDob
+          });
+        }
       }
 
       const [hRes, njRes] = await Promise.allSettled([
