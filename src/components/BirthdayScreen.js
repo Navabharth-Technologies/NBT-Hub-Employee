@@ -75,12 +75,21 @@ const BirthdayScreen = ({ onBack }) => {
               // Ensure we pick up the best available date (prefer date_of_birth for profile-synced DOBs)
               const bestDate = item.date_of_birth || item.dob || item.dateOfBirth || item.date || item.birthday;
               const personName = item.name || item.emp_name || item.employee_name || item.userName;
-              if (personName && !combinedData.some(p => (p.name || '').toLowerCase() === (personName || '').toLowerCase())) {
-                combinedData.push({
-                  ...item,
-                  name: personName,
-                  date: bestDate || null
-                });
+              
+              if (personName) {
+                const existingIndex = combinedData.findIndex(p => (p.name || '').toLowerCase() === personName.toLowerCase());
+                if (existingIndex !== -1) {
+                  // If we already have this person but they don't have a date yet, and we just found one
+                  if (!combinedData[existingIndex].date && bestDate) {
+                    combinedData[existingIndex].date = bestDate;
+                  }
+                } else {
+                  combinedData.push({
+                    ...item,
+                    name: personName,
+                    date: bestDate || null
+                  });
+                }
               }
             });
           }
@@ -315,6 +324,7 @@ const BirthdayScreen = ({ onBack }) => {
                     <div style={s.dateLine}>
                       <Cake size={14} color="#FDB913" />
                       {(() => {
+                        if (!person.date) return 'Not Added';
                         const d = parseSafe(person.date);
                         const day = String(d.getDate()).padStart(2, '0');
                         const month = String(d.getMonth() + 1).padStart(2, '0');
