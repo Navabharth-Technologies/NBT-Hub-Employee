@@ -63,6 +63,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         const handleResize = () => setWinWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
         fetchCourses();
+        fetchProgress();
         return () => window.removeEventListener('resize', handleResize);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -83,6 +84,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             if (saved) {
                 setCourseProgressMap(JSON.parse(saved));
             }
+            fetchProgress();
         }
     }, [lsKey, user]);
 
@@ -175,6 +177,105 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCourse, isVideoDone, isPdfDone, lastCompletedCourseId]);
+
+    const fetchProgress = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!uid || uid === 'anonymous' || uid === 'unknown') return;
+
+            // Fetch from user_courses table (primary) and courses/progress (fallback)
+            const [ucRes, cpRes] = await Promise.all([
+                fetch(`${API_ENDPOINTS.USER_COURSES}?userId=${uid}`, {
+                    headers: { 'Authorization': `Bearer ${token?.trim()}` }
+                }).catch(() => null),
+                fetch(`${API_ENDPOINTS.COURSE_PROGRESS}?userId=${uid}`, {
+                    headers: { 'Authorization': `Bearer ${token?.trim()}` }
+                }).catch(() => null)
+            ]);
+
+            const map = {};
+
+            // Parse user_courses data (has completion_date and verified)
+            if (ucRes && ucRes.ok) {
+                try {
+                    const ucResult = await ucRes.json();
+                    const ucData = ucResult.data || ucResult;
+                    const ucList = Array.isArray(ucData) ? ucData : (ucData && typeof ucData === 'object' ? Object.values(ucData) : []);
+                    ucList.forEach(item => {
+                        const cid = item.courseId || item.course_id || item.id;
+                        if (cid) {
+                            const completed = item.completed === 1 || item.completed === true;
+                            map[cid] = {
+                                ...map[cid],
+                                ...item,
+                                progress: completed ? 100 : (item.progress || 0),
+                                videoDone: completed ? true : (item.videoDone || false),
+                                pdfDone: completed ? true : (item.pdfDone || false),
+                                videoProgress: completed ? 100 : (item.videoProgress || 0),
+                                completion_date: item.completion_date || item.completed_at || item.completed_date || item.completionDate || null,
+                                verified: item.verified ?? item.is_verified ?? item.verified_status ?? null,
+                                verified_at: item.verified_at || item.verified_date || null
+                            };
+                        }
+                    });
+                } catch (e) {
+                    console.warn('user_courses parse error:', e);
+                }
+            }
+
+            // Parse course progress data (merge with existing)
+            if (cpRes && cpRes.ok) {
+                try {
+                    const cpResult = await cpRes.json();
+                    const cpData = cpResult.data || cpResult;
+                    if (Array.isArray(cpData)) {
+                        cpData.forEach(item => {
+                            const cid = item.courseId || item.course_id;
+                            if (cid) {
+                                const completed = item.completed === 1 || item.completed === true || item.progress >= 100;
+                                map[cid] = {
+                                    videoDone: completed,
+                                    pdfDone: completed,
+                                    videoProgress: completed ? 100 : 0,
+                                    ...item,
+                                    ...map[cid], // user_courses data takes priority
+                                    progress: map[cid]?.progress ?? (completed ? 100 : (item.progress || 0)),
+                                    completion_date: map[cid]?.completion_date || item.completion_date || item.completed_at || item.completed_date || null,
+                                    verified: map[cid]?.verified ?? item.verified ?? item.is_verified ?? null
+                                };
+                            }
+                        });
+                    } else if (cpData && typeof cpData === 'object') {
+                        Object.keys(cpData).forEach(key => {
+                            const completed = cpData[key]?.completed === 1 || cpData[key]?.completed === true || cpData[key]?.progress >= 100;
+                            map[key] = {
+                                videoDone: completed,
+                                pdfDone: completed,
+                                videoProgress: completed ? 100 : 0,
+                                ...cpData[key],
+                                ...map[key],
+                                progress: map[key]?.progress ?? (completed ? 100 : (cpData[key]?.progress || 0)),
+                                completion_date: map[key]?.completion_date || cpData[key]?.completion_date || cpData[key]?.completed_at || null,
+                                verified: map[key]?.verified ?? cpData[key]?.verified ?? null
+                            };
+                        });
+                    }
+                } catch (e) {
+                    console.warn('course_progress parse error:', e);
+                }
+            }
+
+            console.log("Synchronized Employee Progress Map:", map);
+            // Merge with local storage progress map so we preserve local items
+            setCourseProgressMap(prev => {
+                const merged = { ...prev, ...map };
+                localStorage.setItem(lsKey, JSON.stringify(merged));
+                return merged;
+            });
+        } catch (err) {
+            console.error('Progress Synchronization Error:', err);
+        }
+    };
 
     const fetchCourses = async () => {
         try {

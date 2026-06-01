@@ -10,25 +10,24 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { API_ENDPOINTS, BASE_URL } from '../config';
-import BackButton from './BackButton';
 
 const EMOJI_LIST = ['❤️', '👍', '😮', '😂', '🔥', '👏', '🎂'];
 
-export default function ThreadScreen({ onBack }) {
+export default function ThreadScreen() {
     const navigate = useNavigate();
     const { threads, unreadCount, loading, clearNotifications, addPost, deletePost, updatePost, deleteComment, updateComment, toggleReaction, toggleBadge, addComment, fetchComments, fetchReactors } = useThread();
     const { user } = useAuth();
-    
+    const currentUserId = user?.id || user?.userId || user?.empId || user?.employee_id;
+
     const [tagline, setTagline] = useState('');
     const [newPost, setNewPost] = useState('');
     const [mediaFile, setMediaFile] = useState(null);
-    const [mediaType, setMediaType] = useState(null); 
+    const [mediaType, setMediaType] = useState(null);
     const [mediaPreview, setMediaPreview] = useState(null);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef(null);
 
     const [activeEmojiPicker, setActiveEmojiPicker] = useState(null);
-    const [emojiPickerPos, setEmojiPickerPos] = useState({ top: 0, left: 0 });
     const [activeCommentPost, setActiveCommentPost] = useState(null);
     const [flyingEmoji, setFlyingEmoji] = useState(null);
     const [userProfiles, setUserProfiles] = useState({});
@@ -43,6 +42,19 @@ export default function ThreadScreen({ onBack }) {
     const isTablet = winWidth < 1024;
     const [reactorModal, setReactorModal] = useState(null); // { postId, emoji, users, count }
     const [loadingReactors, setLoadingReactors] = useState(false);
+    const [fullscreenMedia, setFullscreenMedia] = useState(null); // { src, type }
+    const [errorNotif, setErrorNotif] = useState(null); // { message }
+
+    const [editMediaFile, setEditMediaFile] = useState(null);
+    const [editMediaType, setEditMediaType] = useState(null);
+    const [editMediaPreview, setEditMediaPreview] = useState(null);
+    const [editRemoveMedia, setEditRemoveMedia] = useState(false);
+    const editFileInputRef = useRef(null);
+
+    const showError = (message) => {
+        setErrorNotif({ message });
+        setTimeout(() => setErrorNotif(null), 4000);
+    };
 
     useEffect(() => {
         fetchProfiles();
@@ -88,12 +100,21 @@ export default function ThreadScreen({ onBack }) {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const handleEditFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setEditMediaFile(file);
+        setEditMediaType(file.type.startsWith('video') ? 'video' : 'image');
+        setEditMediaPreview(URL.createObjectURL(file));
+        setEditRemoveMedia(false);
+    };
+
     const handlePost = async () => {
         if (!newPost.trim() && !mediaFile) return;
         setUploading(true);
         try {
             await addPost({
-                userId: user?.id,
+                userId: currentUserId,
                 user: user?.name || 'User',
                 role: user?.role?.toUpperCase() || 'EMPLOYEE',
                 tagline: tagline,
@@ -111,34 +132,17 @@ export default function ThreadScreen({ onBack }) {
         }
     };
 
-    const onToggleLike = async (id, type = 'like') => await toggleReaction(id, user?.id, type);
-    const onToggleBadge = async (id) => await toggleBadge(id, user?.id);
+    const onToggleLike = async (id, type = 'like') => await toggleReaction(id, currentUserId, type);
 
     const [commentText, setCommentText] = useState('');
     const handleAddComment = async (id) => {
         if (!commentText.trim()) return;
-        const textToSubmit = commentText;
-        setCommentText('');
-
-        // Optimistic UI Update: immediately append new comment
-        const tempId = 'temp-' + Date.now();
-        const optimisticComment = {
-            id: tempId,
-            userId: user?.id,
-            user_id: user?.id,
-            userName: user?.name || 'User',
-            content: textToSubmit,
-            createdAt: new Date().toISOString()
-        };
-
-        setPostComments(prev => ({
-            ...prev,
-            [id]: [...(prev[id] || []), optimisticComment]
-        }));
-
-        await addComment(id, user?.id, user?.name || 'User', textToSubmit);
-        const comments = await fetchComments(id);
-        setPostComments(prev => ({ ...prev, [id]: comments }));
+        const success = await addComment(id, currentUserId, user?.name || 'User', commentText);
+        if (success) {
+            setCommentText('');
+            const comments = await fetchComments(id);
+            setPostComments(prev => ({ ...prev, [id]: comments }));
+        }
     };
 
     const handleOpenComments = async (postId) => {
@@ -155,26 +159,28 @@ export default function ThreadScreen({ onBack }) {
         const y = e.clientY;
         setFlyingEmoji({ emoji, x, y, postId: id });
         setActiveEmojiPicker(null);
-        
+
         // Emotional Reaction - Distinct from the footer 'Like' action
-        onToggleLike(id, emoji); 
-        
+        onToggleLike(id, emoji);
+
         setTimeout(() => setFlyingEmoji(null), 3500);
     };
 
     const formatTime = (ts) => {
-        if (!ts) return ''; 
+        if (!ts) return '';
         // Use YYYY/MM/DD format to force local time interpretation across all browsers
         const d = new Date(typeof ts === 'string' ? ts.replace(/-/g, '/').replace('T', ' ').split('.')[0] : ts);
-        if (isNaN(d.getTime())) return '...'; 
-        
-        return d.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        if (isNaN(d.getTime())) return '...';
+
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+
+        return `${day}/${month}/${year} ${displayHours}:${minutes} ${ampm}`;
     };
 
     const openReactorsModal = async (post, emoji) => {
@@ -185,9 +191,9 @@ export default function ThreadScreen({ onBack }) {
         const dynamicCount = cachedData.length > 0 ? cachedData.length : fallbackCount;
 
         // Open modal immediately with cached/count data
-        setReactorModal({ 
-            postId: post.id, 
-            emoji: emoji === 'like' ? '❤️' : emoji, 
+        setReactorModal({
+            postId: post.id,
+            emoji: emoji === 'like' ? '❤️' : emoji,
             users: cachedData,
             count: dynamicCount
         });
@@ -205,31 +211,31 @@ export default function ThreadScreen({ onBack }) {
             if (liveUsers && liveUsers.length > 0) {
                 setReactorModal(prev => prev ? { ...prev, users: liveUsers, count: liveUsers.length } : null);
             }
-        } catch {}
+        } catch { }
         setLoadingReactors(false);
     };
 
     const styles = {
-        container: { minHeight: '100vh', backgroundColor: 'transparent', display: 'flex', flexDirection: 'column', gap: isMobile ? '12px' : '20px', padding: isMobile ? '15px 15px 120px 15px' : (isTablet ? '25px 25px 150px 25px' : '40px 40px 150px 40px'), maxWidth: '100%', margin: '0', boxSizing: 'border-box' },
+        container: { minHeight: '100vh', backgroundColor: 'transparent', display: 'flex', flexDirection: 'column', gap: isMobile ? '12px' : '20px', padding: isMobile ? '15px 20px' : (isTablet ? '25px 50px' : '40px 100px'), maxWidth: '100%', margin: '0', boxSizing: 'border-box' },
         card: { backgroundColor: 'white', borderRadius: isMobile ? '25px' : '40px', padding: isMobile ? '20px' : '30px', boxShadow: '0 10px 40px rgba(0,0,0,0.04)', border: '1px solid #eef2f6' },
-        tagInput: { width: '100%', padding: '12px 20px', borderRadius: '15px', border: '1.5px solid #f1f5f9', background: '#f8fafc', fontSize: isMobile ? '12px' : '14px', fontWeight: '900', color: '#315A9E', outline: 'none', marginBottom: '12px' },
-        mainInput: { width: '100%', padding: isMobile ? '15px' : '20px', borderRadius: '20px', border: '1.5px solid #f1f5f9', background: '#f8fafc', fontSize: isMobile ? '14px' : '16px', fontWeight: '600', color: '#0B1E3F', outline: 'none', resize: 'none', minHeight: isMobile ? '80px' : '100px' },
+        tagInput: { width: '100%', padding: isMobile ? '10px 15px' : '12px 20px', borderRadius: '15px', border: '1.5px solid #f1f5f9', background: '#f8fafc', fontSize: isMobile ? '11px' : '14px', fontWeight: '900', color: '#315A9E', outline: 'none', marginBottom: '12px' },
+        mainInput: { width: '100%', padding: isMobile ? '12px' : '20px', borderRadius: '20px', border: '1.5px solid #f1f5f9', background: '#f8fafc', fontSize: isMobile ? '13px' : '16px', fontWeight: '600', color: '#0B1E3F', outline: 'none', resize: 'none', minHeight: isMobile ? '80px' : '100px' },
         mediaBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '12px', border: '1.5px solid #eef2f6', background: 'white', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: '800', color: '#64748b' },
-        postBtn: { padding: isMobile ? '10px 15px' : '12px 30px', backgroundColor: '#315A9E', color: 'white', border: 'none', borderRadius: '15px', fontWeight: '1000', cursor: 'pointer', fontSize: isMobile ? '9px' : '11px', textTransform: 'uppercase' },
-        threadCard: { backgroundColor: 'white', borderRadius: isMobile ? '25px' : '40px', padding: isMobile ? '20px' : '24px 30px', border: '1px solid #f1f5f9', position: 'relative', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '20px', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
+        postBtn: { padding: isMobile ? '10px 15px' : '12px 30px', backgroundColor: '#315A9E', color: 'white', border: 'none', borderRadius: '15px', fontWeight: '1000', cursor: 'pointer', fontSize: isMobile ? '10px' : '13px', textTransform: 'uppercase' },
+        threadCard: { backgroundColor: 'white', borderRadius: isMobile ? '25px' : '40px', padding: isMobile ? '15px 20px' : '24px 30px', border: '1.5px solid #CBD5E1', position: 'relative', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '20px', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
         taglineBadge: { display: 'inline-block', padding: '4px 10px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '8px' : '9px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', border: '1px solid #e0f2fe' },
         postMedia: { marginTop: '20px', borderRadius: '25px', overflow: 'hidden', border: '1.5px solid #f8fafc', maxHeight: isMobile ? '300px' : '380px', maxWidth: '100%', width: 'fit-content', backgroundColor: '#fdfdfd', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' },
-        footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '18px', marginTop: '20px', gap: isMobile ? '4px' : '10px', flexWrap: 'nowrap', overflow: 'visible', position: 'relative', zIndex: 10 },
-        action: (active, color) => ({ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: isMobile ? '4px' : '8px', 
-            color: active ? 'white' : color, 
+        footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '15px', marginTop: '15px', gap: isMobile ? '5px' : '10px', flexWrap: isMobile ? 'wrap' : 'nowrap' },
+        action: (active, color) => ({
+            display: 'flex',
+            alignItems: 'center',
+            gap: isMobile ? '4px' : '8px',
+            color: active ? 'white' : color,
             backgroundColor: active ? color : '#f8fafc',
-            padding: isMobile ? '6px 4px' : '8px 16px',
+            padding: isMobile ? '6px 8px' : '8px 16px',
             borderRadius: '12px',
-            fontSize: isMobile ? '9px' : (isTablet ? '11px' : '12px'), 
-            fontWeight: '900', 
+            fontSize: isMobile ? '9px' : (isTablet ? '11px' : '12px'),
+            fontWeight: '900',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             border: active ? `1.5px solid ${color}` : '1.5px solid #f1f5f9',
@@ -238,15 +244,18 @@ export default function ThreadScreen({ onBack }) {
             justifyContent: 'center'
         }),
         emojiPicker: {
-            position: 'fixed',
+            position: 'absolute',
+            bottom: '100%',
+            left: '0',
             backgroundColor: 'white',
             borderRadius: '20px',
-            padding: '12px 16px',
-            boxShadow: '0 15px 50px rgba(0,0,0,0.2)',
+            padding: '8px',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
             display: 'flex',
-            gap: '10px',
+            gap: '8px',
+            marginBottom: '10px',
             border: '1px solid #eef2f6',
-            zIndex: 99999
+            zIndex: 100
         },
         reactionBadge: {
             display: 'flex',
@@ -289,27 +298,27 @@ export default function ThreadScreen({ onBack }) {
                     animate={{ opacity: 1, scale: 1 }}
                     style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
                 >
-                    <motion.div 
+                    <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                        style={{ 
-                            width: '80px', 
-                            height: '80px', 
-                            border: '4px solid rgba(49, 90, 158, 0.1)', 
-                            borderTop: '4px solid #315A9E', 
+                        style={{
+                            width: '80px',
+                            height: '80px',
+                            border: '4px solid rgba(49, 90, 158, 0.1)',
+                            borderTop: '4px solid #315A9E',
                             borderRight: '4px solid #315A9E',
                             borderRadius: '50%',
                             boxShadow: '0 0 20px rgba(49, 90, 158, 0.1)'
-                        }} 
+                        }}
                     />
                     <motion.div
                         animate={{ opacity: [0.4, 1, 0.4] }}
                         transition={{ repeat: Infinity, duration: 2 }}
-                        style={{ 
-                            marginTop: '30px', 
-                            color: '#315A9E', 
-                            fontWeight: '900', 
-                            fontSize: '14px', 
+                        style={{
+                            marginTop: '30px',
+                            color: '#315A9E',
+                            fontWeight: '900',
+                            fontSize: '14px',
                             letterSpacing: '3px',
                             textTransform: 'uppercase'
                         }}
@@ -325,11 +334,11 @@ export default function ThreadScreen({ onBack }) {
         <div style={styles.container}>
             {/* CREATE THREAD */}
             <div style={{ ...styles.card, borderTop: '5px solid #FDB913' }}>
-                <input style={styles.tagInput} placeholder="Add a tagline..." value={tagline} onChange={e => setTagline(e.target.value)} />
-                <textarea style={styles.mainInput} placeholder="Share an update with the team..." value={newPost} onChange={e => setNewPost(e.target.value)} />
+                <input id="thread-tagline-input" style={styles.tagInput} placeholder="Add a tagline..." value={tagline} onChange={e => setTagline(e.target.value)} />
+                <textarea id="thread-content-input" style={styles.mainInput} placeholder="Share an update with the team..." value={newPost} onChange={e => setNewPost(e.target.value)} />
 
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} hidden accept="image/*,video/*" />
-                
+
                 <div style={{ display: 'flex', gap: '15px', marginTop: '15px', alignItems: 'center' }}>
                     <div style={styles.mediaBtn} onClick={() => fileInputRef.current?.click()}><ImageIcon size={18} color="#10b981" /> Photo</div>
                     <div style={styles.mediaBtn} onClick={() => fileInputRef.current?.click()}><Film size={18} color="#ef4444" /> Video</div>
@@ -342,7 +351,7 @@ export default function ThreadScreen({ onBack }) {
                 {mediaPreview && (
                     <div style={{ marginTop: '20px', position: 'relative', borderRadius: '25px', overflow: 'hidden', maxWidth: '400px' }}>
                         <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={clearMedia} />
-                        {mediaType === 'video' ? ( <video src={mediaPreview} controls style={{ width: '100%', display: 'block' }} /> ) : ( <img src={mediaPreview} alt="" style={{ width: '100%', display: 'block' }} /> )}
+                        {mediaType === 'video' ? (<video src={mediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={mediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
                     </div>
                 )}
             </div>
@@ -369,24 +378,23 @@ export default function ThreadScreen({ onBack }) {
                 const authorId = user?.id || user?.empId || user?.userId || user?.employee_id;
                 const uid = post.userId || post.user_id;
                 const ts = post.createdAt;
-                
+
                 const authorIdMatch = authorId && uid && String(authorId) === String(uid);
                 const nameMatch = (user?.name && (post.userName || post.user)) && (user.name === (post.userName || post.user));
                 const isAuthor = authorIdMatch || nameMatch;
-                
+
                 const isLead = user?.role === 'TEAMLEADER' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
                 const canManage = isAuthor;
                 const isEditing = editingPostId === post.id;
                 const pLiked = post.userHasLiked || false;
-                const pBadged = post.userHasBadged || false;
+                const activeReaction = pLiked ? '❤️' : Object.keys(post.userReactions || {}).find(k => post.userReactions[k] === true);
                 const likeCount = post.likeCount || 0;
-                const badgeCount = post.badgeCount || 0;
                 const commentCount = post.commentCount || 0;
 
                 return (
                     <div key={post.id} style={styles.threadCard}>
                         {post.tagline && <div style={styles.taglineBadge}>{post.tagline}</div>}
-                        
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div style={{ display: 'flex', gap: '15px' }}>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '15px', backgroundColor: '#0B1E3F', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(11, 30, 63, 0.15)' }}>
@@ -397,29 +405,36 @@ export default function ThreadScreen({ onBack }) {
                                             const src = pic.startsWith('http') ? pic : `${BASE_URL}${pic.startsWith('/') ? pic : '/' + pic}`;
                                             return <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />;
                                         }
-                                        return (profile?.name || post.userName || post.user || '?').charAt(0).toUpperCase();
+                                        return (profile?.name || post.user_name || post.userName || post.user || '?').charAt(0).toUpperCase();
                                     })()}
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                    <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>{userProfiles[uid]?.name || post.userName || post.user || 'Collaborator'}</div>
-                                    <div style={{ fontSize: '10px', color: '#315A9E', fontWeight: '900', textTransform: 'uppercase', marginTop: '2px', letterSpacing: '0.5px' }}>{userProfiles[uid]?.role || post.role || 'Member'} • {formatTime(ts)}</div>
+                                    <div style={{ fontSize: isMobile ? '13px' : '15px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>{userProfiles[uid]?.name || post.user_name || post.userName || post.user || 'Collaborator'}</div>
+                                    <div style={{ fontSize: isMobile ? '9px' : '10px', color: '#315A9E', fontWeight: '900', textTransform: 'uppercase', marginTop: '2px', letterSpacing: '0.5px' }}>
+                                        {userProfiles[uid]?.role || post.role || 'Member'} •
+                                        {(post.emp_id || post.empId || uid) && ` ID: ${post.emp_id || post.empId || uid} • `}
+                                        {formatTime(ts)}
+                                    </div>
                                 </div>
                             </div>
 
                             {canManage && (
                                 <div style={{ display: 'flex', gap: '5px' }}>
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setEditingPostId(post.id);
                                             setEditContent(post.content);
-                                        }} 
+                                            setEditMediaFile(null);
+                                            setEditMediaPreview(null);
+                                            setEditRemoveMedia(false);
+                                        }}
                                         style={{ border: 'none', background: '#f8fafc', color: '#315A9E', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Edit post"
                                     >
                                         <Edit3 size={16} />
                                     </button>
-                                    <button 
-                                        onClick={() => deletePost(post.id)} 
+                                    <button
+                                        onClick={() => deletePost(post.id)}
                                         style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Delete post"
                                     >
@@ -429,26 +444,84 @@ export default function ThreadScreen({ onBack }) {
                             )}
                         </div>
 
-                        <div style={{ marginTop: '14px', fontSize: '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ marginTop: '14px', fontSize: isMobile ? '13px' : '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
                             {isEditing ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <textarea 
+                                    <textarea
+                                        id={`thread-edit-content-input-${post.id}`}
+                                        autoFocus
+                                        onFocus={(e) => {
+                                            const val = e.target.value;
+                                            e.target.value = '';
+                                            e.target.value = val;
+                                        }}
                                         style={{ ...styles.mainInput, minHeight: '80px', padding: '15px' }}
                                         value={editContent}
                                         onChange={(e) => setEditContent(e.target.value)}
                                     />
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <button 
-                                            onClick={() => {
-                                                updatePost(post.id, editContent);
-                                                setEditingPostId(null);
+
+                                    <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <div style={styles.mediaBtn} onClick={() => editFileInputRef.current?.click()}>
+                                            <ImageIcon size={18} color="#10b981" /> Replace Photo/Video
+                                        </div>
+                                        {(editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia && (
+                                            <div style={{ ...styles.mediaBtn, color: '#ef4444' }} onClick={() => { setEditRemoveMedia(true); setEditMediaFile(null); setEditMediaPreview(null); }}>
+                                                <Trash2 size={18} color="#ef4444" /> Remove Media
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {(editMediaPreview && !editRemoveMedia) && (
+                                        <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
+                                            <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
+                                            {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
+                                        </div>
+                                    )}
+
+                                    {(!editMediaPreview && !editRemoveMedia) && (() => {
+                                        const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
+                                        if (!mediaPath || typeof mediaPath !== 'string') return null;
+                                        const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
+                                        let src = mediaPath;
+                                        if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
+                                            const separator = mediaPath.startsWith('/') ? '' : '/';
+                                            src = `${BASE_URL}${separator}${mediaPath}`;
+                                        }
+                                        return (
+                                            <div style={{ marginTop: '10px', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px', opacity: 0.5 }}>
+                                                {isVideo ? (<video src={src} controls style={{ width: '100%', display: 'block' }} />) : (<img src={src} style={{ width: '100%', display: 'block' }} alt="" />)}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                                        <button
+                                            onClick={async () => {
+                                                const success = await updatePost(post.id, {
+                                                    content: editContent,
+                                                    file: editMediaFile,
+                                                    mediaType: editMediaType,
+                                                    removeMedia: editRemoveMedia
+                                                });
+                                                if (success) {
+                                                    setEditingPostId(null);
+                                                    setEditMediaFile(null);
+                                                    setEditMediaPreview(null);
+                                                    setEditRemoveMedia(false);
+                                                }
                                             }}
                                             style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
                                         >
                                             SAVE
                                         </button>
-                                        <button 
-                                            onClick={() => setEditingPostId(null)}
+                                        <button
+                                            onClick={() => {
+                                                setEditingPostId(null);
+                                                setEditMediaFile(null);
+                                                setEditMediaPreview(null);
+                                                setEditRemoveMedia(false);
+                                            }}
                                             style={{ background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
                                         >
                                             CANCEL
@@ -461,11 +534,11 @@ export default function ThreadScreen({ onBack }) {
                         </div>
 
                         {/* Support multiple field names and direct base64/relative URLs with type safety */}
-                        {(() => {
+                        {!isEditing && (() => {
                             const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
                             if (!mediaPath || typeof mediaPath !== 'string') return null;
                             const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
-                            
+
                             let src = mediaPath;
                             if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
                                 const separator = mediaPath.startsWith('/') ? '' : '/';
@@ -473,7 +546,16 @@ export default function ThreadScreen({ onBack }) {
                             }
                             return (
                                 <div style={styles.postMedia}>
-                                    {isVideo ? ( <video src={src} controls style={{ maxWidth: '100%', maxHeight: '380px', display: 'block' }} /> ) : ( <img src={src} style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain', display: 'block' }} /> )}
+                                    {isVideo ? (
+                                        <video src={src} controls style={{ maxWidth: '100%', maxHeight: '380px', display: 'block' }} />
+                                    ) : (
+                                        <img
+                                            src={src}
+                                            style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain', display: 'block', cursor: 'zoom-in' }}
+                                            alt=""
+                                            onClick={() => setFullscreenMedia({ src, type: 'image' })}
+                                        />
+                                    )}
                                 </div>
                             );
                         })()}
@@ -487,8 +569,8 @@ export default function ThreadScreen({ onBack }) {
                                 if (!count || count <= 0) return null;
                                 const hasReacted = post.userReactions?.[emoji] === true;
                                 return (
-                                    <div 
-                                        key={emoji} 
+                                    <div
+                                        key={emoji}
                                         style={{ ...styles.reactionBadge, backgroundColor: hasReacted ? '#f0f9ff' : 'white', borderColor: hasReacted ? '#315A9E' : '#f1f5f9' }}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -503,58 +585,69 @@ export default function ThreadScreen({ onBack }) {
                         </div>
 
                         <div style={styles.footer}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px' }}>
-                                <div 
-                                    style={styles.action(pLiked, '#ef4444')} 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onToggleLike(post.id);
-                                    }}
-                                >
-                                    <Heart size={18} fill={pLiked ? '#ef4444' : 'none'} strokeWidth={2.5} />
-                                    <span>LIKE ({likeCount})</span>
-                                </div>
+                            <div
+                                onClick={() => onToggleLike(post.id)}
+                                onMouseEnter={() => setActiveEmojiPicker(post.id)}
+                                onMouseLeave={() => setActiveEmojiPicker(null)}
+                                style={{ ...styles.action(!!activeReaction, '#ef4444'), gap: '6px', minWidth: isMobile ? '44px' : '56px' }}
+                            >
+                                {activeReaction ? (
+                                    <span style={{ fontSize: isMobile ? '16px' : '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {activeReaction}
+                                    </span>
+                                ) : (
+                                    <Heart size={isMobile ? 16 : 18} fill="none" stroke="#ef4444" strokeWidth={2.5} />
+                                )}
+                                {likeCount > 0 && (
+                                    <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '900' }}>{likeCount}</span>
+                                )}
 
-
-                                <div
-                                    style={{
-                                        ...styles.action(false, '#64748b'),
-                                        padding: isMobile ? '6px 8px' : '8px 12px',
-                                        flex: 'none'
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (activeEmojiPicker === post.id) {
-                                            setActiveEmojiPicker(null);
-                                        } else {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            setEmojiPickerPos({ top: rect.top - 60, left: rect.left });
-                                            setActiveEmojiPicker(post.id);
-                                        }
-                                    }}
-                                >
-                                    <Smile size={18} strokeWidth={2.5} />
-                                </div>
+                                <AnimatePresence>
+                                    {activeEmojiPicker === post.id && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                                            style={styles.emojiPicker}
+                                        >
+                                            {EMOJI_LIST.map(emoji => (
+                                                <div
+                                                    key={emoji}
+                                                    style={{ fontSize: '24px', cursor: 'pointer', transition: 'transform 0.1s' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onReact(post.id, emoji, e);
+                                                    }}
+                                                    onMouseOver={e => e.currentTarget.style.transform = 'scale(1.3)'}
+                                                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                >
+                                                    {emoji}
+                                                </div>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                             <div onClick={() => handleOpenComments(post.id)} style={styles.action(activeCommentPost === post.id, '#315A9E')}>
-                                <MessageSquare size={18} strokeWidth={2.5} /> 
-                                {activeCommentPost === post.id ? 'CLOSE' : 'COMMENT'} ({commentCount})
+                                <MessageSquare size={18} strokeWidth={2.5} />
+                                <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '900' }}>{commentCount}</span>
                             </div>
-
                         </div>
 
                         {activeCommentPost === post.id && (
                             <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#f8fafc', borderRadius: '25px' }}>
                                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                                    <input 
-                                        style={{ flex: 1, padding: '12px 18px', borderRadius: '12px', border: '1.5px solid #eef2f6', fontSize: '14px', outline: 'none' }} 
-                                        placeholder="Add a comment..." 
-                                        value={commentText} 
-                                        onChange={e => setCommentText(e.target.value)} 
-                                        onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)} 
+                                    <input
+                                        id={`thread-comment-input-${post.id}`}
+                                        style={{ flex: 1, padding: '12px 18px', borderRadius: '12px', border: '1.5px solid #eef2f6', fontSize: '14px', outline: 'none' }}
+                                        placeholder="Add a comment..."
+                                        value={commentText}
+                                        onChange={e => setCommentText(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddComment(post.id)}
                                     />
-                                    <button 
-                                        style={{ padding: '0 20px', background: '#315A9E', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900', cursor: 'pointer' }} 
+                                    <button
+                                        id={`thread-comment-post-btn-${post.id}`}
+                                        style={{ padding: '0 20px', background: '#315A9E', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900', cursor: 'pointer' }}
                                         onClick={() => handleAddComment(post.id)}
                                     >
                                         Post
@@ -575,7 +668,7 @@ export default function ThreadScreen({ onBack }) {
                                                 const cText = c.content || c.text || c.comment || c.message || '...';
                                                 const commentAuthorId = c.userId || c.user_id;
                                                 const isMyComment = (authorId && commentAuthorId && String(authorId) === String(commentAuthorId)) || (user?.name === cUser);
-                                                
+
                                                 return (
                                                     <div key={c.id} style={{ display: 'flex', gap: '12px' }}>
                                                         <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: '#315A9E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '1000', flexShrink: 0, boxShadow: '0 4px 10px rgba(49, 90, 158, 0.2)' }}>
@@ -588,34 +681,37 @@ export default function ThreadScreen({ onBack }) {
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                                         <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
                                                                         <button onClick={async () => {
-                                                                            // Optimistic local removal so UI updates immediately
-                                                                            setPostComments(prev => ({
-                                                                              ...prev,
-                                                                              [post.id]: (prev[post.id] || []).filter(x => x.id !== c.id)
-                                                                            }));
-                                                                            await deleteComment(post.id, c.id);
-                                                                          }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
+                                                                            const success = await deleteComment(post.id, c.id);
+                                                                            if (success) {
+                                                                                const comments = await fetchComments(post.id);
+                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                            }
+                                                                        }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
                                                                     </div>
                                                                 )}
                                                             </div>
 
                                                             {editingCommentId === c.id ? (
                                                                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                    <textarea 
+                                                                    <textarea
                                                                         style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #315A9E', fontSize: '13px', outline: 'none', minHeight: '60px', background: '#f8fafc' }}
                                                                         value={editCommentContent}
                                                                         onChange={e => setEditCommentContent(e.target.value)}
                                                                         autoFocus
+                                                                        onFocus={(e) => {
+                                                                            const val = e.target.value;
+                                                                            e.target.value = '';
+                                                                            e.target.value = val;
+                                                                        }}
                                                                     />
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={async () => { 
-                                                                            // Optimistic local update so UI updates immediately
-                                                                            setPostComments(prev => ({
-                                                                                ...prev,
-                                                                                [post.id]: (prev[post.id] || []).map(x => x.id === c.id ? { ...x, content: editCommentContent } : x)
-                                                                            }));
-                                                                            setEditingCommentId(null);
-                                                                            await updateComment(post.id, c.id, editCommentContent); 
+                                                                        <button onClick={async () => {
+                                                                            const success = await updateComment(post.id, c.id, editCommentContent);
+                                                                            if (success) {
+                                                                                const comments = await fetchComments(post.id);
+                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                                setEditingCommentId(null);
+                                                                            }
                                                                         }} style={{ fontSize: '11px', fontWeight: '900', color: 'white', background: '#315A9E', border: 'none', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>UPDATE</button>
                                                                         <button onClick={() => setEditingCommentId(null)} style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', background: 'none', border: '1.5px solid #e2e8f0', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>CANCEL</button>
                                                                     </div>
@@ -640,68 +736,66 @@ export default function ThreadScreen({ onBack }) {
                 );
             })}
 
+            {/* ERROR NOTIFICATION POPUP */}
+            <AnimatePresence>
+                {errorNotif && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.85, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.85, y: 30 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        style={{
+                            position: 'fixed',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 99999,
+                            backgroundColor: 'white',
+                            borderRadius: '24px',
+                            padding: '28px 36px',
+                            boxShadow: '0 20px 60px rgba(239,68,68,0.2), 0 4px 20px rgba(0,0,0,0.12)',
+                            border: '1.5px solid #fecaca',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '12px',
+                            maxWidth: '340px',
+                            width: '90%',
+                            textAlign: 'center'
+                        }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '22px' }}>⚠️</span>
+                        </div>
+                        <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Connection Error</div>
+                        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>{errorNotif.message}</div>
+                        <button
+                            onClick={() => setErrorNotif(null)}
+                            style={{ marginTop: '4px', padding: '8px 24px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '900', fontSize: '12px', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                        >
+                            Dismiss
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <AnimatePresence>
                 {flyingEmoji && (
                     <motion.div initial={{ left: flyingEmoji.x, top: flyingEmoji.y, opacity: 0 }} animate={{ y: [0, -100, -200], x: [0, 50, -50], opacity: [0, 1, 0], scale: [1, 2, 1] }} transition={{ duration: 2 }} style={{ position: 'fixed', fontSize: '50px', zIndex: 999 }}>{flyingEmoji.emoji}</motion.div>
                 )}
-            </AnimatePresence>
 
-            {/* Global fixed-position emoji picker - renders outside all scroll/overflow containers */}
-            <AnimatePresence>
-                {activeEmojiPicker && (
-                    <>
-                        {/* invisible backdrop to close on outside click */}
-                        <div
-                            style={{ position: 'fixed', inset: 0, zIndex: 99998 }}
-                            onClick={() => setActiveEmojiPicker(null)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.8 }}
-                            style={{
-                                ...styles.emojiPicker,
-                                top: emojiPickerPos.top,
-                                left: emojiPickerPos.left,
-                            }}
-                        >
-                            {EMOJI_LIST.map(emoji => (
-                                <div
-                                    key={emoji}
-                                    style={{ fontSize: '28px', cursor: 'pointer', transition: 'transform 0.1s' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        // find the active post and react
-                                        const postId = activeEmojiPicker;
-                                        setActiveEmojiPicker(null);
-                                        const fakeEvent = { clientX: emojiPickerPos.left, clientY: emojiPickerPos.top };
-                                        onReact(postId, emoji, fakeEvent);
-                                    }}
-                                    onMouseOver={e => e.currentTarget.style.transform = 'scale(1.3)'}
-                                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-                                >
-                                    {emoji}
-                                </div>
-                            ))}
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
                 {reactorModal && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }} 
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         style={styles.modalOverlay}
                         onClick={() => setReactorModal(null)}
                     >
-                        <motion.div 
-                            initial={{ scale: 0.9, y: 20 }} 
-                            animate={{ scale: 1, y: 0 }} 
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.9, y: 20 }}
-                            style={styles.modalContent} 
+                            style={styles.modalContent}
                             onClick={e => e.stopPropagation()}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -713,7 +807,7 @@ export default function ThreadScreen({ onBack }) {
                                 </div>
                                 <X size={24} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setReactorModal(null)} />
                             </div>
-                            
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
                                 {loadingReactors ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -752,6 +846,38 @@ export default function ThreadScreen({ onBack }) {
                                 )}
                             </div>
                         </motion.div>
+                    </motion.div>
+                )}
+
+                {fullscreenMedia && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setFullscreenMedia(null)}
+                        style={{
+                            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)',
+                            zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'zoom-out', padding: '20px'
+                        }}
+                    >
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setFullscreenMedia(null)}
+                            style={{ position: 'absolute', top: '30px', right: '30px', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}
+                        >
+                            <X size={24} />
+                        </motion.button>
+
+                        <motion.img
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            src={fullscreenMedia.src}
+                            alt="Fullscreen"
+                            style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: '12px', boxShadow: '0 30px 100px rgba(0,0,0,0.5)', objectFit: 'contain' }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -437,34 +437,43 @@ export const ThreadProvider = ({ children }) => {
     setThreads(prev => prev.filter(t => t.id !== id));
     try {
         const token = localStorage.getItem('token');
-        const headers = { 'Accept': 'application/json' };
-        if (token && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+        const headers = { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' 
+        };
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
         }
 
-        const sid = sanitizeId(user?.id);
+        const sid = sanitizeId(currentUserId);
         const url = `${API_ENDPOINTS.THREAD_DELETE(id)}?userId=${sid}&user_id=${sid}`;
         const res = await fetch(url, { 
           method: 'DELETE',
-          headers
+          headers,
+          body: JSON.stringify({ userId: Number(sid), user_id: Number(sid) })
         });
-        // Sync with backend regardless of result
-        await fetchThreads(user?.id);
+        if (res.ok) {
+          await fetchThreads(currentUserId);
+          return true;
+        }
     } catch {
         // Revert on failure by re-fetching
-        await fetchThreads(user?.id);
+        await fetchThreads(currentUserId);
     }
+    return false;
   };
 
   const fetchSingleThread = async (id) => {
     try {
         const token = localStorage.getItem('token');
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
         const headers = { 'Accept': 'application/json' };
-        if (token && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
         }
 
-        const sid = sanitizeId(user?.id);
+        const sid = sanitizeId(currentUserId);
         const url = `${API_ENDPOINTS.THREAD_UPDATE(id)}?userId=${sid}&user_id=${sid}`;
         const res = await fetch(url, { headers });
         if (res.ok) return await res.json();
@@ -475,13 +484,14 @@ export const ThreadProvider = ({ children }) => {
   const fetchUserThreads = async (userId) => {
     try {
         const token = localStorage.getItem('token');
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
         const headers = { 'Accept': 'application/json' };
-        if (token && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
         }
 
         const sid = sanitizeId(userId);
-        const viewerId = sanitizeId(user?.id);
+        const viewerId = sanitizeId(currentUserId);
         const url = `${API_ENDPOINTS.THREAD_USER(sid)}${viewerId ? `?viewerId=${viewerId}&viewer_id=${viewerId}` : ''}`;
         const res = await fetch(url, { headers });
         if (res.ok) return await res.json();
@@ -492,73 +502,117 @@ export const ThreadProvider = ({ children }) => {
   const deleteComment = async (threadId, commentId) => {
     try {
         const token = localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-        if (token && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+        const headers = { 
+          'Content-Type': 'application/json', 
+          'Accept': 'application/json' 
+        };
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
         }
 
-        const sid = sanitizeId(user?.id);
+        const sid = sanitizeId(currentUserId);
         const url = `${API_ENDPOINTS.COMMENT_DELETE(threadId, commentId)}?userId=${sid}&user_id=${sid}`;
         const res = await fetch(url, { 
           method: 'DELETE',
           headers,
-          body: JSON.stringify({ userId: user?.id, user_id: user?.id })
+          body: JSON.stringify({ userId: Number(sid), user_id: Number(sid) })
         });
-        if (res.ok) await fetchThreads();
+        if (res.ok) {
+          await fetchThreads();
+          return true;
+        }
     } catch {}
+    return false;
   };
 
   const updateComment = async (threadId, commentId, content) => {
     try {
         const token = localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-        if (token && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+        const headers = { 
+          'Content-Type': 'application/json', 
+          'Accept': 'application/json' 
+        };
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
         }
 
+        const sid = sanitizeId(currentUserId);
         const res = await fetch(API_ENDPOINTS.COMMENT_UPDATE(threadId, commentId), {
             method: 'PUT',
             headers,
             body: JSON.stringify({ 
-               userId: user?.id, 
-               user_id: user?.id, 
+               userId: Number(sid), 
+               user_id: Number(sid), 
                content,
                text: content,
                comment: content,
                message: content
             })
         });
-        if (res.ok) await fetchThreads();
+        if (res.ok) {
+          await fetchThreads();
+          return true;
+        }
     } catch {}
+    return false;
   };
 
-  const updatePost = async (id, content) => {
-    // Optimistic update — show new content immediately
-    setThreads(prev => prev.map(t => t.id === id ? { ...t, content } : t));
+  const updatePost = async (id, payload) => {
     try {
-        const token = localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-        if (token && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token.trim()}`;
+        let mediaData = null;
+        if (payload.file) {
+           mediaData = await new Promise((resolve) => {
+             const reader = new FileReader();
+             reader.onloadend = () => resolve(reader.result);
+             reader.readAsDataURL(payload.file);
+           });
+        }
+        
+        const body = { 
+            content: payload.content,
+            userId: Number(currentUserId),
+            user_id: Number(currentUserId)
+        };
+        
+        if (payload.file) {
+           body.media = mediaData;
+           body.mediaType = payload.mediaType;
+        } else if (payload.removeMedia) {
+           body.media = '';
+           body.mediaType = '';
         }
 
-        const sid = sanitizeId(user?.id);
-        const res = await fetch(`${API_ENDPOINTS.THREAD_UPDATE(id)}?userId=${sid}&user_id=${sid}`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({ 
-              userId: Number(user?.id),
-              user_id: Number(user?.id),
-              content,
-              text: content,
-              message: content
-            })
+        const token = localStorage.getItem('token');
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+        const headers = { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' 
+        };
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
+        }
+
+        const sid = sanitizeId(currentUserId);
+        const url = `${API_ENDPOINTS.THREAD_UPDATE(id)}?userId=${sid}&user_id=${sid}`;
+         
+        const res = await fetch(url, {
+             method: 'PUT',
+             headers,
+             body: JSON.stringify(body)
         });
-        // Sync with backend
-        await fetchThreads(user?.id);
-    } catch {
-        await fetchThreads(user?.id);
-    }
+         
+        if (res.ok) {
+             await fetchThreads(currentUserId);
+             return true;
+        } else {
+             console.error("Update failed:", await res.text());
+        }
+     } catch (err) {
+         console.error("Update error:", err);
+     }
+     return false;
   };
 
   return (

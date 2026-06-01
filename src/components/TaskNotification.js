@@ -10,13 +10,6 @@ const TaskNotification = ({ onOpenTask }) => {
   const [hasUnread, setHasUnread] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [lastIds, setLastIds] = useState(new Set());
-  const [readNotifs, setReadNotifs] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem('nbt_read_notifs')) || []);
-    } catch {
-      return new Set();
-    }
-  });
   const sanitizeId = (id) => String(id || '').split(':')[0];
   const authValidRef = useRef(true);
 
@@ -34,15 +27,6 @@ const TaskNotification = ({ onOpenTask }) => {
       }
     } catch (e) {}
     return new Date(dateStr);
-  };
-
-  const markAsRead = (id) => {
-    setReadNotifs(prev => {
-      const next = new Set(prev);
-      next.add(id);
-      localStorage.setItem('nbt_read_notifs', JSON.stringify([...next].slice(-100)));
-      return next;
-    });
   };
 
   useEffect(() => {
@@ -146,6 +130,7 @@ const TaskNotification = ({ onOpenTask }) => {
       let addedNew = false;
       const seenApprovals = JSON.parse(localStorage.getItem(`seen_approvals_${uid}`) || '{}');
       const updatedApprovals = { ...seenApprovals };
+      const readIds = JSON.parse(localStorage.getItem(`read_employee_notifs_${uid}`) || '[]');
 
       // Map Tasks - Use "Real Time" from backend
       const mappedTasks = tasks.map(t => {
@@ -155,6 +140,7 @@ const TaskNotification = ({ onOpenTask }) => {
         newIds.add(tid);
         const isNewlyAssigned = lastIds.size > 0 && !lastIds.has(tid);
         if (isNewlyAssigned) addedNew = true;
+        const isRead = readIds.includes(tid);
 
         return {
           id: tid,
@@ -162,7 +148,7 @@ const TaskNotification = ({ onOpenTask }) => {
           title: t.task_name || t.projectName || t.title || 'Management Update',
           description: t.task_text || t.projectDescription || t.description || 'New leadership directive.',
           formattedTime: formatDate(parseDate),
-          isNew: isNewlyAssigned,
+          isNew: !isRead,
           rawDate: parseDate
         };
       });
@@ -192,6 +178,11 @@ const TaskNotification = ({ onOpenTask }) => {
         if (isProcessed) {
           if (isNewlyUpdated) addedNew = true;
 
+          // Incorporate the signature in the leave notification ID to allow subsequent updates to appear as new/unread
+          const leaveNotifId = `leave_${l.id}_${currentSignature}`;
+          newIds.add(leaveNotifId);
+          const isRead = readIds.includes(leaveNotifId);
+
           const rawTs = l.updated_at || l.created_at || new Date();
           const parseDate = parseDbDate(rawTs);
 
@@ -202,12 +193,12 @@ const TaskNotification = ({ onOpenTask }) => {
           const ename = l.employeeName || l.user_name || l.name || (Number(l.user_id) === Number(uid) ? 'Your' : 'Team member');
 
           mappedLeaves.push({
-            id: lid,
+            id: leaveNotifId,
             type: 'LEAVE',
             title: `Leave Request ${statusText}`,
             description: `${ename} request for ${l.leave_type || 'Time Off'} is now ${statusText}. (TL/RM: ${rmApp}, HR: ${hrApp}, PM: ${pmApp})`,
             formattedTime: formatDate(parseDate),
-            isNew: isNewlyUpdated,
+            isNew: !isRead,
             rawDate: parseDate
           });
         }
@@ -230,6 +221,7 @@ const TaskNotification = ({ onOpenTask }) => {
         if (daysDiff <= 1) {
           const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
           if (isNewlyAdded) addedNew = true;
+          const isRead = readIds.includes(qid);
 
           mappedQuizzes.push({
             id: qid,
@@ -237,7 +229,7 @@ const TaskNotification = ({ onOpenTask }) => {
             title: `New Fun Quiz: ${q.title || 'Engagement Task'}`,
             description: q.description || 'A new engagement activity has been posted. Join now!',
             formattedTime: formatDate(parseDate),
-            isNew: isNewlyAdded,
+            isNew: !isRead,
             rawDate: parseDate
           });
         }
@@ -250,6 +242,7 @@ const TaskNotification = ({ onOpenTask }) => {
         const parseDate = parseDbDate(gn.created_at || gn.createdAt || new Date());
         const isNewlyAdded = lastIds.size > 0 && !lastIds.has(gId);
         if (isNewlyAdded) addedNew = true;
+        const isRead = readIds.includes(gId);
 
         const rawMsg = gn.message || gn.content || gn.description || '';
         let dynamicTitle = gn.title;
@@ -281,7 +274,7 @@ const TaskNotification = ({ onOpenTask }) => {
           title: dynamicTitle,
           description: rawMsg,
           formattedTime: formatDate(parseDate),
-          isNew: isNewlyAdded,
+          isNew: !isRead,
           rawDate: parseDate
         };
       });
@@ -386,7 +379,7 @@ const TaskNotification = ({ onOpenTask }) => {
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px', backgroundColor: '#f8fafc' }}>
               {notifications.length > 0 ? notifications.map((notif, idx) => {
-                const isRead = readNotifs.has(notif.id);
+                const isRead = !notif.isNew;
                 return (
                   <div key={notif.id} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', marginLeft: '5px', marginBottom: '2px' }}>
@@ -394,7 +387,19 @@ const TaskNotification = ({ onOpenTask }) => {
                     </div>
                     <div 
                       onClick={() => {
-                        markAsRead(notif.id);
+                        const rawUid = user?.id || user?.empId || user?.userId || user?.employee_id;
+                        const uid = sanitizeId(rawUid);
+                        if (uid) {
+                          const readIds = JSON.parse(localStorage.getItem(`read_employee_notifs_${uid}`) || '[]');
+                          if (!readIds.includes(notif.id)) {
+                            readIds.push(notif.id);
+                            localStorage.setItem(`read_employee_notifs_${uid}`, JSON.stringify(readIds.slice(-100)));
+                          }
+                        }
+
+                        // Immediately update local UI status
+                        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isNew: false } : n));
+
                         let tab = 'HOME';
                         const nType = String(notif.type || '').toUpperCase();
                         const nTitle = String(notif.title || '').toLowerCase();

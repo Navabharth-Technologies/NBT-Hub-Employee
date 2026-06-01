@@ -909,12 +909,12 @@ const Dashboard = ({ setActiveTab }) => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#16a34a', fontWeight: '800', fontSize: '14px', opacity: 0.9 }}>
-                      No data on yesterday
+                      No Report on Yesterday
                     </div>
                   )}
 
                   {yesterdayTasks.length > 0 && yesterdayStatus !== 'No Data' && (
-                    <div style={{...s.statusBadge, background: '#dcfce7', color: '#16a34a', marginTop: 'auto' }}>{yesterdayStatus}</div>
+                    <div style={{...s.statusBadge, background: '#ebf9f1', color: '#16a34a', marginTop: 'auto' }}>{yesterdayStatus}</div>
                   )}
                 </div>
 
@@ -940,15 +940,10 @@ const Dashboard = ({ setActiveTab }) => {
                        {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
                        {todayTasks.length > 0 ? (
                          todayTasks.map((t, i) => {
-                           const taskId = typeof t === 'object' ? Number(t.id) : null;
-                           const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
-                             ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                             : '';
                            return (
                              <div key={i} style={s.taskItem}>
                                <CheckCircle2 size={14} color="#3b82f6" />
                                <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
-                               {timeStr && <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>{timeStr}</span>}
                              </div>
                            );
                          })
