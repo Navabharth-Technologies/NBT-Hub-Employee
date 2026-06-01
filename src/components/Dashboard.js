@@ -940,22 +940,16 @@ const Dashboard = ({ setActiveTab }) => {
                        {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
                        {todayTasks.length > 0 ? (
                          todayTasks.map((t, i) => {
-                           const taskId = typeof t === 'object' ? Number(t.id) : null;
-                           const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
-                             ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                             : '';
                            return (
                              <div key={i} style={s.taskItem}>
                                <CheckCircle2 size={14} color="#3b82f6" />
                                <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
-                               {timeStr && <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>{timeStr}</span>}
                              </div>
                            );
                          })
                        ) : null}
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px' }}>
                            <div style={{...s.statusBadge, marginTop: 0 }}>{todayStatus}</div>
-                           <div style={s.liveBadge}>Live Updates</div>
                        </div>
                     </div>
                   ) : (

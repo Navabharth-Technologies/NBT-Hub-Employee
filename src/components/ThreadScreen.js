@@ -449,6 +449,12 @@ export default function ThreadScreen() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <textarea
                                         id={`thread-edit-content-input-${post.id}`}
+                                        autoFocus
+                                        onFocus={(e) => {
+                                            const val = e.target.value;
+                                            e.target.value = '';
+                                            e.target.value = val;
+                                        }}
                                         style={{ ...styles.mainInput, minHeight: '80px', padding: '15px' }}
                                         value={editContent}
                                         onChange={(e) => setEditContent(e.target.value)}
@@ -692,6 +698,11 @@ export default function ThreadScreen() {
                                                                         value={editCommentContent}
                                                                         onChange={e => setEditCommentContent(e.target.value)}
                                                                         autoFocus
+                                                                        onFocus={(e) => {
+                                                                            const val = e.target.value;
+                                                                            e.target.value = '';
+                                                                            e.target.value = val;
+                                                                        }}
                                                                     />
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                                         <button onClick={async () => {

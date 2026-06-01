@@ -188,7 +188,7 @@ export default function DocumentsScreen({ onBack }) {
   const { employeeId } = useParams();
 
   const [form, setForm] = useState({
-    emp_name: '', gender: '', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: 'General',
+    emp_name: '', gender: '', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: '',
     designation: '', department: '', process: '', supervisor_l1: '', supervisor_l2: '', doj: '', ft_pt: 'Full Time', status: 'Active', place: '', moved: '', official_email_id: '',
     contact_no: '', emergency_contact_no: '', personal_email_id: '', present_address: '', permanent_address: '', state: '',
     qualification: '', edu_completion_year: '', college: '', university: '', previous_organization: '', previous_experience: '', source: '', languages_known: '',
@@ -954,8 +954,7 @@ export default function DocumentsScreen({ onBack }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px' }}>
             <BackButton onClick={onBack} />
             <div>
-              <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1 }}>Profile Info</h1>
-              <p style={{ fontSize: isMobile ? '11px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>Employee metadata record</p>
+              <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1, marginTop: '8px' }}>Profile Info</h1>
             </div>
           </div>
 
@@ -1230,6 +1229,7 @@ export default function DocumentsScreen({ onBack }) {
                             transition: 'all 0.2s', opacity: isDisabled ? 0.8 : 1
                           }}
                         >
+                          {(field.key === 'gender' || field.key === 'category') && <option value="" disabled>{field.key === 'gender' ? 'Choose the gender' : 'Select the category'}</option>}
                           {field.options.map(o => <option key={o}>{o}</option>)}
                         </select>
                         <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabled ? '#cbd5e1' : '#315A9E' }}>
