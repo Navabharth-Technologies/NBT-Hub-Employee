@@ -133,11 +133,11 @@ const AwardsScreen = ({ onBack }) => {
                     fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/history?userId=${safeUid}`, { headers }).catch(() => null),
+                    Promise.resolve({ ok: false }), // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/history?userId=${safeUid}`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.QUIZ_LEADERBOARD, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/attempts?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null),
+                    Promise.resolve({ ok: false }), // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null),
                     fetch(`${API_ENDPOINTS.QUIZ_USER_POINTS}?userId=${safeUid}`, { headers }).catch(() => null)
                 ]);
 
@@ -197,10 +197,11 @@ const AwardsScreen = ({ onBack }) => {
                     setQuizUserPoints(quizPointsVal);
                 }
 
+                let rList = [];
                 // Parse backend rewards leaderboard to get true global rank
                 if (rewardsLeadRes && rewardsLeadRes.ok) {
                     const rLeadData = await rewardsLeadRes.json();
-                    const rList = Array.isArray(rLeadData) ? rLeadData : (rLeadData?.data || []);
+                    rList = Array.isArray(rLeadData) ? rLeadData : (rLeadData?.data || []);
                     
                     const myEntryIndex = rList.findIndex(r => {
                         const rId = String(r.userId || r.user_id || r.employee_id || r.id || '').toLowerCase();
@@ -215,24 +216,73 @@ const AwardsScreen = ({ onBack }) => {
                     }
                 }
 
+                // If rList is empty, fallback to aggregating allRes (global rewards)
+                if (rList.length === 0 && allRes && allRes.ok) {
+                    try {
+                        const allData = await allRes.clone().json();
+                        const list = Array.isArray(allData) ? allData : (allData.data || allData.rewards || []);
+                        const rMap = new Map();
+                        list.forEach(r => {
+                            const id = String(r.userId || r.user_id || r.employee_id || r.empId || '').split(':')[0].trim();
+                            if (id) {
+                                const current = rMap.get(id) || 0;
+                                rMap.set(id, current + Number(r.points || r.rep || 0));
+                            }
+                        });
+                        rList = Array.from(rMap.entries()).map(([id, score]) => ({ id, score }));
+                    } catch(e) {}
+                }
+
                 // 1. Fetch quiz leaderboard from backend
                 const qLeaderboardData = quizLeadRes && quizLeadRes.ok ? await quizLeadRes.json() : [];
                 const qList = Array.isArray(qLeaderboardData) ? qLeaderboardData : (qLeaderboardData?.data || []);
 
-                const finalLeaderboard = qList.map((item, index) => {
+                // 2. Combine quiz and reward leaderboards
+                const combinedMap = new Map();
+                
+                qList.forEach(item => {
                     const id = String(item.employee_id || item.user_id || item.id || item.userId || '').split(':')[0].trim();
                     const name = item.employee_name || item.name || item.userName || `Employee ${id}`;
-                    const score = Number(item.quizPoints || item.quiz_points || item.points || item.score || item.total_score || item.total_quiz_points || 0);
-                    const rank = Number(item.rank || item.global_rank || item.position || (index + 1));
-                    return {
-                        id,
-                        name,
-                        score,
-                        quiz_points: score,
-                        reward_points: 0,
-                        rank
-                    };
+                    const quizScore = Number(item.quizPoints || item.quiz_points || item.points || item.score || item.total_score || item.total_quiz_points || 0);
+                    combinedMap.set(id, { id, name, quiz_points: quizScore, reward_points: 0 });
                 });
+
+                rList.forEach(item => {
+                    const id = String(item.employee_id || item.user_id || item.id || item.userId || '').split(':')[0].trim();
+                    const name = item.employee_name || item.name || item.userName || `Employee ${id}`;
+                    const rewardScore = Number(item.score || item.total_score || item.points || item.totalPoints || 0);
+                    
+                    const cleanName = (name || '').toLowerCase();
+                    const isExcluded = cleanName.includes('imsha') || cleanName.includes('sahana') || cleanName.includes('ashwini') || cleanName.includes('anuprasad');
+                    
+                    if (combinedMap.has(id)) {
+                        const existing = combinedMap.get(id);
+                        const existingCleanName = (existing.name || '').toLowerCase();
+                        const isExistingExcluded = existingCleanName.includes('imsha') || existingCleanName.includes('sahana') || existingCleanName.includes('ashwini') || existingCleanName.includes('anuprasad');
+                        
+                        if (!isExcluded && !isExistingExcluded) {
+                            existing.reward_points = rewardScore;
+                        }
+                        if (!existing.name || existing.name.startsWith('Employee')) {
+                            existing.name = name;
+                        }
+                    } else {
+                        if (!isExcluded) {
+                            combinedMap.set(id, { id, name, quiz_points: 0, reward_points: rewardScore });
+                        }
+                    }
+                });
+
+                const finalLeaderboard = Array.from(combinedMap.values())
+                    .map(item => ({
+                        ...item,
+                        score: item.quiz_points + item.reward_points
+                    }))
+                    .sort((a, b) => b.score - a.score)
+                    .map((item, index) => ({
+                        ...item,
+                        rank: index + 1
+                    }));
 
                 setLeaderboard(finalLeaderboard);
 
@@ -497,7 +547,7 @@ const AwardsScreen = ({ onBack }) => {
             
             const [rewardRes, quizRes] = await Promise.all([
                 fetch(API_ENDPOINTS.REWARDS_USER(memberId), { headers }).catch(() => null),
-                fetch(`${BASE_URL}/api/quizzes/history?userId=${memberId}`, { headers }).catch(() => null)
+                Promise.resolve({ ok: false }) // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/history?userId=${memberId}`, { headers }).catch(() => null)
             ]);
 
             let combinedHistory = [];
@@ -1197,7 +1247,7 @@ const AwardsScreen = ({ onBack }) => {
                                                 </div>
                                                 <div style={{ textAlign: 'right' }}>
                                                     <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{entry.score}</div>
-                                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>Quiz Points</div>
+                                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>{entry.reward_points > 0 ? 'Total Points' : 'Quiz Points'}</div>
                                                 </div>
                                             </motion.div>
                                         );

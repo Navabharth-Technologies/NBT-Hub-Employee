@@ -847,14 +847,16 @@ export default function DocumentsScreen({ onBack }) {
             if (field.key.startsWith('has_')) {
               val = (val === 'Yes');
             }
-            // Convert DOB to ISO format (YYYY-MM-DD) before saving to backend
+            // Normalize DOB to DD/MM/YYYY format before saving to backend
             if (field.key === 'dob' && val && val !== 'Not Provided' && val !== 'Add Date of Birth') {
-              if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
-                const parts = val.split('/');
-                val = `${parts[2]}-${parts[1]}-${parts[0]}`;
-              } else if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
+              if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
                 const parts = val.split('-');
-                val = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                val = `${parts[0]}/${parts[1]}/${parts[2]}`;
+              } else if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val)) {
+                const d = new Date(val);
+                if (!isNaN(d.getTime())) {
+                  val = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                }
               }
             }
             sanitizedForm[field.key] = val;

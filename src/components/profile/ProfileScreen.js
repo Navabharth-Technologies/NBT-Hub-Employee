@@ -844,24 +844,23 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                         onClick={async () => {
                           try {
                             const token = localStorage.getItem('token');
-                            const rawDate = dob.split('/').reverse().join('-'); // YYYY-MM-DD
-                            const res = await fetch(`${BASE_URL}/api/profile/update-dob` || API_ENDPOINTS.UPDATE_PROFILE, {
+                            const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
                               method: 'POST',
                               headers: {
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${token}`
                               },
                               body: JSON.stringify({
-                                dob: rawDate,
-                                date_of_birth: rawDate,
+                                dob: dob,
+                                date_of_birth: dob,
                                 email: user?.email,
                                 employee_id: user?.employee_id || user?.id || user?.userId
                               })
                             });
                             
                             if (res.ok) {
-                              updateProfile('date_of_birth', rawDate);
-                              updateProfile('dob', rawDate);
+                              updateProfile('date_of_birth', dob);
+                              updateProfile('dob', dob);
                               localStorage.removeItem('nbt_birthdays_cache');
                               localStorage.removeItem('nbt_birthdays_cache_v2');
                               triggerToast('DOB updated successfully!');
