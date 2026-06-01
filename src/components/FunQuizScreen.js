@@ -75,6 +75,7 @@ const FunQuizScreen = ({ onBack }) => {
 
   const [questions, setQuestions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [isLoading, setIsLoading] = useState(true);
   const [isQuestionsLoading, setIsQuestionsLoading] = useState(true);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -214,6 +215,7 @@ const FunQuizScreen = ({ onBack }) => {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const myLeaderboardData = leaderboard.find(s => {
     const cleanSId = String(s.id || '').split(':')[0].trim().toLowerCase();
     const cleanSName = String(s.name || '').split(':')[0].trim().toLowerCase();
@@ -237,145 +239,66 @@ const FunQuizScreen = ({ onBack }) => {
   const fetchScores = async () => {
     try {
       const token = localStorage.getItem('token');
-
       const headers = { 'Authorization': `Bearer ${token?.trim()}` };
-      const [rRes, qRes, fRes, dRes] = await Promise.all([
-        fetch(`${BASE_URL}/api/rewards/leaderboard`, { headers }).catch(() => null),
-        fetch(`${BASE_URL}/api/quizzes/leaderboard`, { headers }).catch(() => null),
-        fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
-        fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null)
+
+      const rawUid = user?.employee_id || user?.userId || user?.id || user?.employeeId || user?.uid;
+      const uid = String(rawUid || '').split(':')[0].trim();
+
+      const [ptsRes, lbRes] = await Promise.all([
+        fetch(`${API_ENDPOINTS.QUIZ_USER_POINTS}?userId=${uid}`, { headers }).catch(() => null),
+        fetch(API_ENDPOINTS.QUIZ_LEADERBOARD, { headers }).catch(() => null)
       ]);
 
-      const rData = rRes && rRes.ok ? await rRes.json() : [];
-      const qData = qRes && qRes.ok ? await qRes.json() : [];
-      const fData = fRes && fRes.ok ? await fRes.json() : [];
-      const dData = dRes && dRes.ok ? await dRes.json() : [];
+      let ptsVal = 0;
+      let hasSetFromUserPoints = false;
 
-      const rList = Array.isArray(rData) ? rData : (rData.data || []);
-      const qList = Array.isArray(qData) ? qData : (qData.data || []);
-      const fList = Array.isArray(fData) ? fData : (fData.data || []);
-      const dList = Array.isArray(dData) ? dData : (dData.data || []);
-
-      const mergedMap = new Map();
-
-      // Process Quiz points
-      qList.forEach(q => {
-        const id = String(q.employee_id || q.user_id || q.id || '');
-        if (!id) return;
-        mergedMap.set(id, {
-          id,
-          name: q.name || q.employee_name || `Employee ${id}`,
-          quizPoints: cleanNum(q.totalPointsNum || q.quizPointsNum || q.total_score || q.quiz_score || q.total_quiz_points || q.points || 0),
-          rewardPoints: 0
-        });
-      });
-
-      // Process Fun Quiz points
-      fList.forEach(f => {
-        const id = String(f.employee_id || f.user_id || f.id || f.userId || '');
-        if (!id) return;
-        const pts = cleanNum(f.totalPointsNum || f.quizPointsNum || f.total_score || f.quiz_score || f.total_quiz_points || f.points || f.score || 0);
-        const existing = mergedMap.get(id);
-        if (existing) {
-          existing.quizPoints = Math.max(existing.quizPoints, pts);
-        } else {
-          mergedMap.set(id, {
-            id,
-            name: f.name || f.employee_name || `Employee ${id}`,
-            quizPoints: pts,
-            rewardPoints: 0
-          });
-        }
-      });
-
-      // Process Daily Quiz points
-      dList.forEach(d => {
-        const id = String(d.employee_id || d.user_id || d.id || d.userId || '');
-        if (!id) return;
-        const pts = cleanNum(d.totalPointsNum || d.quizPointsNum || d.total_score || d.quiz_score || d.total_quiz_points || d.points || d.score || 0);
-        const existing = mergedMap.get(id);
-        if (existing) {
-          existing.quizPoints = Math.max(existing.quizPoints, pts);
-        } else {
-          mergedMap.set(id, {
-            id,
-            name: d.name || d.employee_name || `Employee ${id}`,
-            quizPoints: pts,
-            rewardPoints: 0
-          });
-        }
-      });
-
-      // Process Reward points
-      rList.forEach(r => {
-        const id = String(r.employee_id || r.user_id || r.id || '');
-        if (!id) return;
-        const existing = mergedMap.get(id) || {
-          id,
-          name: r.name || r.employee_name || `Employee ${id}`,
-          quizPoints: 0,
-          rewardPoints: 0
-        };
-        // In rewards leaderboard, points/total_points represents the grand total (reward points + quiz points).
-        // We isolate the reward points by checking reward-specific fields or by subtracting quiz points.
-        const totalPointsVal = cleanNum(r.totalPointsNum || r.points || r.total_points || 0);
-        const rewardPointsVal = cleanNum(r.rewardPointsNum || r.reward_points || r.total_reward_points || r.rewardPoints || 0);
-        existing.rewardPoints = rewardPointsVal > 0 ? rewardPointsVal : Math.max(0, totalPointsVal - existing.quizPoints);
-        mergedMap.set(id, existing);
-      });
-
-      const list = Array.from(mergedMap.values()).map((u, i) => {
-        const total = u.quizPoints + u.rewardPoints;
-        return {
-          id: u.id,
-          name: u.name,
-          score: total,
-          quiz_points: u.quizPoints,
-          reward_points: u.rewardPoints,
-          color: ['#FBBC05', '#EA4335', '#34A853', '#4285F4', '#FBBC05'][i % 5],
-          initial: (u.name || 'U').charAt(0).toUpperCase()
-        };
-      }).sort((a, b) => b.score - a.score).map((u, i) => ({ ...u, rank: i + 1 }));
-
-      setLeaderboard(list);
-
-      // Fetch user's actual rewards total (previous score) from rewards endpoints
-      const uid = user?.employee_id || user?.userId || user?.id;
-      const safeUid = String(uid || '').split(':')[0].trim();
-      const myRes = await fetch(`${BASE_URL}/api/rewards/my?userId=${safeUid}`, { headers }).catch(() => null);
-      let myAwardsTotal = 0;
-      let historyList = [];
-      if (myRes && myRes.ok) {
-        const data = await myRes.json();
-        const list = Array.isArray(data) ? data : (data.history || data.awards || data.data || []);
-        myAwardsTotal = cleanNum(data.totalPointsNum || data.totalPoints || data.total_points || 0);
-        historyList = list;
+      if (ptsRes && ptsRes.ok) {
+        const ptsData = await ptsRes.json();
+        ptsVal = cleanNum(ptsData.points || ptsData.total_points || ptsData.score || ptsData.total_score || ptsData.quiz_points || ptsData.quizPoints || 0);
+        setUserLifetimeScore(ptsVal);
+        hasSetFromUserPoints = true;
       }
-      
-      const historyTotal = historyList.reduce((sum, item) => sum + cleanNum(item.points || item.rep || 0), 0);
-      
-      // Find current user's leaderboard score
-      const myEntry = list.find(s => {
-        const cleanSId = String(s.id || '').split(':')[0].trim().toLowerCase();
-        const cleanSName = String(s.name || '').split(':')[0].trim().toLowerCase();
-        const possibleUserKeys = [
-          user?.employee_id,
-          user?.userId,
-          user?.id,
-          user?.uid,
-          user?.email,
-          user?.name,
-          user?.employee_name
-        ];
-        return possibleUserKeys.some(key => {
-          const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
-          return cleanKey && (cleanSId === cleanKey || cleanSName === cleanKey);
-        });
-      });
-      const leaderboardScore = myEntry ? myEntry.score : 0;
 
-      const finalPrevScore = Math.max(myAwardsTotal, historyTotal, leaderboardScore);
-      setUserLifetimeScore(finalPrevScore);
+      if (lbRes && lbRes.ok) {
+        const lbData = await lbRes.json();
+        const rawList = Array.isArray(lbData) ? lbData : (lbData.data || []);
+        
+        const list = rawList.map((u, i) => {
+          const quizPoints = cleanNum(u.quizPoints || u.quiz_points || u.points || u.score || u.total_score || u.total_quiz_points || 0);
+          return {
+            id: u.employee_id || u.user_id || u.id || u.userId || '',
+            name: u.name || u.employee_name || `Employee ${u.id || i}`,
+            score: quizPoints,
+            quiz_points: quizPoints,
+            reward_points: cleanNum(u.reward_points || u.rewardPoints || 0),
+            color: ['#FBBC05', '#EA4335', '#34A853', '#4285F4', '#FBBC05'][i % 5],
+            initial: (u.name || u.employee_name || 'U').charAt(0).toUpperCase()
+          };
+        }).sort((a, b) => b.quiz_points - a.quiz_points).map((u, i) => ({ ...u, rank: i + 1 }));
+
+        setLeaderboard(list);
+
+        if (!hasSetFromUserPoints) {
+          const myEntry = list.find(s => {
+            const cleanSId = String(s.id || '').split(':')[0].trim().toLowerCase();
+            const cleanSName = String(s.name || '').split(':')[0].trim().toLowerCase();
+            const possibleUserKeys = [
+              user?.employee_id,
+              user?.userId,
+              user?.id,
+              user?.uid,
+              user?.email,
+              user?.name,
+              user?.employee_name
+            ];
+            return possibleUserKeys.some(key => {
+              const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+              return cleanKey && (cleanSId === cleanKey || cleanSName === cleanKey);
+            });
+          });
+          setUserLifetimeScore(myEntry ? myEntry.quiz_points : 0);
+        }
+      }
     } catch (err) {
       console.error("Leaderboard Sync failed:", err);
     } finally {
@@ -528,7 +451,12 @@ const FunQuizScreen = ({ onBack }) => {
       }
 
       if (response && response.ok) {
+        // Optimistically update the lifetime score locally so Overall Score doesn't stay at 0
+        setUserLifetimeScore(prev => prev + totalPoints);
         await Promise.all([fetchScores(), fetchQuestions()]).catch(() => null);
+      } else {
+        // Even if the backend call failed, still update local lifetime score from this session
+        setUserLifetimeScore(prev => Math.max(prev, totalPoints));
       }
 
       showSuccessState(totalPoints);
@@ -643,7 +571,7 @@ const FunQuizScreen = ({ onBack }) => {
       {/* Leaderboard Table Header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr',
+        gridTemplateColumns: '2fr 1fr',
         gap: '10px',
         padding: '12px 10px',
         borderBottom: '2px solid #f1f5f9',
@@ -654,8 +582,7 @@ const FunQuizScreen = ({ onBack }) => {
         letterSpacing: '0.5px'
       }}>
         <span>Name</span>
-        <span style={{ textAlign: 'center' }}>Quiz Points</span>
-        <span style={{ textAlign: 'right' }}>TOTAL</span>
+        <span style={{ textAlign: 'right' }}>Quiz Points</span>
       </div>
 
       <div style={{
@@ -694,7 +621,7 @@ const FunQuizScreen = ({ onBack }) => {
             return (
               <div key={i} style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr',
+                gridTemplateColumns: '2fr 1fr',
                 gap: '10px',
                 alignItems: 'center',
                 padding: '14px 10px',
@@ -714,12 +641,8 @@ const FunQuizScreen = ({ onBack }) => {
                   <div style={{ fontSize: '11px', fontWeight: '800', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{p.name}</div>
                 </div>
 
-                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {String(p.quiz_points || p.score || 0)}
-                </div>
-
                 <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: '1000', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {String(p.score || 0)}
+                  {String(p.quiz_points || 0)}
                 </div>
               </div>
             );
@@ -797,11 +720,13 @@ const FunQuizScreen = ({ onBack }) => {
                   {(() => {
                     const sessionScoreForDisplay = questions.filter(q => q.previous_result === 'correct').reduce((sum, q) => sum + (q.points_reward || 0), 0);
                     const newSessionPoints = questions.filter(q => q.previous_result === 'correct' && !q.already_answered).reduce((sum, q) => sum + (q.points_reward || 0), 0);
+                    // Use the higher of (backend lifetime + new session) or (session score) so it never shows 0 when user has earned points
+                    const overallScore = Math.max(userLifetimeScore + newSessionPoints, sessionScoreForDisplay);
                     return (
                       <>
                         <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e40af', textTransform: 'uppercase' }}>Overall Score</div>
-                          <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{userLifetimeScore + newSessionPoints}</div>
+                          <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{overallScore}</div>
                         </div>
 
                         <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>

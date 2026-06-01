@@ -55,6 +55,7 @@ const AwardsScreen = ({ onBack }) => {
     const { user } = useAuth();
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
     const [rewardData, setRewardData] = useState(null);
+    const [quizUserPoints, setQuizUserPoints] = useState(0);
     const [leaderboard, setLeaderboard] = useState([]);
     const [loading, setLoading] = useState(true);
     const [employees, setEmployees] = useState([]);
@@ -107,6 +108,11 @@ const AwardsScreen = ({ onBack }) => {
     }, []);
 
     const [quizHistory, setQuizHistory] = useState([]);
+    const [globalRewardsFeed, setGlobalRewardsFeed] = useState([]);
+    const [rewardsBackendRank, setRewardsBackendRank] = useState(null);
+    const [backendEndorsements, setBackendEndorsements] = useState(0);
+    const [rewardsBackendPoints, setRewardsBackendPoints] = useState(0);
+    const [monthFilter, setMonthFilter] = useState('');
 
     useEffect(() => {
         const fetchRewards = async () => {
@@ -119,7 +125,7 @@ const AwardsScreen = ({ onBack }) => {
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
-                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes] = await Promise.all([
+                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes, quizUserPointsRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
@@ -129,9 +135,10 @@ const AwardsScreen = ({ onBack }) => {
                     fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/history?userId=${safeUid}`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/leaderboard`, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.QUIZ_LEADERBOARD, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/attempts?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null)
+                    fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null),
+                    fetch(`${API_ENDPOINTS.QUIZ_USER_POINTS}?userId=${safeUid}`, { headers }).catch(() => null)
                 ]);
 
                 let combinedHistory = [];
@@ -154,6 +161,9 @@ const AwardsScreen = ({ onBack }) => {
                 if (allRes && allRes.ok) {
                     const allData = await allRes.json();
                     const list = Array.isArray(allData) ? allData : (allData.data || allData.rewards || []);
+                    setGlobalRewardsFeed(list); // Store all company rewards for the global feeds
+
+                    // Still extract my items for my personal history/deduplication if needed
                     const myItems = list.filter(r => {
                         const rId = String(r.userId || r.user_id || r.employee_id || r.empId || '').toLowerCase();
                         return rId === safeUid.toLowerCase() ||
@@ -180,77 +190,49 @@ const AwardsScreen = ({ onBack }) => {
                     totalPoints: serverTotal
                 });
 
-                // Merge Daily, General, and Global Rewards leaderboards for accurate all-time rankings
-                const dailyData = dailyLeadRes && dailyLeadRes.ok ? await dailyLeadRes.json() : [];
-                const genData = genLeadRes && genLeadRes.ok ? await genLeadRes.json() : [];
-                const rewardsData = rewardsLeadRes && rewardsLeadRes.ok ? await rewardsLeadRes.json() : [];
-                const quizListData = quizLeadRes && quizLeadRes.ok ? await quizLeadRes.json() : [];
+                // Fetch user points from backend quiz user points endpoint
+                if (quizUserPointsRes && quizUserPointsRes.ok) {
+                    const ptsData = await quizUserPointsRes.json();
+                    const quizPointsVal = Number(ptsData.points || ptsData.total_points || ptsData.score || ptsData.total_score || ptsData.quiz_points || ptsData.quizPoints || 0);
+                    setQuizUserPoints(quizPointsVal);
+                }
 
-                const mergedMap = new Map();
-                const getOrInitUser = (id, name) => {
-                    const cleanId = String(id).split(':')[0].trim();
-                    if (!mergedMap.has(cleanId)) {
-                        mergedMap.set(cleanId, {
-                            id: cleanId,
-                            name: name || `Employee ${cleanId}`,
-                            quizPoints: 0,
-                            rewardPoints: 0
-                        });
+                // Parse backend rewards leaderboard to get true global rank
+                if (rewardsLeadRes && rewardsLeadRes.ok) {
+                    const rLeadData = await rewardsLeadRes.json();
+                    const rList = Array.isArray(rLeadData) ? rLeadData : (rLeadData?.data || []);
+                    
+                    const myEntryIndex = rList.findIndex(r => {
+                        const rId = String(r.userId || r.user_id || r.employee_id || r.id || '').toLowerCase();
+                        return rId === safeUid.toLowerCase() || (user?.email && rId === user.email.toLowerCase());
+                    });
+                    if (myEntryIndex >= 0) {
+                        const myEntry = rList[myEntryIndex];
+                        // If the backend doesn't provide a rank field, use the array index + 1
+                        setRewardsBackendRank(Number(myEntry.rank || myEntry.global_rank || myEntry.position || (myEntryIndex + 1)));
+                        setBackendEndorsements(Number(myEntry.endorsements || myEntry.total_endorsements || 0));
+                        setRewardsBackendPoints(Number(myEntry.score || myEntry.total_score || myEntry.points || myEntry.totalPoints || myEntry.quiz_points || 0));
                     }
-                    const entry = mergedMap.get(cleanId);
-                    if (name && (!entry.name || entry.name.startsWith('Employee '))) {
-                        entry.name = name;
-                    }
-                    return entry;
-                };
+                }
 
-                // 1. Process Quiz Leaderboard (All time)
-                const qList = Array.isArray(quizListData) ? quizListData : (quizListData?.data || []);
-                qList.forEach(item => {
-                    const id = item.employee_id || item.user_id || item.id || item.userId;
-                    if (!id) return;
-                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
-                    const pts = Number(item.total_score || item.quiz_score || item.total_quiz_points || item.points || item.score || 0);
-                    entry.quizPoints = Math.max(entry.quizPoints, pts);
+                // 1. Fetch quiz leaderboard from backend
+                const qLeaderboardData = quizLeadRes && quizLeadRes.ok ? await quizLeadRes.json() : [];
+                const qList = Array.isArray(qLeaderboardData) ? qLeaderboardData : (qLeaderboardData?.data || []);
+
+                const finalLeaderboard = qList.map((item, index) => {
+                    const id = String(item.employee_id || item.user_id || item.id || item.userId || '').split(':')[0].trim();
+                    const name = item.employee_name || item.name || item.userName || `Employee ${id}`;
+                    const score = Number(item.quizPoints || item.quiz_points || item.points || item.score || item.total_score || item.total_quiz_points || 0);
+                    const rank = Number(item.rank || item.global_rank || item.position || (index + 1));
+                    return {
+                        id,
+                        name,
+                        score,
+                        quiz_points: score,
+                        reward_points: 0,
+                        rank
+                    };
                 });
-
-                // 2. Process Daily Quiz Leaderboard
-                const dailyList = Array.isArray(dailyData) ? dailyData : (dailyData?.data || []);
-                dailyList.forEach(item => {
-                    const id = item.employee_id || item.user_id || item.id || item.userId;
-                    if (!id) return;
-                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
-                    const pts = Number(item.total_score || item.quiz_score || item.total_quiz_points || item.points || item.score || 0);
-                    entry.quizPoints = Math.max(entry.quizPoints, pts);
-                });
-
-                // 3. Process General Fun Leaderboard
-                const genList = Array.isArray(genData) ? genData : (genData?.data || []);
-                genList.forEach(item => {
-                    const id = item.employee_id || item.user_id || item.id || item.userId;
-                    if (!id) return;
-                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
-                    const pts = Number(item.total_score || item.quiz_score || item.total_quiz_points || item.points || item.score || 0);
-                    entry.quizPoints = Math.max(entry.quizPoints, pts);
-                });
-
-                // 4. Process Rewards Leaderboard (All time)
-                const rList = Array.isArray(rewardsData) ? rewardsData : (rewardsData?.data || []);
-                rList.forEach(item => {
-                    const id = item.employee_id || item.user_id || item.id || item.userId;
-                    if (!id) return;
-                    const entry = getOrInitUser(id, item.employee_name || item.name || item.userName);
-                    const pts = Number(item.points || item.total_points || item.reward_points || item.score || 0);
-                    entry.rewardPoints = Math.max(entry.rewardPoints, pts);
-                });
-
-                const finalLeaderboard = Array.from(mergedMap.values()).map(u => ({
-                    id: u.id,
-                    name: u.name,
-                    score: u.quizPoints + u.rewardPoints,
-                    quiz_points: u.quizPoints,
-                    reward_points: u.rewardPoints
-                }));
 
                 setLeaderboard(finalLeaderboard);
 
@@ -314,29 +296,20 @@ const AwardsScreen = ({ onBack }) => {
                     };
                 });
 
-                // Calculate current sum of mapped quiz logs
-                const currentQuizSum = mappedQuizLogs.reduce((sum, q) => sum + Number(q.points || 0), 0);
-                
-                // If there's a deficit between the leaderboard quiz points and our logs, synthesize the difference session-wise
-                if (trueQuizPoints > currentQuizSum) {
-                    let deficit = trueQuizPoints - currentQuizSum;
-                    let dayIndex = 0;
-                    while (deficit > 0) {
-                        const pointsForLog = Math.min(100, deficit);
-                        const logDate = new Date();
-                        logDate.setDate(logDate.getDate() - dayIndex);
-                        mappedQuizLogs.push({
-                            id: `synth_quiz_${dayIndex}`,
-                            reward_name: `Quiz Session Completion`,
-                            points: pointsForLog,
-                            created_at: logDate.toISOString()
-                        });
-                        deficit -= pointsForLog;
-                        dayIndex++;
+                // Deduplicate quiz history (multiple endpoints return same records)
+                const uniqueQuizLogs = [];
+                const seenQuizKeys = new Set();
+                mappedQuizLogs.forEach(q => {
+                    // Use id if available, otherwise combine name, points and date (down to minute)
+                    const key = q.id || `${q.reward_name}_${q.points}_${q.created_at.substring(0, 16)}`;
+                    if (!seenQuizKeys.has(key)) {
+                        seenQuizKeys.add(key);
+                        uniqueQuizLogs.push(q);
                     }
-                }
+                });
 
-                setQuizHistory(mappedQuizLogs);
+                // Only show real quiz data from the backend — do NOT synthesize fake entries
+                setQuizHistory(uniqueQuizLogs);
 
 
             } catch (err) {
@@ -362,6 +335,13 @@ const AwardsScreen = ({ onBack }) => {
     // Display all attempts/sessions individually instead of deduplicating them daily
     const dedupedQuizHistory = quizHistory;
 
+    // The feed should show ALL company rewards from backend, excluding any quiz-related records
+    const allRewards = globalRewardsFeed.filter(r => {
+        const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
+        const cat = String(r.category || '').toUpperCase();
+        return !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
+    });
+
     const rawServerHistory = Array.isArray(rewardData) ? rewardData : (rewardData?.history || rewardData?.awards || rewardData?.data || rewardData?.rewards || []);
     const serverTotalPoints = Number(rewardData?.totalPoints || rewardData?.total_points || (Array.isArray(rewardData) ? 0 : rewardData?.points) || 0);
 
@@ -378,8 +358,14 @@ const AwardsScreen = ({ onBack }) => {
     });
 
     // 3. Final Point Calculation — Fully Dynamic & Accurate
-    // Source 1: Sum of all unique history items
-    const totalPointsFromHistory = uniqueHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
+    // Source 1: Sum of all unique history items, applying month filter if selected
+    const filteredUniqueHistory = uniqueHistory.filter(item => {
+        if (!monthFilter) return true;
+        const d = new Date(item.created_at || item.date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+    });
+    
+    const totalPointsFromHistory = filteredUniqueHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
 
     // Source 2: Build leaderboard from all participants to find global rank
     const liveMap = new Map();
@@ -411,7 +397,7 @@ const AwardsScreen = ({ onBack }) => {
         if (score > 0) {
             const current = liveMap.get(targetId);
             if (!current || score > current.score) {
-                liveMap.set(targetId, { name, score });
+                liveMap.set(targetId, { name, score, rank: s.rank });
             }
         }
     });
@@ -421,7 +407,7 @@ const AwardsScreen = ({ onBack }) => {
             const n = String(u.name || '').toUpperCase();
             return !n.includes('DINESH') && !n.includes('HR') && !n.includes('ADMIN');
         })
-        .sort((a, b) => b.score - a.score);
+        .sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.score - a.score);
 
     // Determine this user's rank and best score from leaderboard using ID for absolute accuracy
     const myId = String(user?.employee_id || user?.uid || user?.id || user?.userId || '');
@@ -442,25 +428,54 @@ const AwardsScreen = ({ onBack }) => {
             return cleanKey && (cleanEId === cleanKey || cleanEName === cleanKey);
         });
     });
-    let userRank = userEntryIndex >= 0 ? userEntryIndex + 1 : 0;
+    let userRank = userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].rank || userEntryIndex + 1) : 0;
     const leaderboardScore = userEntryIndex >= 0 ? sortedLeaderboard[userEntryIndex].score : 0;
 
-    // Final total: Trust leaderboard score first (consolidated quiz + rewards), then server total points, then history sum
-    const finalTotalPoints = leaderboardScore > 0 ? leaderboardScore : (serverTotalPoints > 0 ? serverTotalPoints : totalPointsFromHistory);
+    // Final total: Find the highest known points value across all endpoints to ensure we never wrongly display 0
+    // If a month filter is applied, only trust the filtered local history points since backend stats are all-time totals
+    const finalTotalPoints = monthFilter ? totalPointsFromHistory : Math.max(
+        quizUserPoints || 0,
+        rewardsBackendPoints || 0,
+        leaderboardScore || 0,
+        serverTotalPoints || 0,
+        totalPointsFromHistory || 0
+    );
+
+    const finalQuizPoints = monthFilter
+        ? quizHistory.filter(item => {
+            const d = new Date(item.created_at || item.date);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+        }).reduce((max, item) => Math.max(max, Number(item.points || 0)), 0)
+        : Math.max(quizUserPoints || 0, leaderboardScore || 0);
 
     const userName = user?.name || user?.employee_name || 'You';
     // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
-    if (userRank === 0 && finalTotalPoints > 0) {
-        sortedLeaderboard.push({ id: myId, name: userName, score: finalTotalPoints });
-        sortedLeaderboard.sort((a, b) => b.score - a.score);
+    if (userRank === 0 && finalQuizPoints > 0) {
+        sortedLeaderboard.push({ id: myId, name: userName, score: finalQuizPoints, rank: sortedLeaderboard.length + 1 });
+        sortedLeaderboard.sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.score - a.score);
         const dynamicIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
-        userRank = dynamicIndex >= 0 ? dynamicIndex + 1 : 0;
+        userRank = dynamicIndex >= 0 ? (sortedLeaderboard[dynamicIndex].rank || dynamicIndex + 1) : 0;
     }
+    
+    // Prefer the explicitly fetched backend rewards rank, fallback to dynamically computed userRank
+    const finalRank = rewardsBackendRank && rewardsBackendRank > 0 ? rewardsBackendRank : userRank;
+    // Calculate total endorsements accurately by counting the number of actual rewards (non-quiz) the user received
+    const myRewards = uniqueHistory.filter(item => {
+        const rawTitle = String(item.reward_name || item.rewardName || item.title || '').trim().toLowerCase();
+        const cat = String(item.category || '').toUpperCase();
+        return !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
+    });
+    const myFilteredRewards = myRewards.filter(item => {
+        if (!monthFilter) return true;
+        const d = new Date(item.created_at || item.date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+    });
+    const finalEndorsements = monthFilter ? myFilteredRewards.length : myRewards.length;
 
     const stats = {
-        rank: userRank > 0 ? userRank : 'N/A',
-        points: finalTotalPoints,
-        endorsements: Math.floor(finalTotalPoints / 100),
+        rank: finalRank > 0 ? finalRank : 'N/A',
+        points: finalQuizPoints,
+        endorsements: finalEndorsements,
         score: 'Active',
         topName: sortedLeaderboard[0]?.name || 'TBD',
         topScore: sortedLeaderboard[0]?.score || 0
@@ -620,7 +635,6 @@ const AwardsScreen = ({ onBack }) => {
         }
     });
 
-    const allRewards = uniqueHistory;
     const startFilter = null;
     const endFilter = null;
 
@@ -628,8 +642,10 @@ const AwardsScreen = ({ onBack }) => {
         const name = String(r.title || r.award_name || r.reward_name || r.awardName || '').toUpperCase();
         const cat = String(r.category || '').trim().toUpperCase();
 
-        // Any quiz-related items are strictly pushed OUT of TL/PM sections (so they fall into HR)
-        if (cat === 'QUIZ' || cat === 'FUN QUIZ GAME' || name.includes('QUIZ')) return 'HR';
+        // Trust explicit reward category first
+        if (cat === 'HR' || cat === 'ADMIN' || cat === 'GAME' || cat === 'HR & GAME' || cat === 'QUIZ' || cat === 'FUN QUIZ GAME' || name.includes('QUIZ')) return 'HR';
+        if (cat === 'PM') return 'PM';
+        if (cat === 'TL') return 'TL';
 
         const grantorId = cleanIdLocal(r.granted_by || r.giver_id || r.grantor_id);
         const grantor = employees.find(e => cleanIdLocal(e.id || e.employee_id || e.userId) === grantorId);
@@ -674,15 +690,21 @@ const AwardsScreen = ({ onBack }) => {
         return 'HR';
     };
 
-    const pmList = allRewards.filter(r => getGrantorCategory(r) === 'PM');
-    const tlList = allRewards.filter(r => getGrantorCategory(r) === 'TL');
-    const hrList = allRewards.filter(r => getGrantorCategory(r) === 'HR').sort((a, b) => {
+    const filteredAllRewards = allRewards.filter(r => {
+        if (!monthFilter) return true;
+        const d = new Date(r.created_at || r.date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+    });
+
+    const pmList = monthFilter ? filteredAllRewards.filter(r => getGrantorCategory(r) === 'PM') : [];
+    const tlList = monthFilter ? filteredAllRewards.filter(r => getGrantorCategory(r) === 'TL') : [];
+    const hrList = monthFilter ? filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR').sort((a, b) => {
         const isAQuiz = String(a.reward_name || '').toUpperCase().includes('QUIZ');
         const isBQuiz = String(b.reward_name || '').toUpperCase().includes('QUIZ');
         if (isAQuiz && !isBQuiz) return -1;
         if (!isAQuiz && isBQuiz) return 1;
         return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
-    });
+    }) : [];
 
     const history = {
         tl: tlList,
@@ -779,6 +801,32 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '8px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b' }}>Month:</span>
+                        <select 
+                            value={monthFilter} 
+                            onChange={(e) => setMonthFilter(e.target.value)} 
+                            style={{ 
+                                border: 'none', outline: 'none', fontSize: '12px', fontWeight: '900', 
+                                color: '#0B1E3F', backgroundColor: 'transparent', cursor: 'pointer',
+                                padding: '3px 4px', appearance: 'auto'
+                            }}
+                        >
+                            <option value="">All Time</option>
+                            {(() => {
+                                const months = [];
+                                const now = new Date();
+                                for (let i = 0; i < 12; i++) {
+                                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                    const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+                                    months.push(<option key={val} value={val}>{label}</option>);
+                                }
+                                return months;
+                            })()}
+                        </select>
+                    </div>
+
                     <motion.button 
                         onClick={() => setShowLeaderboard(true)} 
                         whileHover={{ scale: 1.06, y: -2, boxShadow: '0 8px 25px rgba(251, 188, 5, 0.4)' }}
@@ -830,7 +878,7 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                     <div style={{ overflow: 'hidden' }}>
                         <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Global ranking</div>
-                        <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', whiteSpace: 'nowrap' }}>{stats.rank !== 'N/A' ? `${stats.rank}${getRankSuffix(stats.rank)} Position` : 'Unranked'}</div>
+                        <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', whiteSpace: 'nowrap' }}>{loading ? 'Calculating...' : (stats.rank !== 'N/A' ? `${stats.rank}${getRankSuffix(stats.rank)} Position` : 'Unranked')}</div>
                     </div>
                 </div>
 
@@ -845,7 +893,7 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
 
                 <div style={{ padding: '5px', textAlign: winWidth < 768 ? 'left' : 'right' }}>
-                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your REP points</div>
+                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Quiz Points</div>
                     <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', display: 'flex', alignItems: 'center', justifyContent: winWidth < 768 ? 'flex-start' : 'flex-end', gap: '6px' }}>
                         {stats.points} <Star size={14} fill="#FBBC05" color="#FBBC05" />
                     </div>
@@ -876,7 +924,7 @@ const AwardsScreen = ({ onBack }) => {
                         )}
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
-                        {tlList.map((item, idx) => <RewardCard key={idx} item={item} color="#701a75" bg="#fdf4ff" />)}
+                        {tlList.map((item, idx) => <RewardCard key={idx} item={item} color="#701a75" bg="#fdf4ff" employees={employees} leaderboard={sortedLeaderboard} />)}
                         {tlList.length === 0 && <div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#94a3b8' }}>No TL rewards.</div>}
                     </div>
                 </motion.div>
@@ -903,7 +951,7 @@ const AwardsScreen = ({ onBack }) => {
                         )}
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
-                        {pmList.map((item, idx) => <RewardCard key={idx} item={item} color="#0369a1" bg="#f0f9ff" />)}
+                        {pmList.map((item, idx) => <RewardCard key={idx} item={item} color="#0369a1" bg="#f0f9ff" employees={employees} leaderboard={sortedLeaderboard} />)}
                         {pmList.length === 0 && <div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#94a3b8' }}>No PM rewards.</div>}
                     </div>
                 </motion.div>
@@ -935,11 +983,7 @@ const AwardsScreen = ({ onBack }) => {
                                 <Trophy size={12} />
                                 {(() => {
                                     const totalHrPoints = (history.hr || []).reduce((sum, aw) => {
-                                        const rawTitle = String(aw.title || aw.award_name || aw.reward_name || aw.awardName || '').trim().toLowerCase();
-                                        const cat = String(aw.category || '').toUpperCase();
-                                        const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser');
-                                        if (isQuiz) return sum + (Number(aw.points) || Number(aw.rep) || 0);
-                                        return sum;
+                                        return sum + (Number(aw.points || aw.rep || 0));
                                     }, 0);
                                     return `${totalHrPoints} REP TOTAL`;
                                 })()}
@@ -948,55 +992,61 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                     
                     <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
-                        {history.hr?.length > 0 ? (
-                            history.hr
-                                .filter(aw => {
-                                    // Date picker filtering logic
-                                    const d = new Date(aw.created_at || aw.date).getTime();
-                                    if (startFilter && d < new Date(startFilter).getTime()) return false;
-                                    if (endFilter && d > new Date(endFilter).getTime() + 86400000) return false;
-                                    return true;
-                                })
-                                .map((aw, i) => {
-                                    // Title assignment and Quiz flag checking
-                                    const rawTitle = String(aw.title || aw.award_name || aw.reward_name || aw.awardName || '').trim();
-                                    const cat = String(aw.category || '').toUpperCase();
-                                    const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.toLowerCase().includes('points earned by quiz') || rawTitle.toLowerCase().includes('quiz');
-                                    
-                                    const displayTitle = isQuiz ? 'Brain Teaser Achievement' : rawTitle;
+                        {hrList.length > 0 ? (
+                            hrList.map((aw, i) => {
+                                const rawTitle = String(aw.title || aw.award_name || aw.reward_name || aw.awardName || '').trim();
+                                const cat = String(aw.category || '').toUpperCase();
+                                const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.toLowerCase().includes('points earned by quiz') || rawTitle.toLowerCase().includes('quiz');
+                                const displayTitle = isQuiz ? 'Brain Teaser Achievement' : rawTitle;
 
-                                    return (
-                                        <motion.div 
-                                            key={i} 
-                                            initial={{ opacity: 0, y: 10 }} 
-                                            animate={{ opacity: 1, y: 0 }} 
-                                            whileHover={{ y: -3, scale: 1.01, boxShadow: '0 8px 20px rgba(0,0,0,0.04)' }}
-                                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                            style={{ 
-                                                // Styling switches to yellow theme if it's a Quiz
-                                                backgroundColor: isQuiz ? '#fffbeb' : '#fcfdfe', 
-                                                padding: '15px', borderRadius: '18px', 
-                                                border: `1px solid ${isQuiz ? '#fef3c7' : '#dcfce7'}`, 
-                                                position: 'relative',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            {isQuiz && <div style={{ position: 'absolute', top: '8px', right: '8px' }}><Zap size={12} color="#eab308" fill="#eab308" /></div>}
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, paddingRight: isQuiz ? '15px' : '0' }}>
-                                                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b' }}>{displayTitle}</div>
-                                                </div>
-                                                <div style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8', flexShrink: 0 }}>
-                                                    {aw.created_at || aw.date ? new Date(aw.created_at || aw.date).toLocaleDateString() : 'Recent'}
-                                                </div>
+                                const recipientId = String(aw.userId || aw.user_id || aw.employee_id || '').split(':')[0].trim().toLowerCase();
+                                const recipientNameObj = employees.find(e => String(e.id || e.employee_id || e.userId || '').split(':')[0].trim().toLowerCase() === recipientId);
+                                const recipientName = recipientNameObj ? (recipientNameObj.name || recipientNameObj.employee_name || recipientNameObj.userName) : `Employee ${aw.userId || ''}`;
+                                
+                                const recipientLbEntry = sortedLeaderboard.find(l => String(l.id).toLowerCase() === recipientId);
+                                const rank = recipientLbEntry ? recipientLbEntry.rank : null;
+
+                                return (
+                                    <motion.div 
+                                        key={i} 
+                                        initial={{ opacity: 0, y: 10 }} 
+                                        animate={{ opacity: 1, y: 0 }} 
+                                        whileHover={{ y: -3, scale: 1.01, boxShadow: '0 8px 20px rgba(0,0,0,0.04)' }}
+                                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                        style={{ 
+                                            backgroundColor: isQuiz ? '#fffbeb' : '#fcfdfe', 
+                                            padding: '15px', borderRadius: '18px', 
+                                            border: `1px solid ${isQuiz ? '#fef3c7' : '#dcfce7'}`, 
+                                            position: 'relative',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {isQuiz && <div style={{ position: 'absolute', top: '8px', right: '8px' }}><Zap size={12} color="#eab308" fill="#eab308" /></div>}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: isQuiz ? '15px' : '0' }}>
+                                                <div style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b' }}>{displayTitle}</div>
+                                                {recipientId && recipientId !== 'undefined' && (
+                                                    <div style={{ fontSize: '11px', fontWeight: '800', color: isQuiz ? '#d97706' : '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span>{recipientName}</span>
+                                                        {rank && (
+                                                            <span style={{ backgroundColor: isQuiz ? '#f59e0b' : '#15803d', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: '900' }}>
+                                                                Rank #{rank}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div style={{ fontSize: '11px', fontWeight: '1000', color: isQuiz ? '#d97706' : '#15803d', marginTop: '4px' }}>
-                                                +{aw.rep || aw.points} REP POINTS
+                                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8', flexShrink: 0 }}>
+                                                {aw.created_at || aw.date ? new Date(aw.created_at || aw.date).toLocaleDateString() : 'Recent'}
                                             </div>
-                                        </motion.div>
-                                    );
-                                })
-                        ) : <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px', fontWeight: '800', border: '1.5px dashed #e2e8f0', borderRadius: '15px' }}>No HR or Quiz records in audit</div>}
+                                        </div>
+                                        <div style={{ fontSize: '11px', fontWeight: '1000', color: isQuiz ? '#d97706' : '#15803d', marginTop: '8px' }}>
+                                            +{aw.rep || aw.points} REP POINTS
+                                        </div>
+                                    </motion.div>
+                                );
+                            })
+                        ) : <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px', fontWeight: '800', border: '1.5px dashed #e2e8f0', borderRadius: '15px' }}>No HR or Quiz records found.</div>}
                     </div>
                 </motion.div>
             </div>            {/* Modals... */}
@@ -1025,13 +1075,12 @@ const AwardsScreen = ({ onBack }) => {
                                 >
                                     <X size={18} />
                                 </button>
-                            </div>
-
+                        </div>
                             <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     {sortedLeaderboard.map((entry, idx) => {
                                         const isMe = String(entry.id).split(':')[0] === myId;
-                                        const rank = idx + 1;
+                                        const rank = entry.rank || (idx + 1);
                                         return (
                                             <motion.div
                                                 key={idx}
@@ -1148,7 +1197,7 @@ const AwardsScreen = ({ onBack }) => {
                                                 </div>
                                                 <div style={{ textAlign: 'right' }}>
                                                     <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{entry.score}</div>
-                                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>REP Points</div>
+                                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>Quiz Points</div>
                                                 </div>
                                             </motion.div>
                                         );

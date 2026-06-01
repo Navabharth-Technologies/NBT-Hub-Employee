@@ -41,6 +41,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     String(user?.role || '').toUpperCase().includes('JOINEE')
   );
   const [activeTab, setActiveTab] = useState('My Profile');
+  const [hoverSecurity, setHoverSecurity] = useState(false);
+  const [hoverTicket, setHoverTicket] = useState(false);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const isMobile = winWidth < 768;
   const isTablet = winWidth < 1024;
@@ -817,9 +819,87 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                   <Calendar size={14} />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {dob}
-                  </span>
+                  {isEditingDob ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <input
+                        type="date"
+                        style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', outline: 'none' }}
+                        value={(() => {
+                          if (!dob || dob === 'Add Date of Birth') return '';
+                          const parts = dob.split('/');
+                          if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                          return dob;
+                        })()}
+                        onChange={(e) => {
+                          const val = e.target.value; // YYYY-MM-DD
+                          if (val) {
+                            const parts = val.split('-');
+                            setDob(`${parts[2]}/${parts[1]}/${parts[0]}`);
+                          } else {
+                            setDob('Add Date of Birth');
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('token');
+                            const rawDate = dob.split('/').reverse().join('-'); // YYYY-MM-DD
+                            const res = await fetch(`${BASE_URL}/api/profile/update-dob` || API_ENDPOINTS.UPDATE_PROFILE, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify({
+                                dob: rawDate,
+                                date_of_birth: rawDate,
+                                email: user?.email,
+                                employee_id: user?.employee_id || user?.id || user?.userId
+                              })
+                            });
+                            
+                            if (res.ok) {
+                              updateProfile('date_of_birth', rawDate);
+                              updateProfile('dob', rawDate);
+                              localStorage.removeItem('nbt_birthdays_cache');
+                              localStorage.removeItem('nbt_birthdays_cache_v2');
+                              triggerToast('DOB updated successfully!');
+                            } else {
+                              const err = await res.json();
+                              triggerToast(err.message || 'Update Failed', 'error');
+                            }
+                          } catch (e) {
+                            triggerToast('Network Error: Could not save DOB.', 'error');
+                          }
+                          setIsEditingDob(false);
+                        }}
+                        style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      >
+                        <Check size={12} color="#10b981" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rawDob = user?.date_of_birth || user?.dob;
+                          setDob(rawDob ? formatDOB(rawDob) : 'Add Date of Birth');
+                          setIsEditingDob(false);
+                        }}
+                        style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      >
+                        <X size={12} color="#ef4444" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {dob}
+                      <button
+                        onClick={() => setIsEditingDob(true)}
+                        style={{ border: 'none', background: 'none', padding: '0 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Edit3 size={12} color="#3863a8" />
+                      </button>
+                    </span>
+                  )}
                 </div>
 
                 {!isMobile && !isTablet && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
@@ -873,9 +953,18 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
         {!hideForJoinees && (
           <div style={styles.infoGrid}>
-            <motion.div
-              whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
+            <div
+              onMouseEnter={() => setHoverSecurity(true)}
+              onMouseLeave={() => setHoverSecurity(false)}
+              style={{ 
+                ...styles.infoCard, 
+                cursor: 'pointer', 
+                borderColor: '#bfdbfe', 
+                backgroundColor: '#eff6ff',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: hoverSecurity ? 'translateY(-5px)' : 'translateY(0)',
+                boxShadow: hoverSecurity ? '0 15px 35px rgba(191, 219, 254, 0.25)' : '0 2px 8px rgba(0,0,0,0.02)'
+              }}
               onClick={() => setShowPasswordModal(true)}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#dbeafe' }}><Shield size={18} color="#1e40af" /></div>
@@ -884,11 +973,20 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                 <div style={styles.infoValue}>UPDATE SECURITY PASSKEY</div>
               </div>
               <ChevronRight size={16} color="#1e40af" />
-            </motion.div>
+            </div>
 
-            <motion.div
-              whileHover={{ y: -5 }}
-              style={{ ...styles.infoCard, cursor: 'pointer', borderColor: '#fed7aa', backgroundColor: '#fff7ed' }}
+            <div
+              onMouseEnter={() => setHoverTicket(true)}
+              onMouseLeave={() => setHoverTicket(false)}
+              style={{ 
+                ...styles.infoCard, 
+                cursor: 'pointer', 
+                borderColor: '#fed7aa', 
+                backgroundColor: '#fff7ed',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: hoverTicket ? 'translateY(-5px)' : 'translateY(0)',
+                boxShadow: hoverTicket ? '0 15px 35px rgba(254, 215, 170, 0.25)' : '0 2px 8px rgba(0,0,0,0.02)'
+              }}
               onClick={() => onNavigate?.('TICKET')}
             >
               <div style={{ ...styles.iconCircle, backgroundColor: '#ffedd5' }}><AlertCircle size={18} color="#f97316" /></div>
@@ -897,7 +995,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                 <div style={styles.infoValue}>RAISE TECHNICAL TICKET</div>
               </div>
               <ChevronRight size={16} color="#f97316" />
-            </motion.div>
+            </div>
 
             {/* TENURITY CARD */}
             <div
@@ -1069,14 +1167,6 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                 </div>
               </div>
 
-              {/* TECHNICAL FOOTER */}
-              <div style={{ backgroundColor: '#f8fafc', padding: '20px 40px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>AES-256 ENCRYPTION</span>
-                </div>
-                <span style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: '800' }}>NBT SECURITY v4.0</span>
-              </div>
             </motion.div>
           </div>
         )}

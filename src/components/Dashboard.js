@@ -6,6 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { safeSetItem } from '../context/AuthContext';
 
+const parseSafe = (d) => {
+  if (!d) return new Date();
+  if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(d)) {
+    const p = d.split(/[-/]/);
+    return new Date(`${p[2]}-${p[1]}-${p[0]}`);
+  }
+  return new Date(d);
+};
 
 const Dashboard = ({ setActiveTab }) => {
   const { user } = useAuth();
@@ -263,9 +271,11 @@ const Dashboard = ({ setActiveTab }) => {
       let bData = [];
       for (const ep of bEndpoints) {
         try {
+          console.log("[DOB Flow] Dashboard fetching birthdays from endpoint:", ep);
           const res = await fetch(ep, { headers });
           if (res.ok) {
             const raw = await res.json();
+            console.log(`[DOB Flow] Dashboard received raw data from ${ep}:`, raw);
             const list = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
             list.forEach(item => {
               const bestDate = item.dob || item.dateOfBirth || item.date || item.birthday;
@@ -283,17 +293,6 @@ const Dashboard = ({ setActiveTab }) => {
       ]);
 
       if (bData.length > 0) {
-
-
-
-        const parseSafe = (d) => {
-          if (!d) return new Date();
-          if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(d)) {
-            const p = d.split(/[-/]/);
-            return new Date(`${p[2]}-${p[1]}-${p[0]}`);
-          }
-          return new Date(d);
-        };
 
         const getNextOccurrence = (d) => {
           const today = new Date();
@@ -763,11 +762,11 @@ const Dashboard = ({ setActiveTab }) => {
     mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
     mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
-    yesterdayBox: { backgroundColor: '#ebf9f1', borderRadius: '35px', padding: winWidth < 768 ? '20px' : '30px', minHeight: '120px' },
-    yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontWeight: '1000', fontSize: '16px', marginBottom: '12px' },
+    yesterdayBox: { backgroundColor: '#ebf9f1', borderRadius: '35px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '90px' },
+    yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontWeight: '1000', fontSize: '16px', marginBottom: '8px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: 'white', borderRadius: '35px', padding: winWidth < 768 ? '20px' : '30px', border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px', minHeight: '120px' },
-    todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' },
+    todayBox: { backgroundColor: 'white', borderRadius: '35px', padding: winWidth < 768 ? '15px' : '20px', border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px', minHeight: '90px' },
+    todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
     todayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#1E40AF', fontWeight: '1000', fontSize: '16px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
     taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
@@ -808,8 +807,9 @@ const Dashboard = ({ setActiveTab }) => {
               <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>My Attendance</div>
               <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e3a8a' }}>Log History</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 16px', backgroundColor: 'white', borderRadius: '15px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '800', color: '#16a34a' }}>● Live updates</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#dcfce7', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
+              <span style={{ fontSize: '10px', fontWeight: '1000', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Live Update</span>
             </div>
             <ChevronRight size={24} color="#94a3b8" />
           </div>
@@ -955,7 +955,6 @@ const Dashboard = ({ setActiveTab }) => {
                        ) : null}
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px' }}>
                            <div style={{...s.statusBadge, marginTop: 0 }}>{todayStatus}</div>
-                           <div style={s.liveBadge}>Live Updates</div>
                        </div>
                     </div>
                   ) : (
@@ -1027,7 +1026,7 @@ const Dashboard = ({ setActiveTab }) => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
               {birthdaysList.slice(0, 2).map((b, idx) => {
-                const isToday = new Date(b.date).toDateString() === new Date().toDateString();
+                const isToday = parseSafe(b.date).toDateString() === new Date().toDateString();
                 return (
                   <div key={idx} style={{ padding: '16px 20px', backgroundColor: '#fff1f2', borderRadius: '20px', border: '1px solid #ffe4e6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -1036,7 +1035,7 @@ const Dashboard = ({ setActiveTab }) => {
                       </div>
                       <div>
                         <div style={{ fontSize: '14px', fontWeight: '900', color: '#881337' }}>{b.name}</div>
-                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#fb7185' }}>{new Date(new Date().getFullYear(), new Date(b.date).getMonth(), new Date(b.date).getDate()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#fb7185' }}>{new Date(new Date().getFullYear(), parseSafe(b.date).getMonth(), parseSafe(b.date).getDate()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                       </div>
                     </div>
                     {isToday && <button onClick={() => sendBirthdayWish(b)} style={{ padding: '8px 16px', borderRadius: '12px', border: 'none', backgroundColor: '#e11d48', color: 'white', fontSize: '11px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.2)' }}>Wish him/her</button>}

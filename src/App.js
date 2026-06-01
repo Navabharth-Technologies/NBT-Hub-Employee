@@ -284,7 +284,7 @@ function App() {
 
   return (
     <ThreadProvider>
-      <div className="App" style={{ overflowX: 'hidden' }} onClick={hideNavTemporarily}>
+      <div className="App" style={{ overflowX: 'hidden' }}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
         <main key={activeTab} ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '110px' }}>
           {renderTab()}

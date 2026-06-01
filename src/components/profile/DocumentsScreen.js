@@ -184,11 +184,11 @@ const SECTIONS = [
 ];
 
 export default function DocumentsScreen({ onBack }) {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { employeeId } = useParams();
 
   const [form, setForm] = useState({
-    emp_name: '', gender: '', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: 'General',
+    emp_name: '', gender: '', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: '',
     designation: '', department: '', process: '', supervisor_l1: '', supervisor_l2: '', doj: '', ft_pt: 'Full Time', status: 'Active', place: '', moved: '', official_email_id: '',
     contact_no: '', emergency_contact_no: '', personal_email_id: '', present_address: '', permanent_address: '', state: '',
     qualification: '', edu_completion_year: '', college: '', university: '', previous_organization: '', previous_experience: '', source: '', languages_known: '',
@@ -356,11 +356,34 @@ export default function DocumentsScreen({ onBack }) {
         ? API_ENDPOINTS.EMPLOYEE_PROFILE(employeeId)
         : API_ENDPOINTS.MY_EMPLOYEE_PROFILE;
 
+      // Format DOB to DD/MM/YYYY (Moved here to format cache too)
+      const formatDOB = (val) => {
+        if (!val || val === 'Not Provided') return val;
+        const s = String(val).trim();
+        // Already in DD/MM/YYYY
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+        // ISO format YYYY-MM-DD or YYYY-MM-DDT...
+        const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+        // Try parsing as date object
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const yyyy = d.getFullYear();
+          return `${dd}/${mm}/${yyyy}`;
+        }
+        return s;
+      };
+
       // Pre-fill from localStorage cache instantly (avoids blank screen on refresh)
       const cacheKey = `nbt_profile_cache_${employeeId || user?.employee_id || user?.id}`;
       try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-        if (cached) setForm(prev => ({ ...prev, ...cached }));
+        if (cached) {
+          if (cached.dob) cached.dob = formatDOB(cached.dob);
+          setForm(prev => ({ ...prev, ...cached }));
+        }
       } catch (_) {}
 
       const res = await fetch(endpoint, {
@@ -395,28 +418,25 @@ export default function DocumentsScreen({ onBack }) {
           const lwdVal = cleanData.lwd || cleanData.last_working_day || cleanData.last_working_date || cleanData.lwd_date;
           if (lwdVal) cleanData.lwd = lwdVal;
 
+
+
           const dobVal = cleanData.dob || cleanData.date_of_birth || cleanData.dateofbirth || cleanData.birth_date;
           if (dobVal) {
-            // Format DOB to DD/MM/YYYY
-            const formatDOB = (val) => {
-              if (!val || val === 'Not Provided') return val;
-              const s = String(val).trim();
-              // Already in DD/MM/YYYY
-              if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-              // ISO format YYYY-MM-DD or YYYY-MM-DDT...
-              const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-              if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-              // Try parsing as date object
-              const d = new Date(s);
-              if (!isNaN(d.getTime())) {
-                const dd = String(d.getDate()).padStart(2, '0');
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const yyyy = d.getFullYear();
-                return `${dd}/${mm}/${yyyy}`;
-              }
-              return s;
-            };
             cleanData.dob = formatDOB(dobVal);
+          }
+
+          // Gender: Don't auto-fill from backend — let user explicitly choose
+          // Always show 'Choose your gender' as default placeholder
+          cleanData.gender = '';
+          
+          // Category: Don't auto-fill from backend — let user explicitly choose
+          cleanData.category = '';
+
+          // Marital Status normalization
+          if (cleanData.marital_status) {
+            const ms = String(cleanData.marital_status).trim().toLowerCase();
+            const msMap = { 'single': 'Single', 'married': 'Married', 'divorced': 'Divorced', 'widowed': 'Widowed' };
+            if (msMap[ms]) cleanData.marital_status = msMap[ms];
           }
 
           // Aggressive Name and DOB Resolution
@@ -430,7 +450,7 @@ export default function DocumentsScreen({ onBack }) {
           }
 
           if (isOwnProfile && (!cleanData.dob || cleanData.dob === 'Not Provided')) {
-            cleanData.dob = user?.date_of_birth || user?.dob || '';
+            cleanData.dob = formatDOB(user?.date_of_birth || user?.dob || '');
           }
 
           if (!cleanData.designation) cleanData.designation = user?.role || user?.designation || '';
@@ -838,10 +858,18 @@ export default function DocumentsScreen({ onBack }) {
               }
             }
             sanitizedForm[field.key] = val;
+            if (field.key === 'dob') {
+              sanitizedForm['date_of_birth'] = val;
+            }
+            if (field.key === 'doj') {
+              sanitizedForm['joining_date'] = val;
+              sanitizedForm['date_of_joining'] = val;
+            }
           }
         });
       }
 
+      console.log("[DOB Flow] Sending payload to UPDATE_EMPLOYEE_PROFILE:", { ...sanitizedForm, employee_id: uid });
       const res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -849,6 +877,26 @@ export default function DocumentsScreen({ onBack }) {
       });
 
       if (res.ok) {
+        console.log("[DOB Flow] UPDATE_EMPLOYEE_PROFILE succeeded. Syncing context with users table.");
+        // If DOB was updated, sync it with the users table to update the Birthday List
+        if (sanitizedForm.dob && updateProfile) {
+          try {
+            const targetOptions = {
+              email: form.official_email_id || form.personal_email_id || form.email || user?.email,
+              employee_id: uid,
+              id: uid
+            };
+            console.log("[DOB Flow] Syncing 'dob' and 'date_of_birth' via updateProfile for target:", targetOptions);
+            await updateProfile('dob', sanitizedForm.dob, targetOptions);
+            await updateProfile('date_of_birth', sanitizedForm.dob, targetOptions);
+          } catch (dobErr) {
+            console.warn("Failed to sync DOB to users table:", dobErr);
+          }
+        }
+
+        // Clear local cache for birthdays to force a fresh pull when accessing the screen
+        localStorage.removeItem('nbt_birthdays_cache');
+
         setToast({ type: 'success', msg: 'Profile updated successfully!' });
         setIsEditing(false);
         // Cache saved data to localStorage so it survives page refresh
@@ -1230,7 +1278,13 @@ export default function DocumentsScreen({ onBack }) {
                             transition: 'all 0.2s', opacity: isDisabled ? 0.8 : 1
                           }}
                         >
-                          {field.options.map(o => <option key={o}>{o}</option>)}
+                          {field.key === 'gender' && (
+                            <option value="">Choose your gender</option>
+                          )}
+                          {field.key === 'category' && (
+                            <option value="">Choose your category</option>
+                          )}
+                          {field.options.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                         <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabled ? '#cbd5e1' : '#315A9E' }}>
                           <ChevronDown size={isMobile ? 16 : 18} strokeWidth={3} />

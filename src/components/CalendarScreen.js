@@ -44,21 +44,24 @@ const CalendarScreen = ({ onBack }) => {
     return holidayDate < today;
   };
 
+  const isMobile = winWidth < 768;
+  const isTablet = winWidth < 1024;
+
   const s = {
     container: {
-      padding: window.innerWidth < 768 ? '20px 15px' : '30px 40px',
+      padding: isMobile ? '15px 15px' : '20px 40px',
       maxWidth: '100%',
       margin: '0 auto',
       display: 'flex',
       flexDirection: 'column',
-      gap: '30px',
+      gap: '10px',
       minHeight: '100vh',
       backgroundColor: '#f8fafc'
     },
     headerCard: {
       backgroundColor: 'white',
       borderRadius: '45px',
-      padding: winWidth < 768 ? '40px 20px' : '60px',
+      padding: isMobile ? '40px 20px' : '60px',
       textAlign: 'center',
       boxShadow: '0 20px 60px rgba(0,0,0,0.02)',
       border: '1px solid #f1f5f9',
@@ -79,7 +82,7 @@ const CalendarScreen = ({ onBack }) => {
       marginBottom: '10px'
     },
     title: {
-      fontSize: winWidth < 768 ? '24px' : '32px',
+      fontSize: isMobile ? '24px' : '32px',
       fontWeight: '1000',
       color: '#0B1E3F',
       marginBottom: '5px'
@@ -93,17 +96,17 @@ const CalendarScreen = ({ onBack }) => {
     },
     grid: {
       display: 'grid',
-      gridTemplateColumns: winWidth < 768 ? '1fr' : (winWidth < 1024 ? '1fr 1fr' : '1fr 1fr 1fr'),
+      gridTemplateColumns: isMobile ? '1fr' : (isTablet ? '1fr 1fr' : '1fr 1fr 1fr'),
       gap: '20px',
       paddingBottom: '100px'
     },
     holidayCard: (passed) => ({
       backgroundColor: passed ? 'rgba(255, 255, 255, 0.7)' : '#ffffff',
       borderRadius: '28px',
-      padding: winWidth < 768 ? '18px' : '24px',
+      padding: isMobile ? '18px' : '24px',
       display: 'flex',
       alignItems: 'center',
-      gap: winWidth < 768 ? '15px' : '20px',
+      gap: isMobile ? '15px' : '20px',
       border: passed ? '1px solid #f1f5f9' : '2px solid #10b981',
       boxShadow: passed ? '0 4px 12px rgba(0,0,0,0.02)' : '0 10px 30px rgba(16, 185, 129, 0.1)',
       position: 'relative',
@@ -112,8 +115,8 @@ const CalendarScreen = ({ onBack }) => {
       opacity: passed ? 0.7 : 1
     }),
     dateBox: {
-      minWidth: winWidth < 768 ? '65px' : '75px',
-      height: winWidth < 768 ? '65px' : '75px',
+      minWidth: isMobile ? '65px' : '75px',
+      height: isMobile ? '65px' : '75px',
       backgroundColor: '#f8fafc',
       borderRadius: '20px',
       display: 'flex',
@@ -123,9 +126,9 @@ const CalendarScreen = ({ onBack }) => {
       border: '1px solid #f1f5f9'
     },
     month: { fontSize: '11px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    day: { fontSize: winWidth < 768 ? '20px' : '26px', fontWeight: '900', color: '#0B1E3F', lineHeight: '1' },
+    day: { fontSize: isMobile ? '20px' : '26px', fontWeight: '900', color: '#0B1E3F', lineHeight: '1' },
     info: { flex: 1, paddingRight: '40px' },
-    holidayName: { fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '800', color: '#0B1E3F', lineHeight: '1.4', letterSpacing: '-0.3px' },
+    holidayName: { fontSize: isMobile ? '14px' : '16px', fontWeight: '800', color: '#0B1E3F', lineHeight: '1.4', letterSpacing: '-0.3px' },
     dayOfWeek: { fontSize: '12px', color: '#64748b', fontWeight: '600', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' },
     badge: (passed) => ({
       padding: '6px 12px',
@@ -141,10 +144,9 @@ const CalendarScreen = ({ onBack }) => {
       boxShadow: passed ? 'none' : '0 4px 10px rgba(16, 185, 129, 0.2)'
     })
   };
-
   return (
     <div style={s.container}>
-      <div style={{ marginBottom: '20px' }}>
+      <div>
         <BackButton onClick={onBack} />
       </div>
 

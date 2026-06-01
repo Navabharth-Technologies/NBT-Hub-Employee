@@ -133,5 +133,7 @@ export const API_ENDPOINTS = {
   REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`,
   VERIFY_OTP: `${BASE_URL}/api/auth/verify-otp`,
   RESET_PASSWORD_OTP: `${BASE_URL}/api/auth/reset-password`,
-  CHANGE_PASSWORD: `${BASE_URL}/api/profile/update-password`
+  CHANGE_PASSWORD: `${BASE_URL}/api/profile/update-password`,
+  QUIZ_USER_POINTS: `${BASE_URL}/api/quizzes/user-points`,
+  QUIZ_LEADERBOARD: `${BASE_URL}/api/quizzes/leaderboard`
 };

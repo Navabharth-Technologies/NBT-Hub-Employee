@@ -132,8 +132,12 @@ export const AuthProvider = ({ children }) => {
       if (!saved) return null;
       const parsed = JSON.parse(saved);
       // Security: block admin/HR sessions on the employee portal
-      const role = String(parsed?.role || '').toUpperCase();
-      if (role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER')) {
+      const role = String(parsed?.role || '').toUpperCase().trim();
+      const isBlock = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
+                      role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
+                      role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
+                      role.includes('SUPER ADMIN') || role === 'SA';
+      if (isBlock) {
         return null;
       }
       return parsed;
@@ -158,8 +162,12 @@ export const AuthProvider = ({ children }) => {
       const u = JSON.parse(savedUser);
       
       // Security Validation: Ensure no leftover Admin/Manager sessions persist on the Employee Portal
-      const role = String(u.role || '').toUpperCase();
-      if (role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER')) {
+      const role = String(u.role || '').toUpperCase().trim();
+      const isBlock = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
+                      role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
+                      role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
+                      role.includes('SUPER ADMIN') || role === 'SA';
+      if (isBlock) {
           logout();
           return;
       }
@@ -226,8 +234,12 @@ export const AuthProvider = ({ children }) => {
         
         // --- ROLE-BASED RESTRICTION ---
         // Block Super Admin, HR, and PM from accessing the Employee-only webpage
-        const role = String(userData.role || '').toUpperCase();
-        if (role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || role.includes('PROJECT MANAGER')) {
+        const role = String(userData.role || '').toUpperCase().trim();
+        const isBlock = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
+                        role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
+                        role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
+                        role.includes('SUPER ADMIN') || role === 'SA';
+        if (isBlock) {
           console.warn('[Login Auth] ACCESS DENIED: Manager/Admin role attempted employee portal login:', role);
           return { success: false, error: 'Access Restricted: Please use the Administrative Portal.' };
         }
@@ -281,27 +293,35 @@ export const AuthProvider = ({ children }) => {
     window.location.hash = '/login';
   };
 
-  const updateProfile = async (field, value) => {
+  const updateProfile = async (field, value, targetOptions = null) => {
     if (!user) return { success: false, error: 'User not logged in' };
     
     // If the field is profileImage/profile_pic, it has already been uploaded and saved on the server
     if (field === 'profileImage' || field === 'profile_pic' || field === 'profile_image' || field === 'avatar' || field === 'profilePicture' || field === 'profile_picture') {
-      const updatedUser = { 
-        ...user, 
-        profileImage: value,
-        profile_image: value,
-        profile_picture: value,
-        profile_pic: value,
-        avatar: value,
-        profilePicture: value
-      };
-      setUser(updatedUser);
-      safeSetItem('user', JSON.stringify(updatedUser));
+      const isOwnProfile = !targetOptions || 
+        String(targetOptions.employee_id || targetOptions.id || targetOptions.userId).split(':')[0] === String(user?.employee_id || user?.id || user?.userId).split(':')[0];
+
+      if (isOwnProfile) {
+        setUser(prev => {
+          const updatedUser = { 
+            ...prev, 
+            profileImage: value,
+            profile_image: value,
+            profile_picture: value,
+            profile_pic: value,
+            avatar: value,
+            profilePicture: value
+          };
+          safeSetItem('user', JSON.stringify(updatedUser));
+          return updatedUser;
+        });
+      }
       return { success: true };
     }
 
     try {
       const token = safeGetItem('token');
+      console.log(`[DOB Flow] AuthContext updating field '${field}' to value:`, value, "for target:", targetOptions);
       const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
         method: 'POST',
         headers: { 
@@ -310,17 +330,25 @@ export const AuthProvider = ({ children }) => {
         },
         body: JSON.stringify({ 
           [field]: value, 
-          email: user.email,
-          userId: user?.id || user?.employee_id || user?.empId,
-          employee_id: user?.employee_id || user?.empId || user?.id,
-          id: user?.id || user?.employee_id || user?.empId
+          email: targetOptions?.email || user.email,
+          userId: targetOptions?.id || targetOptions?.userId || targetOptions?.employee_id || user?.id || user?.employee_id || user?.empId,
+          employee_id: targetOptions?.employee_id || targetOptions?.id || targetOptions?.userId || user?.employee_id || user?.empId || user?.id,
+          id: targetOptions?.id || targetOptions?.userId || targetOptions?.employee_id || user?.id || user?.employee_id || user?.empId
         })
       });
 
-      const updatedUser = { ...user, [field]: value };
-      setUser(updatedUser);
-      // Sync with safeSetItem to avoid QuotaExceededError
-      safeSetItem('user', JSON.stringify(updatedUser));
+      console.log(`[DOB Flow] AuthContext field '${field}' update response status:`, res.status);
+
+      const isOwnProfile = !targetOptions || 
+        String(targetOptions.employee_id || targetOptions.id || targetOptions.userId).split(':')[0] === String(user?.employee_id || user?.id || user?.userId).split(':')[0];
+
+      if (isOwnProfile) {
+        setUser(prev => {
+          const updatedUser = { ...prev, [field]: value };
+          safeSetItem('user', JSON.stringify(updatedUser));
+          return updatedUser;
+        });
+      }
 
       if (res.ok) {
         return { success: true };
@@ -334,9 +362,16 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: 'Failed to update' };
     } catch (e) {
       console.error("Profile update error:", e);
-      const updatedUser = { ...user, [field]: value };
-      setUser(updatedUser);
-      safeSetItem('user', JSON.stringify(updatedUser));
+      const isOwnProfile = !targetOptions || 
+        String(targetOptions.employee_id || targetOptions.id || targetOptions.userId).split(':')[0] === String(user?.employee_id || user?.id || user?.userId).split(':')[0];
+
+      if (isOwnProfile) {
+        setUser(prev => {
+          const updatedUser = { ...prev, [field]: value };
+          safeSetItem('user', JSON.stringify(updatedUser));
+          return updatedUser;
+        });
+      }
       return { success: true };
     }
   };

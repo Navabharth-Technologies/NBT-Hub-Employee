@@ -19,32 +19,12 @@ const BirthdayScreen = ({ onBack }) => {
   };
 
   useEffect(() => {
-    // Clear legacy cache once to ensure fresh backend birth years are loaded
-    const cacheKey = 'nbt_birthdays_cache_v2';
-    if (!localStorage.getItem(cacheKey)) {
-      localStorage.removeItem('nbt_birthdays_cache');
-      localStorage.setItem(cacheKey, 'true');
-    }
+    // Always clear stale birthday cache on mount to ensure fresh data after DOB edits
+    localStorage.removeItem('nbt_birthdays_cache');
+    localStorage.removeItem('nbt_birthdays_cache_v2');
     
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
-
-    // Fast Hydration: Load from cache immediately to prevent long loading states
-    const cached = localStorage.getItem('nbt_birthdays_cache');
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        // Standard Calendar Sort (Jan to Dec) for initial render
-        const sorted = parsed.sort((a, b) => {
-          const d1 = parseSafe(a.date || a.Date || a.dob);
-          const d2 = parseSafe(b.date || b.Date || b.dob);
-          if (d1.getMonth() !== d2.getMonth()) return d1.getMonth() - d2.getMonth();
-          return d1.getDate() - d2.getDate();
-        });
-        setBirthdays(sorted);
-        setLoading(false);
-      } catch (e) { }
-    }
 
     fetchBirthdays();
     return () => window.removeEventListener('resize', handleResize);
@@ -75,8 +55,9 @@ const BirthdayScreen = ({ onBack }) => {
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
 
-      // Strictly use user-provided Birthday API endpoints
+      // Fetch from /api/users first (most up-to-date DOB from profile edits), then birthday-specific endpoints
       const endpoints = [
+        `${BASE_URL}/api/users`,
         `${BASE_URL}/api/birthdays`,
         `${BASE_URL}/api/birthday-list`,
         `${BASE_URL}/api/employees/birthdays`
@@ -84,16 +65,20 @@ const BirthdayScreen = ({ onBack }) => {
 
       for (const endpoint of endpoints) {
         try {
+          console.log("[DOB Flow] Fetching birthdays from endpoint:", endpoint);
           const bResp = await fetch(endpoint, { headers, signal: controller.signal });
           if (bResp.ok) {
             const raw = await bResp.json();
+            console.log(`[DOB Flow] Received raw data from ${endpoint}:`, raw);
             const list = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
             list.forEach(item => {
-              // Ensure we pick up the best available date (prefer dob over date if both exist)
-              const bestDate = item.dob || item.dateOfBirth || item.date || item.birthday;
-              if (bestDate && !combinedData.some(p => (p.name || '').toLowerCase() === (item.name || '').toLowerCase())) {
+              // Ensure we pick up the best available date (prefer date_of_birth for profile-synced DOBs)
+              const bestDate = item.date_of_birth || item.dob || item.dateOfBirth || item.date || item.birthday;
+              const personName = item.name || item.emp_name || item.employee_name;
+              if (bestDate && personName && !combinedData.some(p => (p.name || '').toLowerCase() === (personName || '').toLowerCase())) {
                 combinedData.push({
                   ...item,
+                  name: personName,
                   date: bestDate
                 });
               }
@@ -103,6 +88,20 @@ const BirthdayScreen = ({ onBack }) => {
       }
 
       clearTimeout(timeoutId);
+
+      // Ensure the current user is always included with their latest profile DOB
+      if (user) {
+        const myName = user.name || user.employee_name || user.emp_name;
+        const myDob = user.date_of_birth || user.dob || user.dateOfBirth;
+        if (myName && myDob) {
+          combinedData = combinedData.filter(p => (p.name || '').toLowerCase() !== myName.toLowerCase());
+          combinedData.push({
+            ...user,
+            name: myName,
+            date: myDob
+          });
+        }
+      }
 
 
 
@@ -194,17 +193,6 @@ const BirthdayScreen = ({ onBack }) => {
       gap: '10px',
       position: 'relative'
     },
-    syncStatus: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      fontSize: '10px',
-      fontWeight: '1000',
-      color: '#0B1E3F',
-      textTransform: 'uppercase',
-      letterSpacing: '1px',
-      marginBottom: '5px'
-    },
     cakeIcon: {
       width: '60px',
       height: '60px',
@@ -290,13 +278,9 @@ const BirthdayScreen = ({ onBack }) => {
 
   return (
     <div style={s.container}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-        <BackButton onClick={onBack} />
-      </div>
-
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
-        <div style={s.syncStatus}>
-          <RefreshCcw size={14} /> Data Synced With NBT Hub Profiles
+        <div style={{ position: 'absolute', top: winWidth < 768 ? '15px' : '25px', left: winWidth < 768 ? '15px' : '25px' }}>
+          <BackButton onClick={onBack} />
         </div>
         <div style={s.cakeIcon}>
           <Cake size={32} strokeWidth={1.5} />
@@ -325,7 +309,13 @@ const BirthdayScreen = ({ onBack }) => {
                     <div style={s.name}>{person.name}</div>
                     <div style={s.dateLine}>
                       <Cake size={14} color="#FDB913" />
-                      {new Date(person.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {(() => {
+                        const d = parseSafe(person.date);
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      })()}
                     </div>
                   </div>
                 </div>
