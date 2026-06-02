@@ -434,7 +434,11 @@ export default function ThreadScreen() {
                                         <Edit3 size={16} />
                                     </button>
                                     <button
-                                        onClick={() => deletePost(post.id)}
+                                        onClick={() => {
+                                            if (window.confirm('Are you sure you want to delete this thread post?')) {
+                                                deletePost(post.id);
+                                            }
+                                        }}
                                         style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Delete post"
                                     >
@@ -681,10 +685,12 @@ export default function ThreadScreen() {
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                                         <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
                                                                         <button onClick={async () => {
-                                                                            const success = await deleteComment(post.id, c.id);
-                                                                            if (success) {
-                                                                                const comments = await fetchComments(post.id);
-                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                            if (window.confirm('Are you sure you want to delete this comment?')) {
+                                                                                const success = await deleteComment(post.id, c.id);
+                                                                                if (success) {
+                                                                                    const comments = await fetchComments(post.id);
+                                                                                    setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                                }
                                                                             }
                                                                         }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
                                                                     </div>
