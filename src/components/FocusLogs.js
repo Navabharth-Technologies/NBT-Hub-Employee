@@ -114,7 +114,11 @@ export default function FocusLogs({ onBack }) {
     csvContent += "Date,Time,Status,Tasks\n";
     filteredLogs.forEach(log => {
       const ts = log.timestamp || log.created_at || log.date || log.Date || log.CreatedAt;
-      const d = new Date(ts);
+      const taskTimestamps = (log.tasks || [])
+        .map(t => Number(t.id))
+        .filter(id => !isNaN(id) && id > 1000000000000); 
+      const d = taskTimestamps.length > 0 ? new Date(Math.max(...taskTimestamps)) : new Date(ts);
+      
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
@@ -149,7 +153,11 @@ export default function FocusLogs({ onBack }) {
 
     filteredLogs.forEach(log => {
       const ts = log.timestamp || log.created_at || log.date || log.Date || log.CreatedAt;
-      const d = new Date(ts);
+      const taskTimestamps = (log.tasks || [])
+        .map(t => Number(t.id))
+        .filter(id => !isNaN(id) && id > 1000000000000); 
+      const d = taskTimestamps.length > 0 ? new Date(Math.max(...taskTimestamps)) : new Date(ts);
+
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
