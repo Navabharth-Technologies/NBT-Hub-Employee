@@ -822,22 +822,19 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                   {isEditingDob ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <input
-                        type="date"
-                        style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', outline: 'none' }}
-                        value={(() => {
-                          if (!dob || dob === 'Add Date of Birth') return '';
-                          const parts = dob.split('/');
-                          if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                          return dob;
-                        })()}
+                        type="text"
+                        placeholder="DD/MM/YYYY"
+                        maxLength="10"
+                        style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', outline: 'none', width: '110px', textAlign: 'center' }}
+                        value={dob === 'Add Date of Birth' ? '' : dob}
                         onChange={(e) => {
-                          const val = e.target.value; // YYYY-MM-DD
-                          if (val) {
-                            const parts = val.split('-');
-                            setDob(`${parts[2]}/${parts[1]}/${parts[0]}`);
-                          } else {
-                            setDob('Add Date of Birth');
+                          let val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val.length > 2 && val.length <= 4) {
+                            val = `${val.slice(0, 2)}/${val.slice(2)}`;
+                          } else if (val.length > 4) {
+                            val = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4, 8)}`;
                           }
+                          setDob(val);
                         }}
                       />
                       <button
