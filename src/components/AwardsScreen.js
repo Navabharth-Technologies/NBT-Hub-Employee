@@ -1193,16 +1193,7 @@ const AwardsScreen = ({ onBack }) => {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingRight: isQuiz ? '15px' : '0' }}>
                                                 <div style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b' }}>{displayTitle}</div>
-                                                {recipientId && recipientId !== 'undefined' && (
-                                                    <div style={{ fontSize: '11px', fontWeight: '800', color: isQuiz ? '#d97706' : '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <span>{recipientName}</span>
-                                                        {rank && (
-                                                            <span style={{ backgroundColor: isQuiz ? '#f59e0b' : '#15803d', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: '900' }}>
-                                                                Rank #{rank}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
+
                                             </div>
                                             <div style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8', flexShrink: 0 }}>
                                                 {aw.created_at || aw.date ? new Date(aw.created_at || aw.date).toLocaleDateString() : 'Recent'}
