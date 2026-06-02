@@ -54,7 +54,6 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     const rawDob = user?.date_of_birth || user?.dob;
     return rawDob ? formatDOB(rawDob) : 'Add Date of Birth';
   });
-  const [isEditingDob, setIsEditingDob] = useState(false);
   const [teamName, setTeamName] = useState(user?.team || user?.team_name || user?.process || 'Loading...');
   const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
   const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
@@ -819,87 +818,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                   <Calendar size={14} />
-                  {isEditingDob ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <input
-                        type="text"
-                        placeholder="DD/MM/YYYY"
-                        maxLength="10"
-                        style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', outline: 'none', width: '110px', textAlign: 'center' }}
-                        value={dob === 'Add Date of Birth' ? '' : dob}
-                        onChange={(e) => {
-                          let val = e.target.value.replace(/[^0-9]/g, '');
-                          if (val.length > 2 && val.length <= 4) {
-                            val = `${val.slice(0, 2)}/${val.slice(2)}`;
-                          } else if (val.length > 4) {
-                            val = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4, 8)}`;
-                          }
-                          setDob(val);
-                        }}
-                      />
-                      <button
-                        onClick={async () => {
-                          if (dob && dob !== 'Add Date of Birth' && !/^\d{2}\/\d{2}\/\d{4}$/.test(dob)) {
-                            triggerToast('Strict format violation: DOB must be DD/MM/YYYY', 'error');
-                            return;
-                          }
-                          try {
-                            const token = localStorage.getItem('token');
-                            const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                              },
-                              body: JSON.stringify({
-                                dob: dob,
-                                date_of_birth: dob,
-                                email: user?.email,
-                                employee_id: user?.employee_id || user?.id || user?.userId
-                              })
-                            });
-                            
-                            if (res.ok) {
-                              updateProfile('date_of_birth', dob);
-                              updateProfile('dob', dob);
-                              localStorage.removeItem('nbt_birthdays_cache');
-                              localStorage.removeItem('nbt_birthdays_cache_v2');
-                              triggerToast('DOB updated successfully!');
-                            } else {
-                              const err = await res.json();
-                              triggerToast(err.message || 'Update Failed', 'error');
-                            }
-                          } catch (e) {
-                            triggerToast('Network Error: Could not save DOB.', 'error');
-                          }
-                          setIsEditingDob(false);
-                        }}
-                        style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                      >
-                        <Check size={12} color="#10b981" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const rawDob = user?.date_of_birth || user?.dob;
-                          setDob(rawDob ? formatDOB(rawDob) : 'Add Date of Birth');
-                          setIsEditingDob(false);
-                        }}
-                        style={{ border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                      >
-                        <X size={12} color="#ef4444" />
-                      </button>
-                    </div>
-                  ) : (
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {dob}
-                      <button
-                        onClick={() => setIsEditingDob(true)}
-                        style={{ border: 'none', background: 'none', padding: '0 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        <Edit3 size={12} color="#3863a8" />
-                      </button>
                     </span>
-                  )}
                 </div>
 
                 {!isMobile && !isTablet && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}

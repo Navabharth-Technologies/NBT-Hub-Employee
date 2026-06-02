@@ -31,7 +31,7 @@ const SECTIONS = [
     fields: [
       { key: 'emp_name', label: 'Employee Name', placeholder: 'Full Name', type: 'text' },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'dob', label: 'Date of Birth', type: 'date' },
+      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'age', label: 'Age', type: 'text', placeholder: 'Years' },
       { key: 'religion', label: 'Religion', type: 'text' },
       { key: 'blood_group', label: 'Blood Group', type: 'text' },
@@ -666,8 +666,16 @@ export default function DocumentsScreen({ onBack }) {
     let cleanValue = value;
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
-    } else if (key === 'dob') {
-      cleanValue = value.replace(/[^0-9/]/g, ''); // Allow only numbers and slashes
+    } else if (['dob', 'doj', 'lwd', 'separation'].includes(key)) {
+      // Auto-format dates as DD/MM/YYYY
+      let raw = value.replace(/[^0-9]/g, '');
+      if (raw.length > 2 && raw.length <= 4) {
+        cleanValue = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+      } else if (raw.length > 4) {
+        cleanValue = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)}`;
+      } else {
+        cleanValue = raw;
+      }
     } else if (key === 'department') {
       cleanValue = value.replace(/[^a-zA-Z\s\&\-\/\.]/g, ''); // Block numbers, allow basic special chars
 
@@ -704,7 +712,7 @@ export default function DocumentsScreen({ onBack }) {
 
     // Length caps
     if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 10) return;
-    if (key === 'dob' && cleanValue.length > 10) return;
+    if (['dob', 'doj', 'lwd', 'separation'].includes(key) && cleanValue.length > 10) return;
     if (key === 'aadhar_number' && cleanValue.length > 12) return;
     if (key === 'age' && cleanValue.length > 2) return;
     if (key === 'edu_completion_year' && cleanValue.length > 4) return;
