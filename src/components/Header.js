@@ -316,7 +316,7 @@ export default function AppHeader({ setActiveTab, isNewJoinee }) {
                 <div style={styles.modalOverlay}>
                     <div style={styles.modal}>
                         <h3 style={styles.modalTitle}>Confirm Logout</h3>
-                        <p style={styles.modalText}>Are you sure you want to sign out from NBT Hub? Any unsaved changes might be lost.</p>
+                        <p style={styles.modalText}>Are you sure want to exit from the NBT employee webpage?</p>
                         <div style={styles.modalBtns}>
                             <button style={styles.cancelBtn} onClick={() => setShowLogoutConfirm(false)}>Cancel</button>
                             <button style={styles.confirmBtn} onClick={() => {

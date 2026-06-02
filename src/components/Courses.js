@@ -876,7 +876,6 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                                     )}
                                 </div>
                                 <div style={s.courseContent}>
-                                    <div style={s.levelBadge}>{course.level || 'Expert'}</div>
                                     <h2 style={s.courseTitle}>{course.title}</h2>
                                     <div style={{ fontSize: '16px', color: '#64748b', display: 'flex', justifyContent: 'flex-start', marginBottom: '18px', fontWeight: '700' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={18} /> {course.duration || '2h 15m'}</span>
