@@ -257,7 +257,7 @@ function App() {
       case 'PROJECTS': return <ProjectScreen onBack={() => setActiveTab('HOME')} defaultView={activeTabState?.view} defaultStatus={activeTabState?.status} />;
       case 'COURSES': return <Courses resumeCourseId={activeTabState?.resumeCourseId} clearState={() => { setActiveTabState(null); handleTabChange('HOME'); }} />;
       case 'THREAD': return <ThreadScreen onBack={() => setActiveTab('HOME')} />;
-      case 'TICKET': return <TicketScreen onBack={() => handleTabChange('HOME')} />;
+      case 'TICKET': return <TicketScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'LEAVE': return <LeaveScreen onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} startWithForm={activeTabState?.showForm} />;
       case 'ATTENDANCE': return <AttendanceDashboard onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} />;
 
