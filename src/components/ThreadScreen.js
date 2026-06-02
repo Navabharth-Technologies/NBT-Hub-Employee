@@ -37,6 +37,8 @@ export default function ThreadScreen() {
     const [editContent, setEditContent] = useState('');
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editCommentContent, setEditCommentContent] = useState('');
+    const [deletingPostId, setDeletingPostId] = useState(null);
+    const [deletingCommentId, setDeletingCommentId] = useState(null);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
     const isMobile = winWidth < 768;
     const isTablet = winWidth < 1024;
@@ -427,23 +429,29 @@ export default function ThreadScreen() {
                                             setEditMediaFile(null);
                                             setEditMediaPreview(null);
                                             setEditRemoveMedia(false);
+                                            setDeletingPostId(null);
                                         }}
                                         style={{ border: 'none', background: '#f8fafc', color: '#315A9E', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Edit post"
                                     >
                                         <Edit3 size={16} />
                                     </button>
-                                    <button
-                                        onClick={() => {
-                                            if (window.confirm('Are you sure you want to delete this thread post?')) {
-                                                deletePost(post.id);
-                                            }
-                                        }}
-                                        style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                        title="Delete post"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    
+                                    {deletingPostId === post.id ? (
+                                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center', background: '#fef2f2', padding: '5px 10px', borderRadius: '12px' }}>
+                                            <span style={{fontSize: '11px', color: '#ef4444', fontWeight: '900'}}>Delete?</span>
+                                            <button onClick={() => deletePost(post.id)} style={{ border: 'none', background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}>Yes</button>
+                                            <button onClick={() => setDeletingPostId(null)} style={{ border: '1.5px solid #ef4444', background: 'white', color: '#ef4444', padding: '3px 8px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}>No</button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setDeletingPostId(post.id)}
+                                            style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            title="Delete post"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -683,16 +691,23 @@ export default function ThreadScreen() {
                                                                 <span style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F' }}>{cUser}</span>
                                                                 {isMyComment && (
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
-                                                                        <button onClick={async () => {
-                                                                            if (window.confirm('Are you sure you want to delete this comment?')) {
-                                                                                const success = await deleteComment(post.id, c.id);
-                                                                                if (success) {
-                                                                                    const comments = await fetchComments(post.id);
-                                                                                    setPostComments(prev => ({ ...prev, [post.id]: comments }));
-                                                                                }
-                                                                            }
-                                                                        }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
+                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); setDeletingCommentId(null); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
+                                                                        
+                                                                        {deletingCommentId === c.id ? (
+                                                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: '#fef2f2', padding: '2px 6px', borderRadius: '8px' }}>
+                                                                                <span style={{fontSize: '10px', color: '#ef4444', fontWeight: '900'}}>Sure?</span>
+                                                                                <button onClick={async () => {
+                                                                                    const success = await deleteComment(post.id, c.id);
+                                                                                    if (success) {
+                                                                                        const comments = await fetchComments(post.id);
+                                                                                        setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                                    }
+                                                                                }} style={{ border: 'none', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', fontSize: '9px', fontWeight: '900' }}>Yes</button>
+                                                                                <button onClick={() => setDeletingCommentId(null)} style={{ border: '1px solid #ef4444', background: 'white', color: '#ef4444', padding: '1px 5px', borderRadius: '6px', cursor: 'pointer', fontSize: '9px', fontWeight: '900' }}>No</button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button onClick={() => setDeletingCommentId(c.id)} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
+                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>
