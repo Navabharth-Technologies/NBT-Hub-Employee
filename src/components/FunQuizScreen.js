@@ -658,7 +658,7 @@ const FunQuizScreen = ({ onBack }) => {
           fontSize: '11px', fontWeight: '1000', cursor: 'pointer'
         }}
       >
-        {showFullList ? 'SHOW TOP 8' : 'VIEW FULL HALL OF FAME'}
+        {showFullList ? 'VIEW LESS' : 'VIEW FULL HALL OF FAME'}
       </button>
     </div>
   );

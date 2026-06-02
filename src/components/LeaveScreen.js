@@ -51,7 +51,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   };
 
   const [formData, setFormData] = useState({
-    type: 'Earned Leaves',
+    type: '',
     to: '',
     cc: '',
     reason: '',
@@ -1094,10 +1094,12 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                         value={formData.type}
                         onChange={e => setFormData({ ...formData, type: e.target.value })}
                         style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '700', appearance: 'none', backgroundColor: '#eff6ff', color: '#1e40af' }}
+                        required
                       >
-                        <option>Earned Leaves</option>
-                        <option>Casual Leave</option>
-                        <option>LOP</option>
+                        <option value="" disabled hidden>Choose your leave</option>
+                        <option value="Earned Leaves">Earned Leaves</option>
+                        <option value="Casual Leave">Casual Leave</option>
+                        <option value="LOP">LOP</option>
                       </select>
                       <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                         <ArrowLeft size={16} color="#1e40af" style={{ transform: 'rotate(-90deg)' }} />
