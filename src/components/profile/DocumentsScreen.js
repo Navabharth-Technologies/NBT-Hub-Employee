@@ -31,7 +31,7 @@ const SECTIONS = [
     fields: [
       { key: 'emp_name', label: 'Employee Name', placeholder: 'Full Name', type: 'text' },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
+      { key: 'dob', label: 'Date of Birth', type: 'date' },
       { key: 'age', label: 'Age', type: 'text', placeholder: 'Years' },
       { key: 'religion', label: 'Religion', type: 'text' },
       { key: 'blood_group', label: 'Blood Group', type: 'text' },
@@ -853,14 +853,21 @@ export default function DocumentsScreen({ onBack }) {
                 const parts = val.split('-');
                 val = `${parts[0]}/${parts[1]}/${parts[2]}`;
               } else if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val)) {
-                const d = new Date(val);
-                if (!isNaN(d.getTime())) {
-                  val = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                const dateOnly = val.split('T')[0];
+                const parts = dateOnly.split('-');
+                if (parts.length === 3) {
+                  val = `${parts[2]}/${parts[1]}/${parts[0]}`;
                 }
               }
             }
             sanitizedForm[field.key] = val;
             if (field.key === 'dob') {
+              if (val && val !== 'Not Provided' && val !== 'Add Date of Birth' && !/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+                setSaving(false);
+                setToast({ type: 'error', msg: 'Strict format violation: DOB must be strictly DD/MM/YYYY' });
+                setTimeout(() => setToast(null), 3000);
+                throw new Error("Strict DOB format violation");
+              }
               sanitizedForm['date_of_birth'] = val;
             }
             if (field.key === 'doj') {
@@ -1510,8 +1517,24 @@ export default function DocumentsScreen({ onBack }) {
                     ) : (
                       <div style={{ position: 'relative', width: '100%' }}>
                         <input
-                          type="text"
-                          value={(form[field.key] && typeof form[field.key] === 'string' && form[field.key].includes('T') && form[field.key].length > 15) ? form[field.key].split('T')[0] : (form[field.key] || '')}
+                          type={field.type === 'date' ? 'date' : 'text'}
+                          value={(() => {
+                            let val = form[field.key] || '';
+                            if (typeof val === 'string' && val.includes('T') && val.length > 15) {
+                              val = val.split('T')[0];
+                            }
+                            if (field.type === 'date' && val) {
+                              if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+                                const parts = val.split('/');
+                                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                              }
+                              if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
+                                const parts = val.split('-');
+                                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                              }
+                            }
+                            return val;
+                          })()}
                           readOnly={isDisabled}
                           onChange={e => handleChange(field.key, e.target.value)}
                           onKeyDown={e => {

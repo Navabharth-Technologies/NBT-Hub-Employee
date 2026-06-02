@@ -100,12 +100,12 @@ export const API_ENDPOINTS = {
   TASK_UPDATES_USER: (userId) => `${BASE_URL}/api/task-updates?userId=${String(userId || '').split(':')[0]}`,
 
   // Rewards System
-  REWARDS_LEADERBOARD: `${BASE_URL}/api/rewards/leaderboard`,
+  REWARDS_LEADERBOARD: `${BASE_URL}/api/public/employees/leaderboard/all?key=1abeb9c7e1c705b449384bbd8caf8328e538ff496c969024a7aaefb64edd17de`,
   REWARDS_MY: `${BASE_URL}/api/rewards/my`,
-  REWARDS_ALL: `${BASE_URL}/api/rewards`,
-  REWARDS_USER: (id) => `${BASE_URL}/api/rewards/user/${String(id || '').split(':')[0]}`,
-  REWARDS_GRANT_OPTIONS: `${BASE_URL}/api/rewards/grant`,
-  REWARDS_GRANT: `${BASE_URL}/api/rewards/grant`,
+  REWARDS_ALL: `${BASE_URL}/api/employees/leaderboard/all`,
+  REWARDS_USER: (userId) => `${BASE_URL}/api/rewards/user/${String(userId || '').split(':')[0]}`,
+  REWARDS_GRANT_OPTIONS: `${BASE_URL}/api/rewards/grant-options`,
+
 
   // Resignation System
   RESIGNATION_SUBMIT: `${BASE_URL}/api/resignations`,

@@ -7,20 +7,20 @@ import BackButton from './BackButton';
 
 const LeaderboardAvatar = ({ entry, employees, isMe }) => {
     const [imgFailed, setImgFailed] = useState(false);
-    
+
     const cleanId = String(entry.id || '').split(':')[0].trim().toLowerCase();
     const cleanName = String(entry.name || '').trim().toLowerCase();
     const emp = employees.find(e => {
         const checkId = String(e.employee_id || e.id || '').split(':')[0].trim().toLowerCase();
         const checkEmail = String(e.email || '').trim().toLowerCase();
         const checkName = String(e.name || e.emp_name || '').trim().toLowerCase();
-        return (checkId && checkId === cleanId) || 
-               (checkEmail && cleanId && checkEmail === cleanId) ||
-               (checkName && checkName === cleanName);
+        return (checkId && checkId === cleanId) ||
+            (checkEmail && cleanId && checkEmail === cleanId) ||
+            (checkName && checkName === cleanName);
     });
-    
+
     const path = emp ? (emp.profileImage || emp.profile_image || emp.avatar || emp.profilePicture || emp.profile_picture || emp.profile_pic) : null;
-    
+
     let imgSrc = null;
     if (path && typeof path === 'string') {
         imgSrc = (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) ? path : `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
@@ -28,15 +28,15 @@ const LeaderboardAvatar = ({ entry, employees, isMe }) => {
 
     if (imgSrc && !imgFailed) {
         return (
-            <img 
-                src={imgSrc} 
+            <img
+                src={imgSrc}
                 alt={entry.name}
                 onError={() => setImgFailed(true)}
-                style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: '12px', 
-                    objectFit: 'cover', 
+                style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    objectFit: 'cover',
                     marginRight: '15px',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}
@@ -79,25 +79,7 @@ const AwardsScreen = ({ onBack }) => {
     const [activeCategory, setActiveCategory] = useState('TL');
     const [showGrantModal, setShowGrantModal] = useState(false);
 
-    // Default fallback grant options (used only if backend is unreachable)
-    const FALLBACK_GRANT_OPTIONS = {
-        TL: [
-            { id: 'TL_1', title: 'Visionary Lead', rep: 250, icon: <Zap size={18} /> },
-            { id: 'TL_2', title: 'Impact Award', rep: 200, icon: <Award size={18} /> }
-        ],
-        PM: [
-            { id: 'PM_1', title: 'Goal Achiever', rep: 300, icon: <Star size={18} /> },
-            { id: 'PM_2', title: 'Sprint Master', rep: 150, icon: <Zap size={18} /> }
-        ],
-        HR: [
-            { id: 'HR_1', title: 'Cultural Pillar', rep: 500, icon: <Medal size={18} /> },
-            { id: 'HR_2', title: 'Peer Mentor', rep: 100, icon: <Users size={18} /> }
-        ]
-    };
-
-    const activeGrantOptions = (grantOptions[activeCategory] && grantOptions[activeCategory].length > 0)
-        ? grantOptions[activeCategory]
-        : (FALLBACK_GRANT_OPTIONS[activeCategory] || []);
+    const activeGrantOptions = grantOptions[activeCategory] || [];
 
     const canGrant = ['Admin', 'HR', 'PM', 'Manager', 'TL', 'CEO', 'Super Admin', 'SuperAdmin'].includes(user?.role || '');
 
@@ -112,7 +94,7 @@ const AwardsScreen = ({ onBack }) => {
     const [rewardsBackendRank, setRewardsBackendRank] = useState(null);
     const [backendEndorsements, setBackendEndorsements] = useState(0);
     const [rewardsBackendPoints, setRewardsBackendPoints] = useState(0);
-    const [monthFilter, setMonthFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState('');
 
     useEffect(() => {
         const fetchRewards = async () => {
@@ -125,7 +107,7 @@ const AwardsScreen = ({ onBack }) => {
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
-                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes, quizUserPointsRes] = await Promise.all([
+                const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes, quizUserPointsRes, grantOptionsRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
@@ -138,7 +120,8 @@ const AwardsScreen = ({ onBack }) => {
                     fetch(API_ENDPOINTS.QUIZ_LEADERBOARD, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/attempts?userId=${safeUid}`, { headers }).catch(() => null),
                     Promise.resolve({ ok: false }), // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null),
-                    fetch(`${API_ENDPOINTS.QUIZ_USER_POINTS}?userId=${safeUid}`, { headers }).catch(() => null)
+                    fetch(`${API_ENDPOINTS.QUIZ_USER_POINTS}?userId=${safeUid}`, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_GRANT_OPTIONS, { headers }).catch(() => null)
                 ]);
 
                 let combinedHistory = [];
@@ -163,13 +146,14 @@ const AwardsScreen = ({ onBack }) => {
                     const list = Array.isArray(allData) ? allData : (allData.data || allData.rewards || []);
                     setGlobalRewardsFeed(list); // Store all company rewards for the global feeds
 
-                    // Still extract my items for my personal history/deduplication if needed
+                    // Extract rewards where the logged-in user is the receiver (employee_id column)
                     const myItems = list.filter(r => {
-                        const rId = String(r.userId || r.user_id || r.employee_id || r.empId || '').toLowerCase();
-                        return rId === safeUid.toLowerCase() ||
-                            rId === rawId.toLowerCase() ||
-                            rId.split(':')[0] === safeUid.toLowerCase() ||
-                            (user?.email && rId === user.email.toLowerCase());
+                        const rEmployeeId = String(r.employee_id || '').split(':')[0].trim().toLowerCase();
+                        const rUserId = String(r.userId || r.user_id || '').split(':')[0].trim().toLowerCase();
+                        const rEmpId = String(r.empId || '').split(':')[0].trim().toLowerCase();
+                        return (rEmployeeId === safeUid.toLowerCase() || rUserId === safeUid.toLowerCase() || rEmpId === safeUid.toLowerCase()) ||
+                            (rEmployeeId === rawId.toLowerCase() || rUserId === rawId.toLowerCase() || rEmpId === rawId.toLowerCase()) ||
+                            (user?.email && (rEmployeeId === user.email.toLowerCase() || rUserId === user.email.toLowerCase()));
                     });
                     combinedHistory = [...combinedHistory, ...myItems];
                 }
@@ -197,40 +181,110 @@ const AwardsScreen = ({ onBack }) => {
                     setQuizUserPoints(quizPointsVal);
                 }
 
+                if (grantOptionsRes && grantOptionsRes.ok) {
+                    try {
+                        const data = await grantOptionsRes.json();
+                        const options = Array.isArray(data) ? data : (data.data || data.options || {});
+
+                        let grouped = { TL: [], PM: [], HR: [] };
+
+                        if (Array.isArray(options)) {
+                            options.forEach(opt => {
+                                const cat = String(opt.category || 'HR').toUpperCase();
+                                if (grouped[cat] !== undefined) {
+                                    grouped[cat].push({
+                                        id: opt.id || opt._id || opt.reward_id || opt.title,
+                                        title: opt.title || opt.reward_name || opt.name,
+                                        rep: Number(opt.rep || opt.points || opt.reward_points || 0),
+                                    });
+                                }
+                            });
+                        } else {
+                            Object.keys(options).forEach(cat => {
+                                const catUpper = cat.toUpperCase();
+                                if (grouped[catUpper] !== undefined) {
+                                    grouped[catUpper] = (Array.isArray(options[cat]) ? options[cat] : []).map(opt => ({
+                                        id: opt.id || opt._id || opt.reward_id || opt.title,
+                                        title: opt.title || opt.reward_name || opt.name,
+                                        rep: Number(opt.rep || opt.points || opt.reward_points || 0),
+                                    }));
+                                }
+                            });
+                        }
+
+                        const ICONS = [<Zap size={18} />, <Award size={18} />, <Star size={18} />, <Medal size={18} />, <Users size={18} />];
+                        Object.keys(grouped).forEach(cat => {
+                            grouped[cat].forEach((opt, i) => {
+                                opt.icon = ICONS[i % ICONS.length];
+                            });
+                        });
+
+                        setGrantOptions(grouped);
+                    } catch (e) { }
+                }
+
                 let rList = [];
                 // Parse backend rewards leaderboard to get true global rank
                 if (rewardsLeadRes && rewardsLeadRes.ok) {
                     const rLeadData = await rewardsLeadRes.json();
                     rList = Array.isArray(rLeadData) ? rLeadData : (rLeadData?.data || []);
-                    
+
                     const myEntryIndex = rList.findIndex(r => {
-                        const rId = String(r.userId || r.user_id || r.employee_id || r.id || '').toLowerCase();
-                        return rId === safeUid.toLowerCase() || (user?.email && rId === user.email.toLowerCase());
+                        const rId = String(r.userId || r.user_id || r.employee_id || r.id || '').split(':')[0].trim().toLowerCase();
+                        const rName = String(r.name || '').trim().toLowerCase();
+                        const myName = String(user?.name || user?.employee_name || '').trim().toLowerCase();
+                        return rId === safeUid.toLowerCase() ||
+                            (user?.email && rId === user.email.toLowerCase()) ||
+                            (myName && rName && myName === rName);
                     });
                     if (myEntryIndex >= 0) {
                         const myEntry = rList[myEntryIndex];
                         // If the backend doesn't provide a rank field, use the array index + 1
                         setRewardsBackendRank(Number(myEntry.rank || myEntry.global_rank || myEntry.position || (myEntryIndex + 1)));
-                        setBackendEndorsements(Number(myEntry.endorsements || myEntry.total_endorsements || 0));
-                        setRewardsBackendPoints(Number(myEntry.score || myEntry.total_score || myEntry.points || myEntry.totalPoints || myEntry.quiz_points || 0));
+                        setBackendEndorsements(Number(myEntry.total_awards || myEntry.endorsements || myEntry.total_endorsements || 0));
+                        // Public leaderboard API returns: totalPointsNum, totalRepNum, total_rep (formatted)
+                        const extractPts = (val) => Number(String(val || 0).replace(/,/g, '').replace(/[^0-9.-]+/g, ''));
+                        setRewardsBackendPoints(
+                            Number(myEntry.totalPointsNum || 0) ||
+                            Number(myEntry.totalRepNum || 0) ||
+                            extractPts(myEntry.total_points || myEntry.totalPoints || myEntry.total_rep) ||
+                            Number(myEntry.score || myEntry.total_score || myEntry.points || 0)
+                        );
                     }
+                    console.log('=== LEADERBOARD API DEBUG ===', {
+                        rListLength: rList.length,
+                        safeUid,
+                        userName: user?.name,
+                        myEntryIndex,
+                        sampleIds: rList.slice(0, 3).map(r => ({ id: r.id, name: r.name, totalPointsNum: r.totalPointsNum, rank: r.rank })),
+                        rewardsBackendRank: myEntryIndex >= 0 ? rList[myEntryIndex].rank : 'NOT FOUND',
+                        rewardsBackendPoints: myEntryIndex >= 0 ? rList[myEntryIndex].totalPointsNum : 'NOT FOUND'
+                    });
                 }
 
                 // If rList is empty, fallback to aggregating allRes (global rewards)
                 if (rList.length === 0 && allRes && allRes.ok) {
                     try {
-                        const allData = await allRes.clone().json();
-                        const list = Array.isArray(allData) ? allData : (allData.data || allData.rewards || []);
                         const rMap = new Map();
-                        list.forEach(r => {
-                            const id = String(r.userId || r.user_id || r.employee_id || r.empId || '').split(':')[0].trim();
-                            if (id) {
-                                const current = rMap.get(id) || 0;
-                                rMap.set(id, current + Number(r.points || r.rep || 0));
-                            }
-                        });
-                        rList = Array.from(rMap.entries()).map(([id, score]) => ({ id, score }));
-                    } catch(e) {}
+                        // allData is already parsed and stored in the state, but state is async.
+                        // However, we just processed it in the allRes block earlier or we can rely on the data if it's stored in a variable.
+                        // Wait, we can't access globalRewardsFeed synchronously here because it's a state setter.
+                        // We must fetch it again? No, we can just use the same API call or we can rebuild it.
+                        // Let's make an explicit fetch or use the data directly since we can just do another fetch if needed.
+                        const fallbackRes = await fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null);
+                        if (fallbackRes && fallbackRes.ok) {
+                            const fallbackData = await fallbackRes.json();
+                            const list = Array.isArray(fallbackData) ? fallbackData : (fallbackData.data || fallbackData.rewards || []);
+                            list.forEach(r => {
+                                const id = String(r.userId || r.user_id || r.employee_id || r.empId || r._id || '').split(':')[0].trim();
+                                if (id) {
+                                    const current = rMap.get(id) || 0;
+                                    rMap.set(id, current + Number(r.points || r.rep || 0));
+                                }
+                            });
+                            rList = Array.from(rMap.entries()).map(([id, score]) => ({ id, score }));
+                        }
+                    } catch (e) { }
                 }
 
                 // 1. Fetch quiz leaderboard from backend
@@ -239,7 +293,7 @@ const AwardsScreen = ({ onBack }) => {
 
                 // 2. Combine quiz and reward leaderboards
                 const combinedMap = new Map();
-                
+
                 qList.forEach(item => {
                     const id = String(item.employee_id || item.user_id || item.id || item.userId || '').split(':')[0].trim();
                     const name = item.employee_name || item.name || item.userName || `Employee ${id}`;
@@ -248,40 +302,55 @@ const AwardsScreen = ({ onBack }) => {
                 });
 
                 rList.forEach(item => {
-                    const id = String(item.employee_id || item.user_id || item.id || item.userId || '').split(':')[0].trim();
+                    const id = String(item.employee_id || item.user_id || item._id || item.id || item.userId || '').split(':')[0].trim();
                     const name = item.employee_name || item.name || item.userName || `Employee ${id}`;
-                    const rewardScore = Number(item.score || item.total_score || item.points || item.totalPoints || 0);
-                    
-                    const cleanName = (name || '').toLowerCase();
-                    const isExcluded = cleanName.includes('imsha') || cleanName.includes('sahana') || cleanName.includes('ashwini') || cleanName.includes('anuprasad');
-                    
+
+                    // Public leaderboard API returns: totalPointsNum, totalRepNum, total_rep (formatted), total_awards, rank
+                    const extractNum = (val) => Number(String(val || 0).replace(/,/g, '').replace(/[^0-9.-]+/g, ""));
+
+                    // Use totalPointsNum/totalRepNum from the public API first, then fall back to other fields
+                    const totalScore = Number(item.totalPointsNum || 0) ||
+                        Number(item.totalRepNum || 0) ||
+                        extractNum(item.total_points || item.totalPoints || item.total_rep) ||
+                        extractNum(item.score || item.total_score || item.points || 0);
+
+                    const rewardScore = totalScore; // The public API aggregates all points into totalPointsNum
+                    const backendQuizScore = Number(item.quizPointsNum || 0) || extractNum(item.quiz_points || item.quizPoints || 0);
+                    const backendRank = Number(item.rank || 0);
+                    const totalAwards = Number(item.total_awards || 0);
+
                     if (combinedMap.has(id)) {
                         const existing = combinedMap.get(id);
-                        const existingCleanName = (existing.name || '').toLowerCase();
-                        const isExistingExcluded = existingCleanName.includes('imsha') || existingCleanName.includes('sahana') || existingCleanName.includes('ashwini') || existingCleanName.includes('anuprasad');
-                        
-                        if (!isExcluded && !isExistingExcluded) {
-                            existing.reward_points = rewardScore;
+                        // totalScore from public API already INCLUDES quiz points,
+                        // so reward_points = totalScore - quiz_points to avoid double-counting
+                        const pureRewardScore = Math.max(0, totalScore - Math.max(existing.quiz_points || 0, backendQuizScore || 0));
+                        existing.reward_points = Math.max(existing.reward_points || 0, pureRewardScore);
+                        if (backendQuizScore > 0) {
+                            existing.quiz_points = Math.max(existing.quiz_points || 0, backendQuizScore);
                         }
+                        if (backendRank > 0 && (!existing.rank || existing.rank > backendRank)) {
+                            existing.rank = backendRank;
+                        }
+                        existing.total_awards = Math.max(existing.total_awards || 0, totalAwards);
                         if (!existing.name || existing.name.startsWith('Employee')) {
                             existing.name = name;
                         }
                     } else {
-                        if (!isExcluded) {
-                            combinedMap.set(id, { id, name, quiz_points: 0, reward_points: rewardScore });
-                        }
+                        // totalScore includes quiz points, so we must subtract backendQuizScore
+                        const pureRewardScore = Math.max(0, totalScore - (backendQuizScore || 0));
+                        combinedMap.set(id, { id, name, quiz_points: backendQuizScore, reward_points: pureRewardScore, rank: backendRank, total_awards: totalAwards });
                     }
                 });
 
                 const finalLeaderboard = Array.from(combinedMap.values())
                     .map(item => ({
                         ...item,
-                        score: item.quiz_points + item.reward_points
+                        score: Math.max(item.reward_points || 0, (item.quiz_points || 0) + (item.reward_points || 0))
                     }))
-                    .sort((a, b) => b.score - a.score)
+                    .sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.score - a.score)
                     .map((item, index) => ({
                         ...item,
-                        rank: index + 1
+                        rank: item.rank || (index + 1)
                     }));
 
                 setLeaderboard(finalLeaderboard);
@@ -320,23 +389,23 @@ const AwardsScreen = ({ onBack }) => {
                 };
 
                 if (quizHistRes && quizHistRes.ok) {
-                    try { parseAndAdd(await quizHistRes.json()); } catch(e){}
+                    try { parseAndAdd(await quizHistRes.json()); } catch (e) { }
                 }
                 if (quizCompletionsRes && quizCompletionsRes.ok) {
-                    try { parseAndAdd(await quizCompletionsRes.json()); } catch(e){}
+                    try { parseAndAdd(await quizCompletionsRes.json()); } catch (e) { }
                 }
                 if (quizAttemptsRes && quizAttemptsRes.ok) {
-                    try { parseAndAdd(await quizAttemptsRes.json()); } catch(e){}
+                    try { parseAndAdd(await quizAttemptsRes.json()); } catch (e) { }
                 }
                 if (quizMyAttemptsRes && quizMyAttemptsRes.ok) {
-                    try { parseAndAdd(await quizMyAttemptsRes.json()); } catch(e){}
+                    try { parseAndAdd(await quizMyAttemptsRes.json()); } catch (e) { }
                 }
 
                 // Map raw quiz logs session-wise, checking all possible field variations
                 let mappedQuizLogs = qHistList.map(q => {
                     const rawDate = q.created_at || q.completion_date || q.date || q.timestamp || q.createdAt || q.updatedAt;
-                    const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) 
-                        ? new Date(rawDate).toISOString() 
+                    const validDate = (rawDate && !isNaN(new Date(rawDate).getTime()))
+                        ? new Date(rawDate).toISOString()
                         : new Date().toISOString();
                     return {
                         ...q,
@@ -385,11 +454,41 @@ const AwardsScreen = ({ onBack }) => {
     // Display all attempts/sessions individually instead of deduplicating them daily
     const dedupedQuizHistory = quizHistory;
 
-    // The feed should show ALL company rewards from backend, excluding any quiz-related records
+    // DEBUG: Log the raw globalRewardsFeed to see what fields the API returns
+    if (globalRewardsFeed.length > 0) {
+        console.log('=== REWARDS FEED DEBUG ===');
+        console.log('Total items:', globalRewardsFeed.length);
+        console.log('Sample item keys:', Object.keys(globalRewardsFeed[0]));
+        console.log('Sample item:', JSON.stringify(globalRewardsFeed[0], null, 2));
+        console.log('Current user employee_id:', user?.employee_id);
+        console.log('Current user uid:', user?.uid);
+        console.log('Current user id:', user?.id);
+    }
+
+    // The feed should show ONLY the current user's rewards from backend
+    // DB columns: employee_id = receiver, granted_by = giver
     const allRewards = globalRewardsFeed.filter(r => {
         const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
         const cat = String(r.category || '').toUpperCase();
-        return !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
+        const isNotQuiz = !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
+
+        // Match the employee_id column (receiver) against ALL possible user identifiers
+        const rEmployeeId = String(r.employee_id || '').split(':')[0].trim().toLowerCase();
+        const rUserId = String(r.userId || r.user_id || '').split(':')[0].trim().toLowerCase();
+        const rEmpId = String(r.empId || '').split(':')[0].trim().toLowerCase();
+
+        const myId = String(user?.employee_id || '').split(':')[0].trim().toLowerCase();
+        const myUid = String(user?.uid || '').split(':')[0].trim().toLowerCase();
+        const myUserId = String(user?.id || user?.userId || '').split(':')[0].trim().toLowerCase();
+        const myEmail = String(user?.email || '').trim().toLowerCase();
+
+        const isMyReward =
+            (myId && (rEmployeeId === myId || rUserId === myId || rEmpId === myId)) ||
+            (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
+            (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
+            (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
+
+        return isNotQuiz && isMyReward;
     });
 
     const rawServerHistory = Array.isArray(rewardData) ? rewardData : (rewardData?.history || rewardData?.awards || rewardData?.data || rewardData?.rewards || []);
@@ -398,8 +497,10 @@ const AwardsScreen = ({ onBack }) => {
     // 2. Combine with server history, avoiding duplicate quiz entries
     const uniqueHistory = [...dedupedQuizHistory];
     rawServerHistory.forEach(item => {
-        const isQuiz = String(item.reward_name || item.rewardName || item.title || '').toUpperCase().includes('QUIZ');
-        
+        const rawTitle = String(item.reward_name || item.rewardName || item.title || '').trim().toLowerCase();
+        const cat = String(item.category || '').toUpperCase();
+        const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser');
+
         // If it is a quiz record, we only add it if we do not already have local session-wise quiz history
         if (isQuiz && dedupedQuizHistory.length > 0) {
             return;
@@ -410,11 +511,11 @@ const AwardsScreen = ({ onBack }) => {
     // 3. Final Point Calculation — Fully Dynamic & Accurate
     // Source 1: Sum of all unique history items, applying month filter if selected
     const filteredUniqueHistory = uniqueHistory.filter(item => {
-        if (!monthFilter) return true;
+        if (!dateFilter) return true;
         const d = new Date(item.created_at || item.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
     });
-    
+
     const totalPointsFromHistory = filteredUniqueHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
 
     // Source 2: Build leaderboard from all participants to find global rank
@@ -447,7 +548,13 @@ const AwardsScreen = ({ onBack }) => {
         if (score > 0) {
             const current = liveMap.get(targetId);
             if (!current || score > current.score) {
-                liveMap.set(targetId, { name, score, rank: s.rank });
+                liveMap.set(targetId, {
+                    name,
+                    score,
+                    rank: s.rank,
+                    quiz_points: s.quiz_points || 0,
+                    reward_points: s.reward_points || 0
+                });
             }
         }
     });
@@ -483,20 +590,25 @@ const AwardsScreen = ({ onBack }) => {
 
     // Final total: Find the highest known points value across all endpoints to ensure we never wrongly display 0
     // If a month filter is applied, only trust the filtered local history points since backend stats are all-time totals
-    const finalTotalPoints = monthFilter ? totalPointsFromHistory : Math.max(
-        quizUserPoints || 0,
-        rewardsBackendPoints || 0,
-        leaderboardScore || 0,
-        serverTotalPoints || 0,
-        totalPointsFromHistory || 0
-    );
+    const finalTotalPoints = dateFilter 
+        ? totalPointsFromHistory 
+        : (rewardsBackendPoints > 0 ? rewardsBackendPoints : (serverTotalPoints > 0 ? serverTotalPoints : totalPointsFromHistory));
+    console.log("=== POINTS DEBUG ===", {
+        finalTotalPoints,
+        quizUserPoints,
+        rewardsBackendPoints,
+        leaderboardScore,
+        serverTotalPoints,
+        totalPointsFromHistory,
+        dateFilter
+    });
 
-    const finalQuizPoints = monthFilter
+    const finalQuizPoints = dateFilter
         ? quizHistory.filter(item => {
             const d = new Date(item.created_at || item.date);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
         }).reduce((max, item) => Math.max(max, Number(item.points || 0)), 0)
-        : Math.max(quizUserPoints || 0, leaderboardScore || 0);
+        : Math.max(quizUserPoints || 0, userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].quiz_points || 0) : 0);
 
     const userName = user?.name || user?.employee_name || 'You';
     // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
@@ -506,7 +618,7 @@ const AwardsScreen = ({ onBack }) => {
         const dynamicIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
         userRank = dynamicIndex >= 0 ? (sortedLeaderboard[dynamicIndex].rank || dynamicIndex + 1) : 0;
     }
-    
+
     // Prefer the explicitly fetched backend rewards rank, fallback to dynamically computed userRank
     const finalRank = rewardsBackendRank && rewardsBackendRank > 0 ? rewardsBackendRank : userRank;
     // Calculate total endorsements accurately by counting the number of actual rewards (non-quiz) the user received
@@ -516,15 +628,18 @@ const AwardsScreen = ({ onBack }) => {
         return !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
     });
     const myFilteredRewards = myRewards.filter(item => {
-        if (!monthFilter) return true;
+        if (!dateFilter) return true;
         const d = new Date(item.created_at || item.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
     });
-    const finalEndorsements = monthFilter ? myFilteredRewards.length : myRewards.length;
+    const finalEndorsements = dateFilter
+        ? myFilteredRewards.length
+        : Math.max(myRewards.length, backendEndorsements || 0);
 
     const stats = {
         rank: finalRank > 0 ? finalRank : 'N/A',
         points: finalQuizPoints,
+        total_points: finalTotalPoints,
         endorsements: finalEndorsements,
         score: 'Active',
         topName: sortedLeaderboard[0]?.name || 'TBD',
@@ -544,7 +659,7 @@ const AwardsScreen = ({ onBack }) => {
             }
             const token = localStorage.getItem('token');
             const headers = { 'Authorization': `Bearer ${token}` };
-            
+
             const [rewardRes, quizRes] = await Promise.all([
                 fetch(API_ENDPOINTS.REWARDS_USER(memberId), { headers }).catch(() => null),
                 Promise.resolve({ ok: false }) // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/history?userId=${memberId}`, { headers }).catch(() => null)
@@ -563,13 +678,13 @@ const AwardsScreen = ({ onBack }) => {
             if (quizRes && quizRes.ok) {
                 const quizData = await quizRes.json();
                 const qList = Array.isArray(quizData) ? quizData : (quizData.data || quizData.history || quizData.attempts || quizData.completions || []);
-                
+
                 // Deduplicate quiz history (highest score per day)
                 const qMap = {};
                 qList.forEach(q => {
                     const rawDate = q.created_at || q.completion_date || q.date || q.timestamp || q.createdAt || q.updatedAt;
-                    const validDate = (rawDate && !isNaN(new Date(rawDate).getTime())) 
-                        ? new Date(rawDate).toISOString() 
+                    const validDate = (rawDate && !isNaN(new Date(rawDate).getTime()))
+                        ? new Date(rawDate).toISOString()
                         : new Date().toISOString();
                     const d = formatDate(validDate);
                     if (!qMap[d] || (q.points || q.score || 0) > (qMap[d].points || 0)) {
@@ -583,8 +698,8 @@ const AwardsScreen = ({ onBack }) => {
 
                 Object.values(qMap).forEach(q => {
                     const qDate = formatDate(q.created_at);
-                    const exists = combinedHistory.some(h => 
-                        formatDate(h.created_at || h.date) === qDate && 
+                    const exists = combinedHistory.some(h =>
+                        formatDate(h.created_at || h.date) === qDate &&
                         String(h.reward_name || h.title || '').toUpperCase().includes('QUIZ')
                     );
                     if (!exists) {
@@ -602,7 +717,7 @@ const AwardsScreen = ({ onBack }) => {
 
             // Calculate recognition total
             const recognitionTotal = combinedHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
-            
+
             // Get score from leaderboard as a robust fallback
             const lbScore = Number(member.score || leaderboard.find(e => String(e.id || '').split(':')[0] === String(memberId))?.score || 0);
 
@@ -631,8 +746,7 @@ const AwardsScreen = ({ onBack }) => {
         setGrantLoading(true);
         try {
             // Find selected reward from dynamically loaded options
-            const rewardObj = activeGrantOptions.find(o => o.id === selectedRewardId)
-                || FALLBACK_GRANT_OPTIONS[activeCategory]?.find(o => o.id === selectedRewardId);
+            const rewardObj = activeGrantOptions.find(o => o.id === selectedRewardId);
             if (!rewardObj) return alert('Invalid reward selection.');
 
             const token = localStorage.getItem('token');
@@ -699,28 +813,28 @@ const AwardsScreen = ({ onBack }) => {
 
         const grantorId = cleanIdLocal(r.granted_by || r.giver_id || r.grantor_id);
         const grantor = employees.find(e => cleanIdLocal(e.id || e.employee_id || e.userId) === grantorId);
-        
+
         if (grantor) {
             const role = String(grantor.role || '').toUpperCase();
             const deg = String(grantor.designation || '').toUpperCase();
 
             // Check HR
             const isHr = role.includes('HR') || role.includes('ADMIN') || role.includes('RECRUIT') ||
-                         role.includes('PEOPLE') || role.includes('TALENT') || role.includes('ACCOUNT') ||
-                         role.includes('OPERATIONS') ||
-                         deg.includes('HR') || deg.includes('HUMAN RESOURCES') || deg.includes('RECRUIT') ||
-                         deg.includes('PEOPLE OPS') || deg.includes('ADMIN') || deg.includes('TALENT') ||
-                         deg.includes('OFFICE') || deg.includes('ACCOUNT') || deg.includes('OPERATIONS');
+                role.includes('PEOPLE') || role.includes('TALENT') || role.includes('ACCOUNT') ||
+                role.includes('OPERATIONS') ||
+                deg.includes('HR') || deg.includes('HUMAN RESOURCES') || deg.includes('RECRUIT') ||
+                deg.includes('PEOPLE OPS') || deg.includes('ADMIN') || deg.includes('TALENT') ||
+                deg.includes('OFFICE') || deg.includes('ACCOUNT') || deg.includes('OPERATIONS');
             if (isHr) return 'HR';
 
             // Check PM
             const isPm = role.includes('PM') || role.includes('PROJECT MANAGER') || role.includes('PRODUCT MANAGER') ||
-                         deg.includes('PM') || deg.includes('PROJECT MANAGER') || deg.includes('PRODUCT MANAGER');
+                deg.includes('PM') || deg.includes('PROJECT MANAGER') || deg.includes('PRODUCT MANAGER');
             if (isPm) return 'PM';
 
             // Check TL
             const isTl = role.includes('TL') || role.includes('TEAM LEADER') || role.includes('TEAM LEAD') || role.includes('LEAD') || role.includes('MANAGER') ||
-                         deg.includes('TL') || deg.includes('TEAM LEADER') || deg.includes('TEAM LEAD') || deg.includes('LEAD') || deg.includes('MANAGER');
+                deg.includes('TL') || deg.includes('TEAM LEADER') || deg.includes('TEAM LEAD') || deg.includes('LEAD') || deg.includes('MANAGER');
             if (isTl) return 'TL';
         }
 
@@ -740,21 +854,28 @@ const AwardsScreen = ({ onBack }) => {
         return 'HR';
     };
 
-    const filteredAllRewards = allRewards.filter(r => {
-        if (!monthFilter) return true;
+    const filteredAllRewards = uniqueHistory.filter(r => {
+        if (!dateFilter) return true;
         const d = new Date(r.created_at || r.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthFilter;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
     });
 
-    const pmList = monthFilter ? filteredAllRewards.filter(r => getGrantorCategory(r) === 'PM') : [];
-    const tlList = monthFilter ? filteredAllRewards.filter(r => getGrantorCategory(r) === 'TL') : [];
-    const hrList = monthFilter ? filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR').sort((a, b) => {
+    const pmList = filteredAllRewards.filter(r => getGrantorCategory(r) === 'PM');
+    const tlList = filteredAllRewards.filter(r => getGrantorCategory(r) === 'TL');
+
+    const quizItemsForHR = dedupedQuizHistory.filter(q => {
+        if (!dateFilter) return true;
+        const d = new Date(q.created_at || q.date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
+    });
+
+    const hrList = [...filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR'), ...quizItemsForHR].sort((a, b) => {
         const isAQuiz = String(a.reward_name || '').toUpperCase().includes('QUIZ');
         const isBQuiz = String(b.reward_name || '').toUpperCase().includes('QUIZ');
         if (isAQuiz && !isBQuiz) return -1;
         if (!isAQuiz && isBQuiz) return 1;
         return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
-    }) : [];
+    });
 
     const history = {
         tl: tlList,
@@ -852,48 +973,45 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '8px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b' }}>Month:</span>
-                        <select 
-                            value={monthFilter} 
-                            onChange={(e) => setMonthFilter(e.target.value)} 
-                            style={{ 
-                                border: 'none', outline: 'none', fontSize: '12px', fontWeight: '900', 
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b' }}>Date:</span>
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            style={{
+                                border: 'none', outline: 'none', fontSize: '12px', fontWeight: '900',
                                 color: '#0B1E3F', backgroundColor: 'transparent', cursor: 'pointer',
-                                padding: '3px 4px', appearance: 'auto'
+                                padding: '3px 4px'
                             }}
-                        >
-                            <option value="">All Time</option>
-                            {(() => {
-                                const months = [];
-                                const now = new Date();
-                                for (let i = 0; i < 12; i++) {
-                                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                                    const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-                                    months.push(<option key={val} value={val}>{label}</option>);
-                                }
-                                return months;
-                            })()}
-                        </select>
+                        />
+                        {dateFilter && (
+                            <button
+                                onClick={() => setDateFilter('')}
+                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', fontSize: '12px', fontWeight: '900' }}
+                                title="Clear filter"
+                            >
+                                ✕
+                            </button>
+                        )}
                     </div>
 
-                    <motion.button 
-                        onClick={() => setShowLeaderboard(true)} 
+                    <motion.button
+                        onClick={() => setShowLeaderboard(true)}
                         whileHover={{ scale: 1.06, y: -2, boxShadow: '0 8px 25px rgba(251, 188, 5, 0.4)' }}
                         whileTap={{ scale: 0.95 }}
                         className="shiny-gold-btn"
-                        style={{ 
-                            background: 'linear-gradient(90deg, #FBBC05 0%, #FFF5C0 50%, #FBBC05 100%)', 
+                        style={{
+                            background: 'linear-gradient(90deg, #FBBC05 0%, #FFF5C0 50%, #FBBC05 100%)',
                             backgroundSize: '200% auto',
-                            color: '#0B1E3F', 
-                            border: 'none', 
-                            padding: '11px 22px', 
-                            borderRadius: '16px', 
-                            fontSize: '12px', 
-                            fontWeight: '1000', 
-                            cursor: 'pointer', 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                            color: '#0B1E3F',
+                            border: 'none',
+                            padding: '11px 22px',
+                            borderRadius: '16px',
+                            fontSize: '12px',
+                            fontWeight: '1000',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '8px',
                             letterSpacing: '0.8px',
                             textTransform: 'uppercase',
@@ -943,21 +1061,21 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
 
                 <div style={{ padding: '5px', textAlign: winWidth < 768 ? 'left' : 'right' }}>
-                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Quiz Points</div>
+                    <div style={{ fontSize: '8px', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Total Points</div>
                     <div style={{ fontSize: winWidth < 768 ? '14px' : '16px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05', display: 'flex', alignItems: 'center', justifyContent: winWidth < 768 ? 'flex-start' : 'flex-end', gap: '6px' }}>
-                        {stats.points} <Star size={14} fill="#FBBC05" color="#FBBC05" />
+                        {stats.total_points} <Star size={14} fill="#FBBC05" color="#FBBC05" />
                     </div>
                 </div>
             </div>
 
             {/* MAIN COLUMNS */}
             <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? '1fr' : '1fr 1fr 1fr', gap: '25px', marginBottom: '40px' }}>
-                <motion.div 
-                    initial={{ opacity: 0, y: 25 }} 
-                    animate={{ opacity: 1, y: 0 }} 
+                <motion.div
+                    initial={{ opacity: 0, y: 25 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1, type: 'spring', stiffness: 100 }}
-                    style={{ 
-                        backgroundColor: 'white', borderRadius: '28px', padding: '24px', 
+                    style={{
+                        backgroundColor: 'white', borderRadius: '28px', padding: '24px',
                         border: '1px solid #fdf4ff', boxShadow: '0 10px 40px rgba(112,26,117,0.02)',
                         height: '580px', display: 'flex', flexDirection: 'column'
                     }}
@@ -979,12 +1097,12 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                 </motion.div>
 
-                <motion.div 
-                    initial={{ opacity: 0, y: 25 }} 
-                    animate={{ opacity: 1, y: 0 }} 
+                <motion.div
+                    initial={{ opacity: 0, y: 25 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, type: 'spring', stiffness: 100 }}
-                    style={{ 
-                        backgroundColor: 'white', borderRadius: '28px', padding: '24px', 
+                    style={{
+                        backgroundColor: 'white', borderRadius: '28px', padding: '24px',
                         border: '1px solid #f0f9ff', boxShadow: '0 10px 40px rgba(3,105,161,0.02)',
                         height: '580px', display: 'flex', flexDirection: 'column'
                     }}
@@ -1006,12 +1124,12 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                 </motion.div>
 
-                <motion.div 
-                    initial={{ opacity: 0, y: 25 }} 
-                    animate={{ opacity: 1, y: 0 }} 
+                <motion.div
+                    initial={{ opacity: 0, y: 25 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, type: 'spring', stiffness: 100 }}
-                    style={{ 
-                        backgroundColor: '#ffffff', padding: '25px', borderRadius: '24px', 
+                    style={{
+                        backgroundColor: '#ffffff', padding: '25px', borderRadius: '24px',
                         border: '1.5px solid #f0fdf4', boxShadow: '0 10px 40px rgba(74, 222, 128, 0.05)',
                         height: '580px', display: 'flex', flexDirection: 'column'
                     }}
@@ -1021,7 +1139,7 @@ const AwardsScreen = ({ onBack }) => {
                             <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Zap size={18} color="#22c55e" /></div>
                             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#15803d' }}>HR & Game Recognition</h2>
                         </div>
-                        
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {canGrant && (
                                 <button onClick={() => openGrantModal('HR')} style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '6px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -1040,7 +1158,7 @@ const AwardsScreen = ({ onBack }) => {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
                         {hrList.length > 0 ? (
                             hrList.map((aw, i) => {
@@ -1052,21 +1170,21 @@ const AwardsScreen = ({ onBack }) => {
                                 const recipientId = String(aw.userId || aw.user_id || aw.employee_id || '').split(':')[0].trim().toLowerCase();
                                 const recipientNameObj = employees.find(e => String(e.id || e.employee_id || e.userId || '').split(':')[0].trim().toLowerCase() === recipientId);
                                 const recipientName = recipientNameObj ? (recipientNameObj.name || recipientNameObj.employee_name || recipientNameObj.userName) : `Employee ${aw.userId || ''}`;
-                                
+
                                 const recipientLbEntry = sortedLeaderboard.find(l => String(l.id).toLowerCase() === recipientId);
                                 const rank = recipientLbEntry ? recipientLbEntry.rank : null;
 
                                 return (
-                                    <motion.div 
-                                        key={i} 
-                                        initial={{ opacity: 0, y: 10 }} 
-                                        animate={{ opacity: 1, y: 0 }} 
+                                    <motion.div
+                                        key={i}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
                                         whileHover={{ y: -3, scale: 1.01, boxShadow: '0 8px 20px rgba(0,0,0,0.04)' }}
                                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                        style={{ 
-                                            backgroundColor: isQuiz ? '#fffbeb' : '#fcfdfe', 
-                                            padding: '15px', borderRadius: '18px', 
-                                            border: `1px solid ${isQuiz ? '#fef3c7' : '#dcfce7'}`, 
+                                        style={{
+                                            backgroundColor: isQuiz ? '#fffbeb' : '#fcfdfe',
+                                            padding: '15px', borderRadius: '18px',
+                                            border: `1px solid ${isQuiz ? '#fef3c7' : '#dcfce7'}`,
                                             position: 'relative',
                                             cursor: 'pointer'
                                         }}
@@ -1103,10 +1221,10 @@ const AwardsScreen = ({ onBack }) => {
             <AnimatePresence>
                 {showLeaderboard && (
                     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                        <motion.div 
-                            initial={{ scale: 0.9, opacity: 0 }} 
-                            animate={{ scale: 1, opacity: 1 }} 
-                            exit={{ scale: 0.9, opacity: 0 }} 
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
                             style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '550px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: '30px' }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
@@ -1119,13 +1237,13 @@ const AwardsScreen = ({ onBack }) => {
                                         <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Top performers across all departments</p>
                                     </div>
                                 </div>
-                                <button 
-                                    onClick={() => setShowLeaderboard(false)} 
+                                <button
+                                    onClick={() => setShowLeaderboard(false)}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '50%', backgroundColor: '#F1F5F9' }}
                                 >
                                     <X size={18} />
                                 </button>
-                        </div>
+                            </div>
                             <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     {sortedLeaderboard.map((entry, idx) => {
@@ -1143,14 +1261,14 @@ const AwardsScreen = ({ onBack }) => {
                                                     alignItems: 'center',
                                                     padding: '15px 20px',
                                                     background: rank === 1 ? 'linear-gradient(135deg, #FFFDF5 0%, #FFF9D6 100%)' :
-                                                                rank === 2 ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' :
-                                                                rank === 3 ? 'linear-gradient(135deg, #FFFBF9 0%, #FFF5ED 100%)' :
+                                                        rank === 2 ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' :
+                                                            rank === 3 ? 'linear-gradient(135deg, #FFFBF9 0%, #FFF5ED 100%)' :
                                                                 isMe ? '#F0F9FF' : '#F8FAFC',
                                                     borderRadius: '20px',
                                                     border: rank === 1 ? '1.5px solid #F5C71A' :
-                                                            rank === 2 ? '1.5px solid #CBD5E1' :
+                                                        rank === 2 ? '1.5px solid #CBD5E1' :
                                                             rank === 3 ? '1.5px solid #FDBA74' :
-                                                            isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
+                                                                isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
                                                     boxShadow: rank === 1 ? '0 4px 15px rgba(245, 199, 26, 0.15)' : 'none'
                                                 }}
                                             >
@@ -1161,7 +1279,7 @@ const AwardsScreen = ({ onBack }) => {
                                                             <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
                                                             <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
                                                             <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
-                                                            
+
                                                             {/* Right Majestic Wing */}
                                                             <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
                                                             <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
@@ -1246,8 +1364,18 @@ const AwardsScreen = ({ onBack }) => {
                                                     </div>
                                                 </div>
                                                 <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{entry.score}</div>
-                                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '900', textTransform: 'uppercase' }}>{entry.reward_points > 0 ? 'Total Points' : 'Quiz Points'}</div>
+                                                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px' }}>
+                                                        {entry.score}
+                                                    </div>
+                                                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                        <span style={{ color: '#16A34A' }}>{entry.quiz_points} QUIZ</span>
+                                                        {entry.reward_points > 0 && (
+                                                            <>
+                                                                <span style={{ color: '#CBD5E1' }}>|</span>
+                                                                <span style={{ color: '#16A34A' }}>{entry.reward_points} REWARDS</span>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         );
@@ -1344,9 +1472,7 @@ const AwardsScreen = ({ onBack }) => {
                 )}
             </AnimatePresence>
 
-            <div style={{ marginTop: '50px', textAlign: 'center', color: '#94a3b8', fontSize: '10px', fontWeight: '900', letterSpacing: '1px' }}>
-                NBT HUB • RECOGNITION DATABASE v2.5 • SECURE SYNC
-            </div>
+
         </motion.div>
     );
 };

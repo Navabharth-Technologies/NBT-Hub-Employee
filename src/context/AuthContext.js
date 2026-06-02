@@ -163,11 +163,17 @@ export const AuthProvider = ({ children }) => {
       
       // Security Validation: Ensure no leftover Admin/Manager sessions persist on the Employee Portal
       const role = String(u.role || '').toUpperCase().trim();
-      const isBlock = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
-                      role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
-                      role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
-                      role.includes('SUPER ADMIN') || role === 'SA';
-      if (isBlock) {
+      const isBlockRole = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
+                          role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
+                          role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
+                          role.includes('SUPER ADMIN') || role === 'SA' ||
+                          role.includes('TL') || role.includes('TEAM LEAD') || role.includes('TEAM_LEAD');
+      
+      const empName = String(u.name || u.employee_name || u.emp_name || '').toLowerCase().trim();
+      const blockedNames = ['ravikumar', 'anish', 'sahana', 'namith', 'deekshitha', 'rakesh'];
+      const isBlockName = blockedNames.some(n => empName.includes(n));
+
+      if (isBlockRole || isBlockName) {
           logout();
           return;
       }
@@ -233,14 +239,20 @@ export const AuthProvider = ({ children }) => {
         const userData = data.user;
         
         // --- ROLE-BASED RESTRICTION ---
-        // Block Super Admin, HR, and PM from accessing the Employee-only webpage
+        // Block Super Admin, HR, PM, TL, and specific administrative users from accessing the Employee-only webpage
         const role = String(userData.role || '').toUpperCase().trim();
-        const isBlock = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
-                        role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
-                        role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
-                        role.includes('SUPER ADMIN') || role === 'SA';
-        if (isBlock) {
-          console.warn('[Login Auth] ACCESS DENIED: Manager/Admin role attempted employee portal login:', role);
+        const isBlockRole = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
+                            role.includes('PROJECT MANAGER') || role.includes('PROJECT_MANAGER') ||
+                            role.includes('SUPERADMIN') || role.includes('SUPER_ADMIN') || 
+                            role.includes('SUPER ADMIN') || role === 'SA' ||
+                            role.includes('TL') || role.includes('TEAM LEAD') || role.includes('TEAM_LEAD');
+        
+        const empName = String(userData.name || userData.employee_name || userData.emp_name || '').toLowerCase().trim();
+        const blockedNames = ['ravikumar', 'anish', 'sahana', 'namith', 'deekshitha', 'rakesh'];
+        const isBlockName = blockedNames.some(n => empName.includes(n));
+
+        if (isBlockRole || isBlockName) {
+          console.warn('[Login Auth] ACCESS DENIED: Restricted user attempted employee portal login:', role, empName);
           return { success: false, error: 'Access Restricted: Please use the Administrative Portal.' };
         }
 

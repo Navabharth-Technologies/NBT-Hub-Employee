@@ -842,6 +842,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                       />
                       <button
                         onClick={async () => {
+                          if (dob && dob !== 'Add Date of Birth' && !/^\d{2}\/\d{2}\/\d{4}$/.test(dob)) {
+                            triggerToast('Strict format violation: DOB must be DD/MM/YYYY', 'error');
+                            return;
+                          }
                           try {
                             const token = localStorage.getItem('token');
                             const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
