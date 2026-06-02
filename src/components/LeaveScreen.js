@@ -1326,32 +1326,33 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                 </div>
               </div>
 
-              {/* Official Comments Section */}
-              {(selectedLeave.hr_comment || selectedLeave.hrComment || selectedLeave.pm_comment || selectedLeave.pmComment || selectedLeave.tl_comment || selectedLeave.tlComment) && (
-                <div style={{ marginTop: '25px' }}>
-                  <p style={{ margin: '0 0 15px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px' }}>Official Comments</p>
-                  <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {(selectedLeave.tl_comment || selectedLeave.tlComment) && (
-                        <div>
-                          <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>Team Leader</p>
-                          <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.tl_comment || selectedLeave.tlComment}</p>
-                        </div>
-                    )}
-                    {(selectedLeave.pm_comment || selectedLeave.pmComment) && (
-                        <div>
-                          <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>Project Manager</p>
-                          <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.pm_comment || selectedLeave.pmComment}</p>
-                        </div>
-                    )}
-                    {(selectedLeave.hr_comment || selectedLeave.hrComment) && (
-                        <div>
-                          <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>HR</p>
-                          <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.hr_comment || selectedLeave.hrComment}</p>
-                        </div>
-                    )}
-                  </div>
+              {/* Review Section */}
+              <div style={{ marginTop: '25px' }}>
+                <p style={{ margin: '0 0 15px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Review</p>
+                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {(selectedLeave.tl_comment || selectedLeave.tlComment) && (
+                      <div>
+                        <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>Team Leader</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.tl_comment || selectedLeave.tlComment}</p>
+                      </div>
+                  )}
+                  {(selectedLeave.pm_comment || selectedLeave.pmComment) && (
+                      <div>
+                        <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>Project Manager</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.pm_comment || selectedLeave.pmComment}</p>
+                      </div>
+                  )}
+                  {(selectedLeave.hr_comment || selectedLeave.hrComment) && (
+                      <div>
+                        <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>HR</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.hr_comment || selectedLeave.hrComment}</p>
+                      </div>
+                  )}
+                  {!(selectedLeave.hr_comment || selectedLeave.hrComment || selectedLeave.pm_comment || selectedLeave.pmComment || selectedLeave.tl_comment || selectedLeave.tlComment) && (
+                      <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>No reviews yet.</p>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Review Actions for Team Leader */}
               {isLeader && selectedLeave.status === 'PENDING' && (
