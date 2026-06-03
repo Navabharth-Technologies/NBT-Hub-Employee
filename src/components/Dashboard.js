@@ -785,7 +785,7 @@ const Dashboard = ({ setActiveTab }) => {
     yesterdayBox: { backgroundColor: '#f0fdf4', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '180px', height: '100%', border: '1.5px solid #dcfce7', display: 'flex', flexDirection: 'column' },
     yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px', marginBottom: '8px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: '#fafbfc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.5px solid #f1f5f9', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
+    todayBox: { backgroundColor: '#f8fafc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.5px solid #bfdbfe', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
     todayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
