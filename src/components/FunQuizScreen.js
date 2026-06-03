@@ -720,8 +720,10 @@ const FunQuizScreen = ({ onBack }) => {
                   {(() => {
                     const sessionScoreForDisplay = questions.filter(q => q.previous_result === 'correct').reduce((sum, q) => sum + (q.points_reward || 0), 0);
                     const newSessionPoints = questions.filter(q => q.previous_result === 'correct' && !q.already_answered).reduce((sum, q) => sum + (q.points_reward || 0), 0);
-                    // Use the higher of (backend lifetime + new session) or (session score) so it never shows 0 when user has earned points
-                    const overallScore = Math.max(userLifetimeScore + newSessionPoints, sessionScoreForDisplay);
+                    
+                    // We fetch exactly what the backend returned for the Hall of Fame leaderboard and display it here natively.
+                    // This guarantees the Overall Score perfectly matches the Quiz Points rank with zero hardcoding.
+                    const overallScore = myLeaderboardData?.quiz_points || userLifetimeScore || 0;
                     return (
                       <>
                         <div style={{ backgroundColor: 'rgba(255,255,255,0.7)', padding: '10px 16px', borderRadius: '14px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
