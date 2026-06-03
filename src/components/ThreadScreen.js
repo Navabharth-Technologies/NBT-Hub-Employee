@@ -19,7 +19,6 @@ export default function ThreadScreen() {
     const { user } = useAuth();
     const currentUserId = user?.id || user?.userId || user?.empId || user?.employee_id;
 
-    const [tagline, setTagline] = useState('');
     const [newPost, setNewPost] = useState('');
     const [mediaFile, setMediaFile] = useState(null);
     const [mediaType, setMediaType] = useState(null);
@@ -119,13 +118,11 @@ export default function ThreadScreen() {
                 userId: currentUserId,
                 user: user?.name || 'User',
                 role: user?.role?.toUpperCase() || 'EMPLOYEE',
-                tagline: tagline,
                 content: newPost,
                 file: mediaFile,
                 mediaType: mediaType
             });
             setNewPost('');
-            setTagline('');
             clearMedia();
         } catch (err) {
             console.error("Post Error:", err);
@@ -225,7 +222,7 @@ export default function ThreadScreen() {
         mediaBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '12px', border: '1.5px solid #eef2f6', background: 'white', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: '800', color: '#64748b' },
         postBtn: { padding: isMobile ? '10px 15px' : '12px 30px', backgroundColor: '#315A9E', color: 'white', border: 'none', borderRadius: '15px', fontWeight: '1000', cursor: 'pointer', fontSize: isMobile ? '10px' : '13px', textTransform: 'uppercase' },
         threadCard: { backgroundColor: 'white', borderRadius: isMobile ? '25px' : '40px', padding: isMobile ? '15px 20px' : '24px 30px', border: '1.5px solid #CBD5E1', position: 'relative', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '20px', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
-        taglineBadge: { display: 'inline-block', padding: '4px 10px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '8px' : '9px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', border: '1px solid #e0f2fe' },
+        taglineBadge: { display: 'inline-block', padding: '6px 12px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '13px' : '15px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', marginTop: '12px', border: '1px solid #e0f2fe' },
         postMedia: { marginTop: '20px', borderRadius: '25px', overflow: 'hidden', border: '1.5px solid #f8fafc', maxHeight: isMobile ? '300px' : '380px', maxWidth: '100%', width: 'fit-content', backgroundColor: '#fdfdfd', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' },
         footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '15px', marginTop: '15px', gap: isMobile ? '5px' : '10px', flexWrap: isMobile ? 'wrap' : 'nowrap' },
         action: (active, color) => ({
@@ -336,7 +333,6 @@ export default function ThreadScreen() {
         <div style={styles.container}>
             {/* CREATE THREAD */}
             <div style={{ ...styles.card, borderTop: '5px solid #FDB913' }}>
-                <input id="thread-tagline-input" style={styles.tagInput} placeholder="Add a tagline..." value={tagline} onChange={e => setTagline(e.target.value)} />
                 <textarea id="thread-content-input" style={styles.mainInput} placeholder="Share an update with the team..." value={newPost} onChange={e => setNewPost(e.target.value)} />
 
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} hidden accept="image/*,video/*" />
@@ -396,7 +392,6 @@ export default function ThreadScreen() {
                 return (
                     <div key={post.id} style={styles.threadCard}>
                         {post.tagline && <div style={styles.taglineBadge}>{post.tagline}</div>}
-
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div style={{ display: 'flex', gap: '15px' }}>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '15px', backgroundColor: '#0B1E3F', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(11, 30, 63, 0.15)' }}>
@@ -456,94 +451,96 @@ export default function ThreadScreen() {
                             )}
                         </div>
 
-                        <div style={{ marginTop: '14px', fontSize: isMobile ? '13px' : '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
-                            {isEditing ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <textarea
-                                        id={`thread-edit-content-input-${post.id}`}
-                                        autoFocus
-                                        onFocus={(e) => {
-                                            const val = e.target.value;
-                                            e.target.value = '';
-                                            e.target.value = val;
-                                        }}
-                                        style={{ ...styles.mainInput, minHeight: '80px', padding: '15px' }}
-                                        value={editContent}
-                                        onChange={(e) => setEditContent(e.target.value)}
-                                    />
+                        {(isEditing || (post.content && post.content.trim() !== '')) && (
+                            <div style={{ marginTop: '14px', fontSize: isMobile ? '13px' : '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
+                                {isEditing ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <textarea
+                                            id={`thread-edit-content-input-${post.id}`}
+                                            autoFocus
+                                            onFocus={(e) => {
+                                                const val = e.target.value;
+                                                e.target.value = '';
+                                                e.target.value = val;
+                                            }}
+                                            style={{ ...styles.mainInput, minHeight: '80px', padding: '15px' }}
+                                            value={editContent}
+                                            onChange={(e) => setEditContent(e.target.value)}
+                                        />
 
-                                    <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
-                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                        <div style={styles.mediaBtn} onClick={() => editFileInputRef.current?.click()}>
-                                            <ImageIcon size={18} color="#10b981" /> Replace Photo/Video
+                                        <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
+                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                            <div style={styles.mediaBtn} onClick={() => editFileInputRef.current?.click()}>
+                                                <ImageIcon size={18} color="#10b981" /> Replace Photo/Video
+                                            </div>
+                                            {(editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia && (
+                                                <div style={{ ...styles.mediaBtn, color: '#ef4444' }} onClick={() => { setEditRemoveMedia(true); setEditMediaFile(null); setEditMediaPreview(null); }}>
+                                                    <Trash2 size={18} color="#ef4444" /> Remove Media
+                                                </div>
+                                            )}
                                         </div>
-                                        {(editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia && (
-                                            <div style={{ ...styles.mediaBtn, color: '#ef4444' }} onClick={() => { setEditRemoveMedia(true); setEditMediaFile(null); setEditMediaPreview(null); }}>
-                                                <Trash2 size={18} color="#ef4444" /> Remove Media
+
+                                        {(editMediaPreview && !editRemoveMedia) && (
+                                            <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
+                                                <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
+                                                {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
                                             </div>
                                         )}
-                                    </div>
 
-                                    {(editMediaPreview && !editRemoveMedia) && (
-                                        <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
-                                            <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
-                                            {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
-                                        </div>
-                                    )}
+                                        {(!editMediaPreview && !editRemoveMedia) && (() => {
+                                            const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
+                                            if (!mediaPath || typeof mediaPath !== 'string') return null;
+                                            const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
+                                            let src = mediaPath;
+                                            if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
+                                                const separator = mediaPath.startsWith('/') ? '' : '/';
+                                                src = `${BASE_URL}${separator}${mediaPath}`;
+                                            }
+                                            return (
+                                                <div style={{ marginTop: '10px', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px', opacity: 0.5 }}>
+                                                    {isVideo ? (<video src={src} controls style={{ width: '100%', display: 'block' }} />) : (<img src={src} style={{ width: '100%', display: 'block' }} alt="" />)}
+                                                </div>
+                                            );
+                                        })()}
 
-                                    {(!editMediaPreview && !editRemoveMedia) && (() => {
-                                        const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
-                                        if (!mediaPath || typeof mediaPath !== 'string') return null;
-                                        const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
-                                        let src = mediaPath;
-                                        if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
-                                            const separator = mediaPath.startsWith('/') ? '' : '/';
-                                            src = `${BASE_URL}${separator}${mediaPath}`;
-                                        }
-                                        return (
-                                            <div style={{ marginTop: '10px', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px', opacity: 0.5 }}>
-                                                {isVideo ? (<video src={src} controls style={{ width: '100%', display: 'block' }} />) : (<img src={src} style={{ width: '100%', display: 'block' }} alt="" />)}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                                        <button
-                                            onClick={async () => {
-                                                const success = await updatePost(post.id, {
-                                                    content: editContent,
-                                                    file: editMediaFile,
-                                                    mediaType: editMediaType,
-                                                    removeMedia: editRemoveMedia
-                                                });
-                                                if (success) {
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                                            <button
+                                                onClick={async () => {
+                                                    const success = await updatePost(post.id, {
+                                                        content: editContent,
+                                                        file: editMediaFile,
+                                                        mediaType: editMediaType,
+                                                        removeMedia: editRemoveMedia
+                                                    });
+                                                    if (success) {
+                                                        setEditingPostId(null);
+                                                        setEditMediaFile(null);
+                                                        setEditMediaPreview(null);
+                                                        setEditRemoveMedia(false);
+                                                    }
+                                                }}
+                                                style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+                                            >
+                                                SAVE
+                                            </button>
+                                            <button
+                                                onClick={() => {
                                                     setEditingPostId(null);
                                                     setEditMediaFile(null);
                                                     setEditMediaPreview(null);
                                                     setEditRemoveMedia(false);
-                                                }
-                                            }}
-                                            style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
-                                        >
-                                            SAVE
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setEditingPostId(null);
-                                                setEditMediaFile(null);
-                                                setEditMediaPreview(null);
-                                                setEditRemoveMedia(false);
-                                            }}
-                                            style={{ background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
-                                        >
-                                            CANCEL
-                                        </button>
+                                                }}
+                                                style={{ background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+                                            >
+                                                CANCEL
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                post.content
-                            )}
-                        </div>
+                                ) : (
+                                    post.content
+                                )}
+                            </div>
+                        )}
 
                         {/* Support multiple field names and direct base64/relative URLs with type safety */}
                         {!isEditing && (() => {
