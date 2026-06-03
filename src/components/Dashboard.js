@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, checkAuthOnce } from '../context/AuthContext';
-import { CheckCircle2, Edit3, TrendingUp, Clock, Gift, Calendar, Trash2, User, Users, ChevronRight, FileText } from 'lucide-react';
+import { CheckCircle2, Edit3, TrendingUp, Clock, Gift, Calendar, Trash2, User, Users, ChevronRight, FileText, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { API_ENDPOINTS, BASE_URL } from '../config';
@@ -790,7 +790,7 @@ const Dashboard = ({ setActiveTab }) => {
     todayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#1E40AF', fontWeight: '1000', fontSize: '16px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
     taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
-    statusBadge: { fontSize: '10px', fontWeight: '1000', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#0B1E3F', width: 'fit-content', marginTop: '12px' },
+    statusBadge: { fontSize: '9px', fontWeight: '1000', padding: '4px 10px', borderRadius: '12px', background: '#f8fafc', color: '#0f172a', width: 'fit-content', marginTop: 'auto', textTransform: 'uppercase' },
     liveBadge: { fontSize: '10px', fontWeight: '1000', color: '#cbd5e1', alignSelf: 'flex-end', marginTop: 'auto' },
     statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
   };
@@ -901,9 +901,9 @@ const Dashboard = ({ setActiveTab }) => {
                       )}
                       <button 
                         onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                        style={{ ...s.editBtn, background: '#ebf9f1', border: '1.5px solid #bbf7d0', color: '#16a34a', padding: '6px 14px' }}
+                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #bbf7d0', color: '#16a34a', padding: '6px 14px', borderRadius: '16px' }}
                       >
-                        View All
+                        View Report
                       </button>
                     </div>
                   </div>
@@ -927,14 +927,12 @@ const Dashboard = ({ setActiveTab }) => {
                       {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#16a34a', fontWeight: '800', fontSize: '14px', opacity: 0.9 }}>
-                      No Report on Yesterday
+                    <div style={{ flex: 1, margin: '20px 0', color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>
+                      No log found.
                     </div>
                   )}
 
-                  {yesterdayTasks.length > 0 && yesterdayStatus !== 'No Data' && (
-                    <div style={{...s.statusBadge, background: '#ebf9f1', color: '#16a34a', marginTop: 'auto' }}>{yesterdayStatus}</div>
-                  )}
+                  <div style={{...s.statusBadge, marginTop: 'auto'}}>{(yesterdayStatus && yesterdayStatus !== 'No Data') ? yesterdayStatus : 'PENDING'}</div>
                 </div>
 
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
@@ -966,9 +964,13 @@ const Dashboard = ({ setActiveTab }) => {
                              </div>
                            );
                          })
-                       ) : null}
+                       ) : (
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', background: '#fff7ed', borderRadius: '8px', color: '#c2410c', fontSize: '13px', fontWeight: '700', margin: '15px 0' }}>
+                           <AlertCircle size={16} color="#c2410c" /> Update ur todays task
+                         </div>
+                       )}
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px' }}>
-                           <div style={{...s.statusBadge, marginTop: 0 }}>{todayStatus}</div>
+                           <div style={{...s.statusBadge, marginTop: 0 }}>{(todayStatus && todayStatus !== 'No Data') ? todayStatus : 'PENDING'}</div>
                        </div>
                     </div>
                   ) : (
