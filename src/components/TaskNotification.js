@@ -242,7 +242,7 @@ const TaskNotification = ({ onOpenTask }) => {
         const parseDate = parseDbDate(gn.created_at || gn.createdAt || new Date());
         const isNewlyAdded = lastIds.size > 0 && !lastIds.has(gId);
         if (isNewlyAdded) addedNew = true;
-        const isRead = readIds.includes(gId);
+        const isRead = gn.is_read || gn.isRead || gn.read_status || readIds.includes(gId);
 
         const rawMsg = gn.message || gn.content || gn.description || '';
         let dynamicTitle = gn.title;
@@ -369,12 +369,39 @@ const TaskNotification = ({ onOpenTask }) => {
                 <Bell size={20} fill="white" />
                 <span style={{ fontWeight: '1000', fontSize: '14px', letterSpacing: '1px' }}>Management Alerts</span>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', padding: '6px', color: 'white', cursor: 'pointer', display: 'flex' }}
-              >
-                <X size={16} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {notifications.some(n => n.isNew) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rawUid = user?.id || user?.empId || user?.userId || user?.employee_id;
+                      const uid = sanitizeId(rawUid);
+                      if (uid) {
+                        try {
+                          const token = localStorage.getItem('token');
+                          const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
+                          fetch(API_ENDPOINTS.NOTIFICATIONS_MARK_READ_ALL(uid), {
+                            method: 'PUT',
+                            headers: { 'Authorization': `Bearer ${cleanToken}` }
+                          }).catch(console.error);
+                          
+                          setNotifications(prev => prev.map(n => ({ ...n, isNew: false })));
+                          setHasUnread(false);
+                        } catch(err) {}
+                      }
+                    }}
+                    style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', padding: '4px 10px', color: 'white', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
+                  >
+                    Mark All Read
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', padding: '6px', color: 'white', cursor: 'pointer', display: 'flex' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px', backgroundColor: '#f8fafc' }}>
@@ -399,6 +426,19 @@ const TaskNotification = ({ onOpenTask }) => {
 
                         // Immediately update local UI status
                         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isNew: false } : n));
+
+                        // Backend API call to mark as read
+                        if (String(notif.id).startsWith('global_')) {
+                          const dbId = String(notif.id).replace('global_', '');
+                          try {
+                            const token = localStorage.getItem('token');
+                            const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
+                            fetch(API_ENDPOINTS.NOTIFICATIONS_MARK_READ(dbId), {
+                              method: 'PUT',
+                              headers: { 'Authorization': `Bearer ${cleanToken}` }
+                            }).catch(console.error);
+                          } catch(err) {}
+                        }
 
                         let tab = 'HOME';
                         const nType = String(notif.type || '').toUpperCase();
