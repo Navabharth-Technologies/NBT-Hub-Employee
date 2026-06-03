@@ -896,6 +896,14 @@ const AwardsScreen = ({ onBack }) => {
     };
 
     const filteredAllRewards = uniqueHistory.filter(r => {
+        const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
+        const cat = String(r.category || '').toUpperCase();
+        const isNotQuiz = !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
+        
+        // Strip quizzes out of the standard rewards list so they don't duplicate 
+        // when we manually append ...quizItemsForHR into hrList later
+        if (!isNotQuiz) return false;
+
         if (!dateFilter) return true;
         const d = new Date(r.created_at || r.date);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
