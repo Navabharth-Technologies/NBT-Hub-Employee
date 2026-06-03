@@ -920,7 +920,6 @@ const Dashboard = ({ setActiveTab }) => {
                             <CheckCircle2 size={12} color="#16a34a" />
                             <span style={{ fontSize: '12px', color: '#475569' }}>
                               {typeof t === 'string' ? t : t.text} 
-                              {timeStr && <span style={{ marginLeft: '8px', fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>({timeStr})</span>}
                             </span>
                           </div>
                         );

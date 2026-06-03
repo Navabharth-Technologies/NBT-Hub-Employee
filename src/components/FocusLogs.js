@@ -35,8 +35,8 @@ export default function FocusLogs({ onBack }) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const lastDay = now.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState('2026-05-01');
-  const [endDate, setEndDate] = useState('2026-05-30');
+  const [startDate, setStartDate] = useState('2026-06-01');
+  const [endDate, setEndDate] = useState('2026-06-30');
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   useEffect(() => {

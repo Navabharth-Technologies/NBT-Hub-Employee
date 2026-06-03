@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Star, Medal, ArrowLeft, Trophy, Calendar, Users, Zap, X, ChevronRight } from 'lucide-react';
 import { BASE_URL, API_ENDPOINTS } from '../config';
@@ -94,7 +94,36 @@ const AwardsScreen = ({ onBack }) => {
     const [rewardsBackendRank, setRewardsBackendRank] = useState(null);
     const [backendEndorsements, setBackendEndorsements] = useState(0);
     const [rewardsBackendPoints, setRewardsBackendPoints] = useState(0);
-    const [dateFilter, setDateFilter] = useState('');
+    const [startDate, setStartDate] = useState('2026-06-01');
+    const [endDate, setEndDate] = useState('2026-06-30');
+    const startDateRef = useRef(null);
+    const endDateRef = useRef(null);
+
+    const formatDisplayDate = (dateStr) => {
+        if (!dateStr) return 'dd-mm-yyyy';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        return dateStr;
+    };
+
+    const isWithinDateRange = (dateString) => {
+        if (!startDate && !endDate) return true;
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return true;
+        if (startDate && endDate) {
+            const s = new Date(startDate);
+            const e = new Date(endDate);
+            e.setHours(23, 59, 59, 999);
+            return d >= s && d <= e;
+        } else if (startDate) {
+            return d >= new Date(startDate);
+        } else if (endDate) {
+            const e = new Date(endDate);
+            e.setHours(23, 59, 59, 999);
+            return d <= e;
+        }
+        return true;
+    };
 
     useEffect(() => {
         const fetchRewards = async () => {
@@ -514,9 +543,7 @@ const AwardsScreen = ({ onBack }) => {
     // 3. Final Point Calculation — Fully Dynamic & Accurate
     // Source 1: Sum of all unique history items, applying month filter if selected
     const filteredUniqueHistory = uniqueHistory.filter(item => {
-        if (!dateFilter) return true;
-        const d = new Date(item.created_at || item.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
+        return isWithinDateRange(item.created_at || item.date);
     });
 
     const totalPointsFromHistory = filteredUniqueHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
@@ -593,7 +620,7 @@ const AwardsScreen = ({ onBack }) => {
 
     // Final total: Find the highest known points value across all endpoints to ensure we never wrongly display 0
     // If a month filter is applied, only trust the filtered local history points since backend stats are all-time totals
-    const finalTotalPoints = dateFilter 
+    const finalTotalPoints = (startDate || endDate) 
         ? totalPointsFromHistory 
         : (rewardsBackendPoints > 0 ? rewardsBackendPoints : (serverTotalPoints > 0 ? serverTotalPoints : totalPointsFromHistory));
     console.log("=== POINTS DEBUG ===", {
@@ -603,7 +630,7 @@ const AwardsScreen = ({ onBack }) => {
         leaderboardScore,
         serverTotalPoints,
         totalPointsFromHistory,
-        dateFilter
+        startDate, endDate
     });
 
     const localQuizPointsTotal = dedupedQuizHistory.filter(q => {
@@ -624,7 +651,7 @@ const AwardsScreen = ({ onBack }) => {
                (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
     }).reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
 
-    const finalQuizPoints = dateFilter
+    const finalQuizPoints = (startDate || endDate)
         ? dedupedQuizHistory.filter(q => {
             const rEmployeeId = String(q.employee_id || '').split(':')[0].trim().toLowerCase();
             const rUserId = String(q.userId || q.user_id || '').split(':')[0].trim().toLowerCase();
@@ -642,8 +669,7 @@ const AwardsScreen = ({ onBack }) => {
 
             if (!isMyReward) return false;
 
-            const d = new Date(q.created_at || q.date);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
+            return isWithinDateRange(q.created_at || q.date);
         }).reduce((sum, item) => sum + Number(item.points || 0), 0)
         : Math.max(quizUserPoints || 0, localQuizPointsTotal, userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].quiz_points || 0) : 0);
 
@@ -665,11 +691,9 @@ const AwardsScreen = ({ onBack }) => {
         return !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
     });
     const myFilteredRewards = myRewards.filter(item => {
-        if (!dateFilter) return true;
-        const d = new Date(item.created_at || item.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
+        return isWithinDateRange(item.created_at || item.date);
     });
-    const finalEndorsements = dateFilter
+    const finalEndorsements = (startDate || endDate)
         ? myFilteredRewards.length
         : Math.max(myRewards.length, backendEndorsements || 0);
 
@@ -904,18 +928,14 @@ const AwardsScreen = ({ onBack }) => {
         // when we manually append ...quizItemsForHR into hrList later
         if (!isNotQuiz) return false;
 
-        if (!dateFilter) return true;
-        const d = new Date(r.created_at || r.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
+        return isWithinDateRange(r.created_at || r.date);
     });
 
     const pmList = filteredAllRewards.filter(r => getGrantorCategory(r) === 'PM');
     const tlList = filteredAllRewards.filter(r => getGrantorCategory(r) === 'TL');
 
     const quizItemsForHR = dedupedQuizHistory.filter(q => {
-        if (!dateFilter) return true;
-        const d = new Date(q.created_at || q.date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
+        return isWithinDateRange(q.created_at || q.date);
     });
 
     const hrList = [...filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR'), ...quizItemsForHR].sort((a, b) => {
@@ -1021,27 +1041,35 @@ const AwardsScreen = ({ onBack }) => {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '8px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b' }}>Date:</span>
-                        <input
-                            type="date"
-                            value={dateFilter}
-                            onChange={(e) => setDateFilter(e.target.value)}
-                            style={{
-                                border: 'none', outline: 'none', fontSize: '12px', fontWeight: '900',
-                                color: '#0B1E3F', backgroundColor: 'transparent', cursor: 'pointer',
-                                padding: '3px 4px'
-                            }}
-                        />
-                        {dateFilter && (
-                            <button
-                                onClick={() => setDateFilter('')}
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', fontSize: '12px', fontWeight: '900' }}
-                                title="Clear filter"
-                            >
-                                ✕
-                            </button>
-                        )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
+                            <Calendar size={14} color="#3B5998" />
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
+                                {formatDisplayDate(startDate)}
+                            </span>
+                            <input
+                                ref={startDateRef}
+                                type="date"
+                                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: '900', color: '#cbd5e1' }}>TO</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
+                            <Calendar size={14} color="#3B5998" />
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
+                                {formatDisplayDate(endDate)}
+                            </span>
+                            <input
+                                ref={endDateRef}
+                                type="date"
+                                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+
                     </div>
 
                     <motion.button
