@@ -35,8 +35,8 @@ export default function FocusLogs({ onBack }) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const lastDay = now.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState('2026-05-01');
+  const [endDate, setEndDate] = useState('2026-05-30');
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -319,12 +319,11 @@ export default function FocusLogs({ onBack }) {
         {/* Filter Bar */}
         <div style={s.filterBar}>
           
-          <div style={{ ...s.dateInputBox, cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
-            <Calendar size={14} color="#94a3b8" />
-            <span style={{ fontSize: '14px', fontWeight: '700', color: startDate ? '#1e293b' : '#94a3b8' }}>
+          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
+            <Calendar size={18} color="#3B5998" />
+            <span style={{ fontSize: '14px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(startDate)}
             </span>
-            <Calendar size={14} color="#94a3b8" style={{ marginLeft: 'auto' }} />
             <input 
               ref={startDateRef}
               type="date" 
@@ -342,12 +341,11 @@ export default function FocusLogs({ onBack }) {
 
           <span style={s.toText}>TO</span>
 
-          <div style={{ ...s.dateInputBox, cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
-            <Calendar size={14} color="#94a3b8" />
-            <span style={{ fontSize: '14px', fontWeight: '700', color: endDate ? '#1e293b' : '#94a3b8' }}>
+          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
+            <Calendar size={18} color="#3B5998" />
+            <span style={{ fontSize: '14px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(endDate)}
             </span>
-            <Calendar size={14} color="#94a3b8" style={{ marginLeft: 'auto' }} />
             <input 
               ref={endDateRef}
               type="date" 
@@ -447,7 +445,6 @@ export default function FocusLogs({ onBack }) {
                              <div key={i} style={{marginBottom: '4px', display:'flex', gap:'8px', alignItems: 'center'}}>
                                <CheckCircle2 size={16} color="#3B5998" /> 
                                <span style={{flex: 1}}>{typeof t === 'string' ? t : (t.text || '')}</span>
-                               {tTime && <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '800'}}>{tTime}</span>}
                              </div>
                            );
                         })}
