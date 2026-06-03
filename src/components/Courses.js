@@ -451,7 +451,11 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
             const userName = user?.name || user?.userName || 'Employee Name';
             const courseName = selectedCourse?.title || 'COURSE';
-            const currentDate = new Date().toLocaleDateString('en-GB');
+            
+            const progressData = courseProgressMap[selectedCourse?.id];
+            let completionDateObj = progressData?.completion_date ? new Date(progressData.completion_date) : new Date();
+            if (isNaN(completionDateObj.getTime())) completionDateObj = new Date();
+            const currentDate = completionDateObj.toLocaleDateString('en-GB');
 
             // 1. Employee Name (Reduced size, bottom-aligned at 51%)
             ctx.font = 'italic bold 55px "Georgia", "Times New Roman", serif';
@@ -839,7 +843,12 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
                             {/* Date */}
                             <div style={{ position: 'absolute', top: '80.8%', left: '28%', transform: 'translate(0, -50%)', color: '#1e3a8a', fontSize: 'clamp(8px, 0.9vw, 11px)', fontWeight: '900', fontFamily: 'Arial, sans-serif' }}>
-                                {new Date().toLocaleDateString('en-GB')}
+                                {(() => {
+                                    const pd = courseProgressMap[selectedCourse?.id];
+                                    let dt = pd?.completion_date ? new Date(pd.completion_date) : new Date();
+                                    if (isNaN(dt.getTime())) dt = new Date();
+                                    return dt.toLocaleDateString('en-GB');
+                                })()}
                             </div>
                         </div>
                     </div>
