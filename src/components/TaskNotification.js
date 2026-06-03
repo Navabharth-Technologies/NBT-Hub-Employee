@@ -65,60 +65,7 @@ const TaskNotification = ({ onOpenTask }) => {
       
       const headers = { 'Authorization': `Bearer ${cleanToken}` };
 
-      // 0. Fetch Users Map for Role/Name resolution
-      let usersMap = {};
-      try {
-        const userRes = await fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null);
-        if (userRes && userRes.ok) {
-          const uData = await userRes.json();
-          const uList = Array.isArray(uData) ? uData : (uData.value || uData.data || []);
-          uList.forEach(u => {
-            const userId = String(u.id || u.empId || u.employee_id || u.userId);
-            if (userId) usersMap[userId] = u;
-          });
-        }
-      } catch (e) { }
-
-      // 1. Fetch Assigned Tasks
-      const taskRes = await fetch(`${API_ENDPOINTS.TASKS_ASSIGNED(uid)}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
-      let tasks = [];
-      if (taskRes && taskRes.ok) {
-        const data = await taskRes.json();
-        tasks = Array.isArray(data) ? data : (data.value || data.data || []);
-      }
-
-      // 2. Fetch Leaves (Personal + Team if leader)
-      let leaves = [];
-      const isLeader = (user?.role || '').toLowerCase().includes('lead') || (user?.role || '').toLowerCase() === 'tl' || (user?.role || '').toLowerCase() === 'manager' || (user?.role || '').toLowerCase().includes('admin') || (user?.role || '').toLowerCase() === 'hr';
-
-      const myLeavesRes = await fetch(API_ENDPOINTS.MY_LEAVES_GET(uid), { headers }).catch(() => null);
-      if (myLeavesRes && myLeavesRes.ok) {
-        const data = await myLeavesRes.json();
-        leaves = [...(Array.isArray(data) ? data : (data.value || data.data || []))];
-      }
-
-      if (isLeader) {
-        const allLeavesRes = await fetch(API_ENDPOINTS.ALL_LEAVES, { headers }).catch(() => null);
-        if (allLeavesRes && allLeavesRes.ok) {
-          const data = await allLeavesRes.json();
-          const allLeaves = Array.isArray(data) ? data : (data.value || data.data || []);
-          allLeaves.forEach(l => {
-            if (Number(l.user_id || l.userId) !== Number(uid)) leaves.push(l);
-          });
-        }
-      }
-
-      // Threads are no longer fetched here, they are handled by ThreadContext and NavigationDock
-
-      // 4. Fetch Funny Quizzes for Engagement
-      let quizzes = [];
-      const quizRes = await fetch(`${API_ENDPOINTS.QUIZZES_ALL}?userId=${uid}&_t=${Date.now()}`, { headers }).catch(() => null);
-      if (quizRes && quizRes.ok) {
-        const data = await quizRes.json();
-        quizzes = Array.isArray(data) ? data : (data.value || data.data || []);
-      }
-
-      // 5. Fetch Global Notifications from Backend Table
+      // Fetch Global Notifications from Backend Table
       let globalNotifs = [];
       const globalRes = await fetch(`${API_ENDPOINTS.NOTIFICATIONS}?userId=${uid}`, { headers }).catch(() => null);
       if (globalRes && globalRes.ok) {
@@ -128,112 +75,7 @@ const TaskNotification = ({ onOpenTask }) => {
 
       const newIds = new Set();
       let addedNew = false;
-      const seenApprovals = JSON.parse(localStorage.getItem(`seen_approvals_${uid}`) || '{}');
-      const updatedApprovals = { ...seenApprovals };
       const readIds = JSON.parse(localStorage.getItem(`read_employee_notifs_${uid}`) || '[]');
-
-      // Map Tasks - Use "Real Time" from backend
-      const mappedTasks = tasks.map(t => {
-        const rawTs = t.assigned_at || t.created_at || t.timestamp || t.deadline;
-        const parseDate = parseDbDate(rawTs);
-        const tid = `task_${t.id}`;
-        newIds.add(tid);
-        const isNewlyAssigned = lastIds.size > 0 && !lastIds.has(tid);
-        if (isNewlyAssigned) addedNew = true;
-        const isRead = readIds.includes(tid);
-
-        return {
-          id: tid,
-          type: 'TASK',
-          title: t.task_name || t.projectName || t.title || 'Management Update',
-          description: t.task_text || t.projectDescription || t.description || 'New leadership directive.',
-          formattedTime: formatDate(parseDate),
-          isNew: !isRead,
-          rawDate: parseDate
-        };
-      });
-
-      // Map Leaves - Track ALL status changes (Approve/Reject)
-      const mappedLeaves = [];
-      leaves.forEach(l => {
-        const lid = `leave_${l.id}`;
-        newIds.add(lid);
-
-        const rmApp = (l.rm_status || l.rmStatus || 'Pending').toUpperCase();
-        const hrApp = (l.hr_status || l.hrStatus || 'Pending').toUpperCase();
-        const pmApp = (l.pm_status || l.pmStatus || (String(l.status || '').includes('Approved') ? 'Approved' : 'Pending')).toUpperCase();
-
-        // Comprehensive Status Tracking via Signature
-        const currentSignature = `RM:${rmApp}|HR:${hrApp}|PM:${pmApp}`;
-        const prevSignature = seenApprovals[lid] || 'RM:PENDING|HR:PENDING|PM:PENDING';
-        const statusChanged = currentSignature !== prevSignature;
-        const isFirstLoadEver = !localStorage.getItem(`seen_approvals_${uid}`);
-        if (statusChanged) updatedApprovals[lid] = currentSignature;
-
-        // Condition 1: Always show in list if it's not Pending (so user can see recent history)
-        // Condition 2: Mark as 'New' if status changed since last check (except first load)
-        const isProcessed = rmApp !== 'PENDING' || hrApp !== 'PENDING' || pmApp !== 'PENDING';
-        const isNewlyUpdated = statusChanged && !isFirstLoadEver;
-
-        if (isProcessed) {
-          if (isNewlyUpdated) addedNew = true;
-
-          // Incorporate the signature in the leave notification ID to allow subsequent updates to appear as new/unread
-          const leaveNotifId = `leave_${l.id}_${currentSignature}`;
-          newIds.add(leaveNotifId);
-          const isRead = readIds.includes(leaveNotifId);
-
-          const rawTs = l.updated_at || l.created_at || new Date();
-          const parseDate = parseDbDate(rawTs);
-
-          let statusText = 'Updated';
-          if (currentSignature.includes('REJECTED')) statusText = 'Rejected';
-          else if (currentSignature.includes('APPROVED')) statusText = 'Approved';
-
-          const ename = l.employeeName || l.user_name || l.name || (Number(l.user_id) === Number(uid) ? 'Your' : 'Team member');
-
-          mappedLeaves.push({
-            id: leaveNotifId,
-            type: 'LEAVE',
-            title: `Leave Request ${statusText}`,
-            description: `${ename} request for ${l.leave_type || 'Time Off'} is now ${statusText}. (TL/RM: ${rmApp}, HR: ${hrApp}, PM: ${pmApp})`,
-            formattedTime: formatDate(parseDate),
-            isNew: !isRead,
-            rawDate: parseDate
-          });
-        }
-      });
-
-      // Map Threads - Removed per user request
-
-      // Map Quizzes - Engagement Alerts (Only within last 24 hours)
-      const now = new Date();
-      const mappedQuizzes = [];
-      quizzes.forEach(q => {
-        const qid = `quiz_${q.id}`;
-        newIds.add(qid);
-
-        const rawTs = q.created_at || q.createdAt || new Date();
-        const parseDate = parseDbDate(rawTs);
-        const daysDiff = (now - parseDate) / (1000 * 60 * 60 * 24);
-
-        // Notify for quizzes within last 24 hours
-        if (daysDiff <= 1) {
-          const isNewlyAdded = lastIds.size > 0 && !lastIds.has(qid);
-          if (isNewlyAdded) addedNew = true;
-          const isRead = readIds.includes(qid);
-
-          mappedQuizzes.push({
-            id: qid,
-            type: 'QUIZ',
-            title: `New Fun Quiz: ${q.title || 'Engagement Task'}`,
-            description: q.description || 'A new engagement activity has been posted. Join now!',
-            formattedTime: formatDate(parseDate),
-            isNew: !isRead,
-            rawDate: parseDate
-          });
-        }
-      });
 
       // Map Global Notifications
       const mappedGlobal = globalNotifs.map(gn => {
@@ -279,39 +121,15 @@ const TaskNotification = ({ onOpenTask }) => {
         };
       });
 
-      localStorage.setItem(`seen_approvals_${uid}`, JSON.stringify(updatedApprovals));
+      const sortedNotifications = mappedGlobal.sort((a, b) => b.rawDate - a.rawDate);
 
-      const merged = [...mappedTasks, ...mappedLeaves, ...mappedQuizzes, ...mappedGlobal].sort((a, b) => b.rawDate - a.rawDate);
-      const filteredMerged = merged.filter(notif => {
-        const type = String(notif.type || '').toUpperCase();
-        if (type === 'TASK' || type === 'QUIZ' || type === 'LEAVE') {
-          return true;
-        }
-        const lowerTitle = String(notif.title || '').toLowerCase();
-        const lowerDesc = String(notif.description || '').toLowerCase();
-        const isTaskApproval = (lowerTitle.includes('task') || lowerDesc.includes('task')) && 
-                               (lowerTitle.includes('approved') || lowerDesc.includes('approved') || 
-                                lowerTitle.includes('rejected') || lowerDesc.includes('rejected') ||
-                                lowerTitle.includes('verified') || lowerDesc.includes('verified') ||
-                                lowerTitle.includes('review') || lowerDesc.includes('review'));
-        const isTaskAssignment = (lowerTitle.includes('task') || lowerDesc.includes('task')) && 
-                                 (lowerTitle.includes('assigned') || lowerDesc.includes('assigned') || 
-                                  lowerTitle.includes('new') || lowerDesc.includes('new'));
-        const isQuiz = lowerTitle.includes('quiz') || lowerDesc.includes('quiz');
-        const isLeaveApproval = (lowerTitle.includes('leave') || lowerDesc.includes('leave')) &&
-                                (lowerTitle.includes('approved') || lowerDesc.includes('approved') ||
-                                 lowerTitle.includes('rejected') || lowerDesc.includes('rejected'));
-        return isTaskApproval || isTaskAssignment || isQuiz || isLeaveApproval;
-      });
+      setNotifications(sortedNotifications);
 
-      setNotifications(filteredMerged);
-
-      if (filteredMerged.length > 0) {
-        const latestId = String(filteredMerged[0].id);
+      if (sortedNotifications.length > 0) {
+        const latestId = String(sortedNotifications[0].id);
         const savedId = localStorage.getItem(`last_seen_task_${uid}`);
         if (latestId !== savedId && (addedNew || lastIds.size === 0)) {
           setHasUnread(true);
-          // if (addedNew) setIsOpen(true); // Prevent notification popup from opening automatically
         }
       }
       setLastIds(newIds);
