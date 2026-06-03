@@ -782,15 +782,15 @@ const Dashboard = ({ setActiveTab }) => {
     mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
     mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
-    yesterdayBox: { backgroundColor: '#ebf9f1', borderRadius: '35px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '90px' },
-    yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontWeight: '1000', fontSize: '16px', marginBottom: '8px' },
+    yesterdayBox: { backgroundColor: '#f0fdf4', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '180px', height: '100%', border: '1.5px solid #dcfce7', display: 'flex', flexDirection: 'column' },
+    yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px', marginBottom: '8px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: 'white', borderRadius: '35px', padding: winWidth < 768 ? '15px' : '20px', border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '2px', minHeight: '90px' },
+    todayBox: { backgroundColor: '#fafbfc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.5px solid #f1f5f9', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
-    todayLabel: { display: 'flex', alignItems: 'center', gap: '10px', color: '#1E40AF', fontWeight: '1000', fontSize: '16px' },
+    todayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
     taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
-    statusBadge: { fontSize: '9px', fontWeight: '1000', padding: '4px 10px', borderRadius: '12px', background: '#f8fafc', color: '#0f172a', width: 'fit-content', marginTop: 'auto', textTransform: 'uppercase' },
+    statusBadge: { fontSize: '10px', fontWeight: '1000', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#0B1E3F', width: 'fit-content', marginTop: '12px' },
     liveBadge: { fontSize: '10px', fontWeight: '1000', color: '#cbd5e1', alignSelf: 'flex-end', marginTop: 'auto' },
     statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
   };
@@ -882,7 +882,7 @@ const Dashboard = ({ setActiveTab }) => {
                 <div style={{ ...s.yesterdayBox, position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={s.yesterdayLabel}>
-                      <CheckCircle2 size={20} color="#16a34a" /> Yesterday
+                      <CheckCircle2 size={22} color="#0B1E3F" /> Yesterday
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       {yesterdayTasks.length > 0 && (
@@ -901,7 +901,7 @@ const Dashboard = ({ setActiveTab }) => {
                       )}
                       <button 
                         onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #bbf7d0', color: '#16a34a', padding: '6px 14px', borderRadius: '16px' }}
+                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #86efac', color: '#15803d', padding: '6px 14px', borderRadius: '20px', fontSize: '11px' }}
                       >
                         View Report
                       </button>
@@ -927,18 +927,22 @@ const Dashboard = ({ setActiveTab }) => {
                       {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
                     </div>
                   ) : (
-                    <div style={{ flex: 1, margin: '20px 0', color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flex: 1, margin: '20px 0', color: '#64748b', fontWeight: '600', fontSize: '13px' }}>
                       No log found.
                     </div>
                   )}
 
-                  <div style={{...s.statusBadge, marginTop: 'auto'}}>{(yesterdayStatus && yesterdayStatus !== 'No Data') ? yesterdayStatus : 'PENDING'}</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
+                    <div style={{ padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#0B1E3F', fontSize: '9px', fontWeight: '1000', textTransform: 'uppercase' }}>
+                      {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : 'PENDING'}
+                    </div>
+                  </div>
                 </div>
 
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
                   <div style={s.todayHeader}>
                     <div style={s.todayLabel}>
-                      <TrendingUp size={20} color="#1E40AF" /> Today
+                      <TrendingUp size={22} color="#0B1E3F" /> Today
                     </div>
                     {!isEditing ? (
                       <button style={s.editBtn} onClick={startEditing}>
@@ -965,12 +969,14 @@ const Dashboard = ({ setActiveTab }) => {
                            );
                          })
                        ) : (
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', background: '#fff7ed', borderRadius: '8px', color: '#c2410c', fontSize: '13px', fontWeight: '700', margin: '15px 0' }}>
-                           <AlertCircle size={16} color="#c2410c" /> Update ur todays task
+                         <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
+                           <AlertCircle size={16} /> Update ur todays task
                          </div>
                        )}
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px' }}>
-                           <div style={{...s.statusBadge, marginTop: 0 }}>{(todayStatus && todayStatus !== 'No Data') ? todayStatus : 'PENDING'}</div>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
+                           <div style={{ padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#0B1E3F', fontSize: '9px', fontWeight: '1000', textTransform: 'uppercase' }}>
+                             {todayStatus && todayStatus !== 'No Data' ? todayStatus : 'PENDING'}
+                           </div>
                        </div>
                     </div>
                   ) : (
