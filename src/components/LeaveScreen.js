@@ -1236,7 +1236,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
               initial={{ scale: 0.95, y: 30, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.95, y: 30, opacity: 0 }}
-              style={{ backgroundColor: 'white', width: '95%', maxWidth: '750px', borderRadius: '40px', padding: '50px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden' }}
+              style={{ backgroundColor: 'white', width: '95%', maxWidth: '750px', maxHeight: '85vh', borderRadius: '40px', padding: '40px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Geometric Brand Elements */}
@@ -1251,6 +1251,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
               </button>
 
               {/* Header: User Info & Request Status */}
+              <div style={{ overflowY: 'auto', paddingRight: '10px', flex: 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '45px' }}>
                 <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
                   <div style={{ width: '70px', height: '70px', borderRadius: '25px', backgroundColor: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: '1000', boxShadow: '0 12px 25px rgba(11,30,63,0.2)' }}>
@@ -1327,31 +1328,51 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
               </div>
 
               {/* Review Section */}
-              <div style={{ marginTop: '25px' }}>
-                <p style={{ margin: '0 0 15px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Review</p>
-                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {(selectedLeave.tl_comment || selectedLeave.tlComment) && (
-                      <div>
-                        <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>Team Leader</p>
-                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.tl_comment || selectedLeave.tlComment}</p>
+              <div style={{ marginTop: '25px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(() => {
+                  const findRemark = (rolePrefixes) => {
+                      for (const key of Object.keys(selectedLeave)) {
+                          const lowerKey = key.toLowerCase();
+                          // Exclude the employee's own generic reason/remark keys
+                          if (lowerKey === 'remark' || lowerKey === 'reason') continue;
+                          
+                          if (rolePrefixes.some(p => lowerKey.includes(p)) && 
+                             (lowerKey.includes('remark') || lowerKey.includes('comment') || lowerKey.includes('msg') || lowerKey.includes('note') || lowerKey.includes('reason'))) {
+                              if (selectedLeave[key] && String(selectedLeave[key]).trim() !== '') return selectedLeave[key];
+                          }
+                      }
+                      return null;
+                  };
+                  
+                  const finalPmRemark = findRemark(['pm', 'projectmanager', 'project_manager']) || selectedLeave.pm_comment || selectedLeave.pmComment || selectedLeave.pm_remark || selectedLeave.pmRemark || selectedLeave.pm_remarks || selectedLeave.pmRemarks;
+                  const finalTlRemark = findRemark(['tl', 'rm', 'teamlead', 'team_leader', 'manager', 'reporting']) || selectedLeave.tl_comment || selectedLeave.tlComment || selectedLeave.rm_comment || selectedLeave.rmComment || selectedLeave.tl_remark || selectedLeave.tlRemark || selectedLeave.rm_remark || selectedLeave.rmRemark || selectedLeave.tl_remarks || selectedLeave.rm_remarks;
+                  const finalHrRemark = findRemark(['hr', 'humanresource']) || selectedLeave.hr_comment || selectedLeave.hrComment || selectedLeave.hr_remark || selectedLeave.hrRemark || selectedLeave.hr_remarks || selectedLeave.hrRemarks;
+
+                  return (
+                    <>
+                      <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                        <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>PM Remark</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: finalPmRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalPmRemark ? 'normal' : 'italic' }}>
+                          {finalPmRemark || 'No remark yet.'}
+                        </p>
                       </div>
-                  )}
-                  {(selectedLeave.pm_comment || selectedLeave.pmComment) && (
-                      <div>
-                        <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>Project Manager</p>
-                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.pm_comment || selectedLeave.pmComment}</p>
+
+                      <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                        <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>TL Remark</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: finalTlRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalTlRemark ? 'normal' : 'italic' }}>
+                          {finalTlRemark || 'No remark yet.'}
+                        </p>
                       </div>
-                  )}
-                  {(selectedLeave.hr_comment || selectedLeave.hrComment) && (
-                      <div>
-                        <p style={{ margin: '0 0 5px 0', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>HR</p>
-                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: '1.5' }}>{selectedLeave.hr_comment || selectedLeave.hrComment}</p>
+
+                      <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                        <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>HR Remark</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: finalHrRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalHrRemark ? 'normal' : 'italic' }}>
+                          {finalHrRemark || 'No remark yet.'}
+                        </p>
                       </div>
-                  )}
-                  {!(selectedLeave.hr_comment || selectedLeave.hrComment || selectedLeave.pm_comment || selectedLeave.pmComment || selectedLeave.tl_comment || selectedLeave.tlComment) && (
-                      <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>No reviews yet.</p>
-                  )}
-                </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Review Actions for Team Leader */}
@@ -1371,6 +1392,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                   </button>
                 </div>
               )}
+              </div>
             </motion.div>
           </motion.div>
         )}
