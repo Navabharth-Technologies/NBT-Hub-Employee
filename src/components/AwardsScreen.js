@@ -116,12 +116,12 @@ const AwardsScreen = ({ onBack }) => {
                     fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null),
                     Promise.resolve({ ok: false }), // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/history?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/my-completions`, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.QUIZ_COMPLETIONS_MY, { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.QUIZ_LEADERBOARD, { headers }).catch(() => null),
-                    fetch(`${BASE_URL}/api/quizzes/attempts?userId=${safeUid}`, { headers }).catch(() => null),
+                    Promise.resolve({ ok: false }), // Disabled to avoid duplicating with QUIZ_COMPLETIONS_MY: fetch(`${BASE_URL}/api/quizzes/attempts?userId=${safeUid}`, { headers }).catch(() => null),
                     Promise.resolve({ ok: false }), // Disabled to fix 404: fetch(`${BASE_URL}/api/quizzes/my-attempts`, { headers }).catch(() => null),
                     fetch(`${API_ENDPOINTS.QUIZ_USER_POINTS}?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.REWARDS_GRANT_OPTIONS, { headers }).catch(() => null)
+                    Promise.resolve({ ok: false }) // Disabled: fetch(API_ENDPOINTS.REWARDS_GRANT_OPTIONS, { headers }).catch(() => null)
                 ]);
 
                 let combinedHistory = [];
@@ -410,10 +410,10 @@ const AwardsScreen = ({ onBack }) => {
                     return {
                         ...q,
                         reward_name: q.title || q.quiz_name || q.quizName || q.name || q.reward_name || 'Quiz Completion',
-                        points: Number(q.points || q.score || q.total_score || q.total_points || q.quiz_score || q.points_reward || 100),
+                        points: Number(q.points || q.earned_points || q.score || q.total_score || q.total_points || q.quiz_score || q.points_reward || 0),
                         created_at: validDate
                     };
-                });
+                }).filter(q => q.points > 0);
 
                 // Deduplicate quiz history (multiple endpoints return same records)
                 const uniqueQuizLogs = [];
@@ -452,6 +452,8 @@ const AwardsScreen = ({ onBack }) => {
 
     // 1. Unified History & Point Calculation — Session-wise Quiz Logs
     // Display all attempts/sessions individually instead of deduplicating them daily
+    // Remove the current user filter here so that the HR & Game Recognition global feed 
+    // correctly displays EVERY user's quiz completion records from the database.
     const dedupedQuizHistory = quizHistory;
 
     // DEBUG: Log the raw globalRewardsFeed to see what fields the API returns
@@ -603,12 +605,46 @@ const AwardsScreen = ({ onBack }) => {
         dateFilter
     });
 
+    const localQuizPointsTotal = dedupedQuizHistory.filter(q => {
+        const rEmployeeId = String(q.employee_id || '').split(':')[0].trim().toLowerCase();
+        const rUserId = String(q.userId || q.user_id || '').split(':')[0].trim().toLowerCase();
+        const rEmpId = String(q.empId || '').split(':')[0].trim().toLowerCase();
+
+        const myId = String(user?.employee_id || '').split(':')[0].trim().toLowerCase();
+        const myUid = String(user?.uid || '').split(':')[0].trim().toLowerCase();
+        const myUserId = String(user?.id || user?.userId || '').split(':')[0].trim().toLowerCase();
+        const myEmail = String(user?.email || '').trim().toLowerCase();
+
+        if (!rEmployeeId && !rUserId && !rEmpId) return true;
+
+        return (myId && (rEmployeeId === myId || rUserId === myId || rEmpId === myId)) ||
+               (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
+               (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
+               (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
+    }).reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
+
     const finalQuizPoints = dateFilter
-        ? quizHistory.filter(item => {
-            const d = new Date(item.created_at || item.date);
+        ? dedupedQuizHistory.filter(q => {
+            const rEmployeeId = String(q.employee_id || '').split(':')[0].trim().toLowerCase();
+            const rUserId = String(q.userId || q.user_id || '').split(':')[0].trim().toLowerCase();
+            const rEmpId = String(q.empId || '').split(':')[0].trim().toLowerCase();
+    
+            const myId = String(user?.employee_id || '').split(':')[0].trim().toLowerCase();
+            const myUid = String(user?.uid || '').split(':')[0].trim().toLowerCase();
+            const myUserId = String(user?.id || user?.userId || '').split(':')[0].trim().toLowerCase();
+            const myEmail = String(user?.email || '').trim().toLowerCase();
+    
+            const isMyReward = (myId && (rEmployeeId === myId || rUserId === myId || rEmpId === myId)) ||
+                   (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
+                   (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
+                   (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
+
+            if (!isMyReward) return false;
+
+            const d = new Date(q.created_at || q.date);
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === dateFilter;
-        }).reduce((max, item) => Math.max(max, Number(item.points || 0)), 0)
-        : Math.max(quizUserPoints || 0, userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].quiz_points || 0) : 0);
+        }).reduce((sum, item) => sum + Number(item.points || 0), 0)
+        : Math.max(quizUserPoints || 0, localQuizPointsTotal, userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].quiz_points || 0) : 0);
 
     const userName = user?.name || user?.employee_name || 'You';
     // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
@@ -690,7 +726,7 @@ const AwardsScreen = ({ onBack }) => {
                     if (!qMap[d] || (q.points || q.score || 0) > (qMap[d].points || 0)) {
                         qMap[d] = {
                             ...q,
-                            points: q.points || q.score || 300,
+                            points: q.points || q.score || 0,
                             created_at: validDate
                         };
                     }
@@ -806,11 +842,6 @@ const AwardsScreen = ({ onBack }) => {
         const name = String(r.title || r.award_name || r.reward_name || r.awardName || '').toUpperCase();
         const cat = String(r.category || '').trim().toUpperCase();
 
-        // Trust explicit reward category first
-        if (cat === 'HR' || cat === 'ADMIN' || cat === 'GAME' || cat === 'HR & GAME' || cat === 'QUIZ' || cat === 'FUN QUIZ GAME' || name.includes('QUIZ')) return 'HR';
-        if (cat === 'PM') return 'PM';
-        if (cat === 'TL') return 'TL';
-
         const grantorId = cleanIdLocal(r.granted_by || r.giver_id || r.grantor_id);
         const grantor = employees.find(e => cleanIdLocal(e.id || e.employee_id || e.userId) === grantorId);
 
@@ -842,14 +873,23 @@ const AwardsScreen = ({ onBack }) => {
         const rRole = String(r.granted_by_role || r.giver_role || r.role || '').toUpperCase();
         const rCat = String(r.category || '').toUpperCase();
 
-        const isHrFallback = rCat === 'HR' || rCat === 'ADMIN' || rCat === 'GAME' || rRole.includes('HR') || rRole.includes('ADMIN');
+        const isHrFallback = rRole.includes('HR') || rRole.includes('ADMIN') || rRole.includes('RECRUIT');
         if (isHrFallback) return 'HR';
 
-        const isPmFallback = rCat === 'PM' || rRole.includes('PM') || rRole.includes('PROJECT');
+        const isPmFallback = rRole.includes('PM') || rRole.includes('PROJECT');
         if (isPmFallback) return 'PM';
 
-        const isTlFallback = rCat === 'TL' || rRole.includes('TL') || rRole.includes('LEAD') || rRole.includes('MANAGER') || name.includes('VISIONARY') || name.includes('LEAD');
+        const isTlFallback = rRole.includes('TL') || rRole.includes('LEAD') || rRole.includes('MANAGER');
         if (isTlFallback) return 'TL';
+
+        // Fallback to explicit reward category if grantor is missing or role could not be parsed
+        if (cat === 'HR' || cat === 'ADMIN' || cat === 'GAME' || cat === 'HR & GAME' || cat === 'QUIZ' || cat === 'FUN QUIZ GAME' || name.includes('QUIZ')) return 'HR';
+        if (cat === 'PM') return 'PM';
+        if (cat === 'TL') return 'TL';
+        
+        if (rCat === 'HR' || rCat === 'ADMIN' || rCat === 'GAME') return 'HR';
+        if (rCat === 'PM') return 'PM';
+        if (rCat === 'TL') return 'TL';
 
         return 'HR';
     };
@@ -1165,7 +1205,7 @@ const AwardsScreen = ({ onBack }) => {
                                 const rawTitle = String(aw.title || aw.award_name || aw.reward_name || aw.awardName || '').trim();
                                 const cat = String(aw.category || '').toUpperCase();
                                 const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.toLowerCase().includes('points earned by quiz') || rawTitle.toLowerCase().includes('quiz');
-                                const displayTitle = isQuiz ? 'Brain Teaser Achievement' : rawTitle;
+                                const displayTitle = rawTitle || 'Achievement';
 
                                 const recipientId = String(aw.userId || aw.user_id || aw.employee_id || '').split(':')[0].trim().toLowerCase();
                                 const recipientNameObj = employees.find(e => String(e.id || e.employee_id || e.userId || '').split(':')[0].trim().toLowerCase() === recipientId);

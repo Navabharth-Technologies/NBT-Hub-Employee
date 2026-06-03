@@ -104,7 +104,7 @@ export const API_ENDPOINTS = {
   REWARDS_MY: `${BASE_URL}/api/rewards/my`,
   REWARDS_ALL: `${BASE_URL}/api/employees/leaderboard/all`,
   REWARDS_USER: (userId) => `${BASE_URL}/api/rewards/user/${String(userId || '').split(':')[0]}`,
-  REWARDS_GRANT_OPTIONS: `${BASE_URL}/api/rewards/grant-options`,
+
 
 
   // Resignation System
