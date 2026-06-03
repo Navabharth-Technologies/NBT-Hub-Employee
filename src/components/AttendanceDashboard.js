@@ -271,7 +271,15 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         startY: 45,
         theme: 'grid',
         headStyles: { fillColor: [11, 30, 63], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 9, cellPadding: 3 },
+        styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+        columnStyles: {
+            0: { cellWidth: 35 }, // Date
+            1: { cellWidth: 25 }, // Punch In
+            2: { cellWidth: 25 }, // Punch Out
+            3: { cellWidth: 25 }, // Work Hrs
+            4: { cellWidth: 30 }, // Status
+            5: { cellWidth: 'auto' } // Location
+        },
         alternateRowStyles: { fillColor: [248, 250, 252] }
       });
 
