@@ -9,7 +9,7 @@ import BackButton from './BackButton';
 import logo from '../assets/image.png';
 import petal from '../assets/image.png';
 
-const certificateImg = '/certificate_final.png';
+import certificateImg from '../assets/certificate_final.png';
 
 export default function CourseScreen({ resumeCourseId, clearState }) {
     const { user } = useAuth();
