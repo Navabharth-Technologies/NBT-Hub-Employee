@@ -419,8 +419,9 @@ const AwardsScreen = ({ onBack }) => {
                 const uniqueQuizLogs = [];
                 const seenQuizKeys = new Set();
                 mappedQuizLogs.forEach(q => {
-                    // Use id if available, otherwise combine name, points and date (down to minute)
-                    const key = q.id || `${q.reward_name}_${q.points}_${q.created_at.substring(0, 16)}`;
+                    // Aggressive visual deduplication: Combine name, points and date (down to day)
+                    // We ignore q.id because the backend might return multiple IDs for what should be visually one session
+                    const key = `${q.reward_name}_${q.points}_${q.created_at.substring(0, 10)}`;
                     if (!seenQuizKeys.has(key)) {
                         seenQuizKeys.add(key);
                         uniqueQuizLogs.push(q);
