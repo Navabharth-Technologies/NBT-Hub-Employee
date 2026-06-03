@@ -436,10 +436,17 @@ const AwardsScreen = ({ onBack }) => {
                     const validDate = (rawDate && !isNaN(new Date(rawDate).getTime()))
                         ? new Date(rawDate).toISOString()
                         : new Date().toISOString();
+                    let pts = 0;
+                    if (q.is_correct !== undefined && q.is_correct !== null) {
+                        const isCorrect = q.is_correct === 1 || q.is_correct === true || String(q.is_correct) === '1' || String(q.is_correct).toLowerCase() === 'true';
+                        pts = isCorrect ? Number(q.points || q.earned_points || q.points_reward || 0) : 0;
+                    } else {
+                        pts = Number(q.points || q.earned_points || q.score || q.total_score || q.total_points || q.quiz_score || 0);
+                    }
                     return {
                         ...q,
                         reward_name: q.title || q.quiz_name || q.quizName || q.name || q.reward_name || 'Quiz Completion',
-                        points: Number(q.points || q.earned_points || q.score || q.total_score || q.total_points || q.quiz_score || q.points_reward || 0),
+                        points: pts,
                         created_at: validDate
                     };
                 }).filter(q => q.points > 0);
