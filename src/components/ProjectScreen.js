@@ -408,7 +408,6 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         <BackButton onClick={onBack} />
         <div>
           <h1 style={s.title}>Project Center</h1>
-          <div style={s.subtitle}>Mission oversight and technical brief manifest</div>
         </div>
       </header>
 
