@@ -629,7 +629,17 @@ export default function DocumentsScreen({ onBack }) {
     } else if (key === 'bank_account_no') {
       if (/\D/.test(value)) error = 'Numbers only';
     } else if (key === 'edu_completion_year') {
-      if (value && value.length !== 4) error = 'Year must be exactly 4 digits';
+      if (value) {
+        if (value.length !== 4) {
+          error = 'Year must be exactly 4 digits';
+        } else {
+          const numYear = parseInt(value, 10);
+          const currentYear = new Date().getFullYear();
+          if (isNaN(numYear) || numYear < 1900 || numYear > currentYear) {
+            error = `Year must be between 1900 and ${currentYear}`;
+          }
+        }
+      }
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
       if (/[^0-9.]/.test(value)) {
         error = 'Only numbers and a single decimal point are allowed';
