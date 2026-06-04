@@ -121,7 +121,7 @@ const SECTIONS = [
       { key: 'sslc_markscard', label: 'SSLC Marks Card', type: 'file' },
       { key: 'puc_markscard', label: '12th or equivalent Marks Card', type: 'file' },
 
-      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'Enter Graduation Percentage / CGPA' },
+      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'e.g. 9.0 for CGPA or 85 for %' },
       { key: 'ug_pg_markscard', label: 'Graduation Certificate', type: 'file' },
       { key: 'source', label: 'Source (How you found us)', type: 'text' },
     ]
@@ -656,6 +656,8 @@ export default function DocumentsScreen({ onBack }) {
         } else if (key === 'ug_pg_percentage') {
           if (num > 10 && num < 35) {
             error = 'CGPA cannot exceed 10. If this is a percentage, it must be between 35% and 100%';
+          } else if (!value.includes('.') && num <= 10) {
+            error = 'Please enter CGPA with a decimal (e.g., 9.0) or enter a valid Percentage (e.g., 90)';
           }
         }
         
