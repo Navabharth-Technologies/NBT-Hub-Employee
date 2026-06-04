@@ -631,12 +631,30 @@ export default function DocumentsScreen({ onBack }) {
     } else if (key === 'edu_completion_year') {
       if (value && value.length !== 4) error = 'Year must be exactly 4 digits';
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      const num = parseFloat(value);
-      if (isNaN(num)) error = 'Enter a valid percentage';
-      else if (num > 100) error = 'Maximum 100% allowed';
-      else {
-        const parts = String(value).split('.');
-        if (parts[1] && parts[1].length > 2) error = 'Maximum 2 decimal places allowed';
+      if (/[^0-9.]/.test(value)) {
+        error = 'Only numbers and a single decimal point are allowed';
+      } else if ((value.match(/\./g) || []).length > 1) {
+        error = 'Only a single decimal point is allowed';
+      } else if (value.includes('-') || parseFloat(value) < 0) {
+        error = 'Negative numbers are not allowed';
+      } else {
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+          error = 'Enter a valid percentage';
+        } else if (num > 100) {
+          error = 'Percentage cannot exceed 100%';
+        } else if (key === 'ug_pg_percentage') {
+          if (num > 10 && num < 35) {
+            error = 'CGPA cannot exceed 10. If this is a percentage, it must be between 35% and 100%';
+          }
+        }
+        
+        if (!error) {
+          const parts = String(value).split('.');
+          if (parts[1] && parts[1].length > 2) {
+            error = 'Maximum 2 decimal places allowed';
+          }
+        }
       }
     } else if (key === 'bank_branch') {
       if (/^[0-9]+$/.test(value.trim())) error = 'Branch name cannot be numeric only';
@@ -709,10 +727,7 @@ export default function DocumentsScreen({ onBack }) {
     } else if (['aadhar_number', 'bank_account_no', 'age', 'edu_completion_year'].includes(key)) {
       cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      cleanValue = value.replace(/[^0-9.]/g, ''); // Block characters, allow dots for decimals
-      const parts = cleanValue.split('.');
-      if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join(''); // Prevent multiple dots
-      if (parts[1] && parts[1].length > 2) cleanValue = parts[0] + '.' + parts[1].slice(0, 2); // Max 2 decimal places
+      cleanValue = value;
     } else if (key === 'bank_branch') {
       cleanValue = value.replace(/[^a-zA-Z0-9\s\-\/\.,&()]/g, ''); // Allow standard branch name characters, block invalid ones
     } else if (['pan_number', 'voter_id', 'ifsc_code'].includes(key)) {
