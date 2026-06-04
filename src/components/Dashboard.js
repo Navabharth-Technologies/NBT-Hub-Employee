@@ -841,10 +841,7 @@ const Dashboard = ({ setActiveTab }) => {
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} style={{ ...s.mainCard, minHeight: 'fit-content', padding: winWidth < 768 ? '25px' : '35px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: winWidth < 768 ? '15px' : '25px', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '18px', marginBottom: 0 }}>Team Command Center</div>
-                <div style={{ backgroundColor: '#eff6ff', color: '#3B5998', padding: '6px 14px', borderRadius: '12px', fontSize: '11px', fontWeight: '900', border: '1.5px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Users size={14} />
-                  {teamProjects.length} Active Team Projects
-                </div>
+
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '35px' }}>

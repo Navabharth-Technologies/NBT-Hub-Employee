@@ -136,24 +136,50 @@ export default function PayslipScreen({ onBack }) {
     const n = parseFloat(String(val || '0').replace(/,/g, ''));
     return isNaN(n) ? 0 : n;
   };
-  const cell = (extra = {}) => ({
-    border: '1px solid #cbd5e1', padding: '12px 15px', fontSize: '13px', color: '#1e293b', ...extra
-  });
-  const labelCell = (extra = {}) => cell({ fontWeight: '800', color: '#0B1E3F', backgroundColor: '#f8fafc', ...extra });
-  const valueCell = (extra = {}) => cell({ fontWeight: '600', color: '#334155', ...extra });
+  
+  const getNetPayAmt = (ps) => {
+    // 1. Priority to explicit net_payable from backend
+    const explicitNet = parseAmt(ps.net_payable || ps.net_pay || ps.netPay || ps.amount || 0);
+    if (explicitNet > 0) return explicitNet;
 
-  const SectionCard = ({ title, rows, total, totalLabel, color }) => (
-    <div style={{ border: '1px solid #cbd5e1', overflow: 'hidden', flex: 1 }}>
-      <div style={{ backgroundColor: '#f8fafc', padding: '10px 15px', fontSize: '12px', fontWeight: '900', color: '#0B1E3F', borderBottom: '1px solid #cbd5e1' }}>{title}</div>
+    // 2. Dynamic Calculation: (Earnings + Incentives) - Deductions
+    const basicAmt = parseAmt(ps.basic_salary || ps.basic || ps.basicSalary || 0);
+    const hraAmt = parseAmt(ps.hra || ps.house_rent_allowance || ps.houseRentAllowance || 0);
+    const convAmt = parseAmt(ps.conveyance || ps.conveyance_allowance || ps.conveyanceAllowance || 0);
+    const specialAmt = parseAmt(ps.special_allowance || ps.specialAllowance || ps.other_allowance || 0);
+    const earnAmt = parseAmt(ps.total_earnings || ps.total_earning || ps.totalEarning || ps.gross_salary || ps.grossSalary || 0) || (basicAmt + hraAmt + convAmt + specialAmt);
+
+    const perfAmt = parseAmt(ps.performance_incentive || ps.performanceIncentive || ps.performance || 0);
+    const yrAmt = parseAmt(ps.yearly_incentive || ps.yearlyIncentive || ps.yearly || 0);
+    const incAmt = parseAmt(ps.total_incentive || ps.totalIncentive || 0) || (perfAmt + yrAmt);
+
+    const pfAmt = parseAmt(ps.pf_deduction || ps.pf || ps.provident_fund || ps.providentFund || 0);
+    const esiAmt = parseAmt(ps.esi_deduction || ps.esi || ps.employee_state_insurance || ps.employeeStateInsurance || 0);
+    const ptAmt = parseAmt(ps.pt_deduction || ps.pt || ps.professional_tax || ps.professionalTax || 0);
+    const lwfAmt = parseAmt(ps.lwf || ps.labour_welfare_fund || ps.labourWelfareFund || 0);
+    const taxAmt = parseAmt(ps.income_tax || ps.incomeTax || ps.tds || 0);
+    const lopAmt = parseAmt(ps.lop_deduction || ps.lopDeduction || 0);
+    const dedAmt = parseAmt(ps.total_deductions || ps.total_deduction || ps.totalDeduction || 0) || (pfAmt + esiAmt + ptAmt + lwfAmt + taxAmt + lopAmt);
+
+    return (earnAmt + incAmt) - dedAmt;
+  };
+
+  const cell = (extra = {}) => ({
+    border: '1px solid #e2e8f0', padding: '14px 15px', fontSize: '12px', color: '#1e293b', ...extra
+  });
+
+  const SectionCard = ({ rows, total, totalLabel, color, isLast }) => (
+    <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderRight: isLast ? '1px solid #e2e8f0' : 'none', flex: 1, display: 'flex', flexDirection: 'column' }}>
       {rows.map(([label, val], i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 15px', borderBottom: '1px solid #f1f5f9', fontSize: '12px' }}>
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 15px', fontSize: '12px' }}>
           <span style={{ color: '#64748b', fontWeight: '600' }}>{label}</span>
-          <span style={{ color: '#1e293b', fontWeight: '700' }}>{val}</span>
+          <span style={{ color: '#0f172a', fontWeight: '800' }}>{val}</span>
         </div>
       ))}
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 15px', backgroundColor: '#f8fafc', borderTop: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '900', color: '#0B1E3F' }}>
+      <div style={{ flex: 1, minHeight: '40px' }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 15px', borderTop: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '900', color: '#0f172a' }}>
         <span>{totalLabel}</span>
-        <span style={{ color: color || '#0B1E3F' }}>{total}</span>
+        <span style={{ color: color || '#0f172a' }}>{total}</span>
       </div>
     </div>
   );
@@ -204,11 +230,7 @@ export default function PayslipScreen({ onBack }) {
           {!loading && !error && payslips.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {payslips.map((ps, idx) => {
-                const netPay = formatAmount(
-                  ps.total_earnings || ps.total_earning || ps.totalEarnings ||
-                  ps.basic_salary   || ps.basic         || ps.basicSalary   ||
-                  ps.net_payable    || ps.net_pay       || ps.amount        || 0
-                );
+                const netPay = formatAmount(getNetPayAmt(ps));
                 const monthLabel = formatMonthLabel(ps);
                 const status = ps.status || ps.payment_status || ps.paymentStatus || 'Paid';
                 const isPaid = String(status).toLowerCase().includes('paid');
@@ -295,6 +317,7 @@ export default function PayslipScreen({ onBack }) {
   const ptAmt        = parseAmt(ps.pt_deduction  || ps.pt  || ps.professional_tax   || ps.professionalTax          || 0);
   const lwfAmt       = parseAmt(ps.lwf           || ps.labour_welfare_fund || ps.labourWelfareFund || 0);
   const incomeTaxAmt = parseAmt(ps.income_tax    || ps.incomeTax || ps.tds || 0);
+  const lopDeductionAmt = parseAmt(ps.lop_deduction || ps.lopDeduction || 0);
 
   const deductionRows = [
     ['PF',         formatAmount(pfAmt)],
@@ -302,17 +325,15 @@ export default function PayslipScreen({ onBack }) {
     ['PT',         formatAmount(ptAmt)],
     ['LWF',        formatAmount(lwfAmt)],
     ['Income Tax', formatAmount(incomeTaxAmt)],
+    ['LOP Deduction', formatAmount(lopDeductionAmt)],
   ];
   const totalDeductionAmt = parseAmt(ps.total_deductions || ps.total_deduction || ps.totalDeduction || 0)
-    || (pfAmt + esiAmt + ptAmt + lwfAmt + incomeTaxAmt);
+    || (pfAmt + esiAmt + ptAmt + lwfAmt + incomeTaxAmt + lopDeductionAmt);
   const totalDeduction = formatAmount(totalDeductionAmt);
 
-  // Net Payable — show total_earnings (gross) as primary display
-  const netPayAmt = parseAmt(
-    ps.total_earnings || ps.total_earning || ps.totalEarnings ||
-    ps.basic_salary   || ps.basic         || ps.basicSalary   ||
-    ps.net_payable    || ps.net_pay       || ps.amount        || 0
-  ) || (totalEarningAmt + totalIncentiveAmt);
+  // Net Payable
+  const netPayAmt = parseAmt(ps.net_payable || ps.net_pay || ps.netPay || ps.amount || 0) 
+    || ((totalEarningAmt + totalIncentiveAmt) - totalDeductionAmt);
   const netPay = formatAmount(netPayAmt);
 
   return (
@@ -337,23 +358,21 @@ export default function PayslipScreen({ onBack }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="printable-payslip"
-        style={{ maxWidth: '900px', width: '100%', margin: '0 auto', backgroundColor: 'white', padding: '40px 30px 80px', borderRadius: '2px', boxShadow: '0 0 40px rgba(0,0,0,0.05)', position: 'relative', overflowX: 'auto', minHeight: '1100px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}
+        style={{ maxWidth: '900px', width: '100%', margin: '0 auto', backgroundColor: 'white', padding: '60px 40px 80px', borderRadius: '2px', boxShadow: '0 0 40px rgba(0,0,0,0.05)', position: 'relative', overflowX: 'auto', minHeight: '1100px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}
       >
         {/* Decorative corner shapes */}
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '150px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1, zIndex: 1 }} />
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '150px', height: '110px', backgroundColor: '#1d4ed8', clipPath: 'polygon(100% 0, 100% 100%, 30% 0)', zIndex: 1 }} />
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '90px', height: '80px', backgroundColor: '#1e3a8a', clipPath: 'polygon(100% 0, 100% 100%, 60% 0)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '180px', height: '180px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', zIndex: 1 }} />
 
         {/* Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px', position: 'relative', zIndex: 10 }}>
-          <img src={logo} alt="NBT Logo" style={{ height: '80px', marginBottom: '20px' }} />
-          <div style={{ fontSize: '22px', fontWeight: '900', color: '#0B1E3F', letterSpacing: '0.5px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', position: 'relative', zIndex: 10 }}>
+          <img src={logo} alt="NBT Logo" style={{ height: '70px', marginBottom: '20px' }} />
+          <div style={{ fontSize: '26px', fontWeight: '900', color: '#0f172a', letterSpacing: '1px', textAlign: 'center', textTransform: 'uppercase' }}>
             {ps.company_name || ps.companyName || ps.organisation || ps.organization || COMPANY_INFO.name}
           </div>
-          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '4px', textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '8px', textAlign: 'center' }}>
             {ps.company_tagline || ps.companyTagline || ps.tagline || COMPANY_INFO.tagline}
           </div>
-          <div style={{ marginTop: '25px', padding: '8px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', width: '100%', textAlign: 'center', fontSize: '12px', fontWeight: '800', color: '#1e293b', letterSpacing: '0.5px' }}>
+          <div style={{ marginTop: '40px', paddingBottom: '8px', borderBottom: '2px solid #e2e8f0', textAlign: 'center', fontSize: '15px', fontWeight: '900', color: '#1e293b', letterSpacing: '2px', textTransform: 'uppercase', display: 'inline-block' }}>
             Pay Slip for the Month of {monthLabel}
           </div>
         </div>
@@ -363,49 +382,71 @@ export default function PayslipScreen({ onBack }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={labelCell({ width: '20%' })}>Emp Code</td>
-                <td style={valueCell({ width: '30%' })}>{ps.employee_id || ps.emp_code || ps.empCode || user?.employee_id || user?.empId || user?.emp_id || '--'}</td>
-                <td style={labelCell({ width: '20%' })}>Department</td>
-                <td style={valueCell({ width: '30%' })}>{ps.department || ps.dept || user?.department || user?.dept || '--'}</td>
+                <td style={cell({ width: '50%' })}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>EMPCODE</span>
+                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a' }}>{ps.employee_id || ps.emp_code || ps.empCode || user?.employee_id || user?.empId || user?.emp_id || '--'}</span>
+                  </div>
+                </td>
+                <td style={cell({ width: '50%' })}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>DEPARTMENT</span>
+                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a' }}>{ps.department || ps.dept || user?.department || user?.dept || ''}</span>
+                  </div>
+                </td>
               </tr>
               <tr>
-                <td style={labelCell()}>Emp. Name</td>
-                <td style={valueCell()}>{ps.emp_name || ps.employee_name || ps.name || user?.name || user?.employee_name || user?.emp_name || '--'}</td>
-                <td style={labelCell()}>Designation</td>
-                <td style={valueCell()}>{ps.designation || ps.role || ps.position || user?.designation || user?.role || user?.position || '--'}</td>
+                <td style={cell()}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>EMP. NAME</span>
+                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a' }}>{ps.emp_name || ps.employee_name || ps.name || user?.name || user?.employee_name || user?.emp_name || '--'}</span>
+                  </div>
+                </td>
+                <td style={cell()}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>DESIGNATION</span>
+                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a' }}>{ps.designation || ps.role || ps.position || user?.designation || user?.role || user?.position || '--'}</span>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Attendance Summary */}
-        <div style={{ position: 'relative', zIndex: 10, marginTop: '15px' }}>
+        <div style={{ position: 'relative', zIndex: 10, marginTop: '20px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
                 {[
-                  ['Tot. pre:',   ps.total_present   || ps.totalPresent   || '0'],
-                  ['Tot. wo:',    ps.total_weekly_off || ps.total_wo      || ps.totalWO        || '0'],
-                  ['Tot. hl:',    ps.total_holidays   || ps.totalHolidays || '0'],
-                  ['Tot. leave:', ps.total_leaves     || ps.total_leave   || ps.totalLeave     || '0'],
+                  ['TOT. PRE:',   ps.total_present   || ps.totalPresent   || '0'],
+                  ['TOT. WO:-',    ps.total_weekly_off || ps.total_wo      || ps.totalWO        || '0'],
+                  ['TOT. HL:-',    ps.total_holidays   || ps.totalHolidays || '0'],
+                  ['TOT. LEAVE:-', ps.total_leaves     || ps.total_leave   || ps.totalLeave     || '0'],
+                  ['TOTAL ABSENT', ps.total_absent     || ps.totalAbsent   || '0'],
                 ].map(([l, v], i) => (
-                  <React.Fragment key={i}>
-                    <td style={labelCell({ width: '15%' })}>{l}</td>
-                    <td style={cell({ textAlign: 'right', width: '10%', fontWeight: '700' })}>{v}</td>
-                  </React.Fragment>
+                  <td key={i} style={cell({ padding: '14px 12px' })}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{l}</span>
+                      <span style={{ fontSize: '11px', fontWeight: '900', color: '#0f172a' }}>{v}</span>
+                    </div>
+                  </td>
                 ))}
               </tr>
               <tr>
                 {[
-                  ['Total absent',      ps.total_absent     || ps.totalAbsent  || '0'],
-                  ['Total work+ot',     ps.total_work_ot    || ps.totalWorkOt  || '0'],
-                  ['Total ot',          ps.total_ot_hours   || ps.total_ot     || ps.totalOt     || '0'],
-                  ['Bs/reference amt.', ps.bonus_ref_amt    || ps.bs_reference_amt || ps.bsReferenceAmt || '0'],
+                  ['TOTAL WORK+OT',     ps.total_work_ot    || ps.totalWorkOt  || '0'],
+                  ['TOTAL OT',          ps.total_ot_hours   || ps.total_ot     || ps.totalOt     || '0'],
+                  ['AVAILABLE LEAVE', ps.available_leave || '0'],
+                  ['LOP COUNT', ps.lop_count || '0'],
+                  ['BS/REF AMT.', ps.bonus_ref_amt    || ps.bs_reference_amt || ps.bsReferenceAmt || '0'],
                 ].map(([l, v], i) => (
-                  <React.Fragment key={i}>
-                    <td style={labelCell({ width: '15%' })}>{l}</td>
-                    <td style={cell({ textAlign: 'right', width: '10%', fontWeight: '700' })}>{v}</td>
-                  </React.Fragment>
+                  <td key={i} style={cell({ padding: '14px 12px' })}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{l}</span>
+                      <span style={{ fontSize: '11px', fontWeight: '900', color: '#0f172a' }}>{v}</span>
+                    </div>
+                  </td>
                 ))}
               </tr>
             </tbody>
@@ -415,43 +456,41 @@ export default function PayslipScreen({ onBack }) {
         {/* Earnings / Incentives / Deductions */}
         <div style={{ marginTop: '20px', position: 'relative', zIndex: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
-            {['Earning', 'Incentives', 'Deduction'].map(t => (
-              <div key={t} style={{ backgroundColor: '#f8fafc', padding: '10px 15px', fontSize: '12px', fontWeight: '900', color: '#0B1E3F', border: '1px solid #cbd5e1', borderBottom: 'none' }}>{t}</div>
+            {['EARNING', 'INCENTIVES', 'DEDUCTION'].map(t => (
+              <div key={t} style={{ backgroundColor: '#f8fafc', padding: '14px 15px', fontSize: '11px', fontWeight: '900', color: '#0f172a', border: '1px solid #e2e8f0', borderRight: t === 'DEDUCTION' ? '1px solid #e2e8f0' : 'none' }}>{t}</div>
             ))}
           </div>
           <div style={{ display: 'flex' }}>
-            <SectionCard title="Earning"    rows={earningRows}   total={totalEarning}   totalLabel="Total Earning"  color="#16a34a" />
-            <SectionCard title="Incentives" rows={incentiveRows} total={totalIncentive} totalLabel="Total Incent."  />
-            <SectionCard title="Deduction"  rows={deductionRows} total={totalDeduction} totalLabel="Total Deduct."  color="#ef4444" />
+            <SectionCard rows={earningRows}   total={totalEarning}   totalLabel="Total Earning"  />
+            <SectionCard rows={incentiveRows} total={totalIncentive} totalLabel="Total Incent."  />
+            <SectionCard rows={deductionRows} total={totalDeduction} totalLabel="Total Deduct." isLast={true} />
           </div>
 
           {/* Net Payable */}
-          <div style={{ border: '1px solid #cbd5e1', borderTop: 'none', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', backgroundColor: '#eef2ff' }}>
-              <span style={{ fontSize: '14px', fontWeight: '900', color: '#0B1E3F' }}>Net Payable</span>
-              <span style={{ fontSize: '20px', fontWeight: '900', color: '#1e40af' }}>₹ {netPay}</span>
+          <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', backgroundColor: 'white' }}>
+              <span style={{ fontSize: '13px', fontWeight: '900', color: '#0f172a' }}>Net Payable</span>
+              <span style={{ fontSize: '16px', fontWeight: '900', color: '#16a34a' }}>₹ {netPay}</span>
             </div>
           </div>
         </div>
 
         {/* Disclaimer */}
-        <div style={{ marginTop: '30px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', position: 'relative', zIndex: 10 }}>
+        <div style={{ marginTop: '40px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', position: 'relative', zIndex: 10 }}>
           This is a computer generated payslip and does not require a physical signature.
         </div>
 
         {/* Footer */}
-        <div style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', position: 'relative', zIndex: 10 }}>
-          <div style={{ textAlign: 'right', fontSize: '11px', color: '#1e3a8a', fontWeight: '700', lineHeight: '1.6' }}>
-            {(ps.company_phone || ps.phone || COMPANY_INFO.phone) && <>{ps.company_phone || ps.phone || COMPANY_INFO.phone}<br /></>}
+        <div style={{ marginTop: 'auto', paddingTop: '40px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', position: 'relative', zIndex: 10 }}>
+          <div style={{ textAlign: 'right', fontSize: '11px', color: '#1e3a8a', fontWeight: '900', lineHeight: '1.6' }}>
+            {(ps.company_phone || ps.phone || COMPANY_INFO.phone) && <>Phone: {ps.company_phone || ps.phone || COMPANY_INFO.phone}<br /></>}
             {(ps.company_website || ps.website || COMPANY_INFO.website) && <>{ps.company_website || ps.website || COMPANY_INFO.website}<br /></>}
             {(ps.company_email || ps.email || COMPANY_INFO.email) && <>{ps.company_email || ps.email || COMPANY_INFO.email}</>}
           </div>
         </div>
 
         {/* Bottom decorative shapes */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '200px', height: '150px', backgroundColor: '#3b82f6', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1, zIndex: 1 }} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '150px', height: '110px', backgroundColor: '#2563eb', clipPath: 'polygon(0 30%, 0 100%, 70% 100%)', zIndex: 1 }} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '90px', height: '80px', backgroundColor: '#1e40af', clipPath: 'polygon(0 60%, 0 100%, 40% 100%)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '150px', height: '150px', backgroundColor: '#3b82f6', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', zIndex: 1 }} />
 
         <style>{`
           @media print {
