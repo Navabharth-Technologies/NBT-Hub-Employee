@@ -1140,6 +1140,11 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                   } catch (e) {
                     alert('Network Error: Could not save about me text to database.');
                   }
+                } else {
+                  // Entering edit mode!
+                  if (aboutMe === 'Write a short introduction about yourself') {
+                    setAboutMe('');
+                  }
                 }
                 setIsEditingAbout(!isEditingAbout);
               }}
@@ -1155,10 +1160,20 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                 style={{ width: '100%', minHeight: '100px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '15px', fontSize: '14px', color: '#475569', outline: 'none', fontFamily: 'inherit' }}
                 value={aboutMe}
                 onChange={(e) => setAboutMe(e.target.value)}
+                placeholder="Write a short introduction about yourself"
+                onFocus={(e) => {
+                  const val = e.target.value;
+                  e.target.value = '';
+                  e.target.value = val;
+                  const len = val.length;
+                  try {
+                    e.target.setSelectionRange(len, len);
+                  } catch (err) {}
+                }}
               />
             ) : (
               <>
-                <div style={styles.aboutPlaceholder}>{aboutMe || "Write a few words about yourself..."}</div>
+                <div style={styles.aboutPlaceholder}>{aboutMe || "Write a short introduction about yourself"}</div>
               </>
             )}
           </div>

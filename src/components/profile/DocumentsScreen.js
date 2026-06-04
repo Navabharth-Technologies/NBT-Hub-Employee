@@ -22,6 +22,22 @@ const LOCKED_FIELDS = [
   'has_mobile', 'has_camera', 'has_headphone', 'has_tablet'
 ];
 
+const REQUIRED_FIELDS = [
+  // Primary Profile
+  'emp_name', 'gender', 'dob', 'age', 'religion', 'blood_group', 'marital_status', 'nationality', 'father_husband_name', 'category', 'pan_number', 'pancard_photo', 'aadhar_number', 'adharcard_photo',
+  // Organizational Hierarchy
+  'designation', 'department', 'process', 'supervisor_l1', 'supervisor_l2', 'doj', 'ft_pt', 'status', 'place', 'moved', 'official_email_id',
+  // Contact & Geography
+  'contact_no', 'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
+  // Academic & Career
+  'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 'sslc_percentage', 'puc_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_percentage', 'ug_pg_markscard', 'source',
+  // Banking & Finance
+  'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'gross_salary_a', 'salary', 'pt', 'passbook_photo',
+  // Compliance & Docs
+  'bgv_status', 'appointment_letter', 'approved_by_ceo', 'onboarding_doc_completed', 'id_card', 'onboarding_link'
+];
+
+
 const SECTIONS = [
   {
     id: 'primary',
@@ -31,7 +47,7 @@ const SECTIONS = [
     fields: [
       { key: 'emp_name', label: 'Employee Name', placeholder: 'Full Name', type: 'text' },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
+      { key: 'dob', label: 'Date of Birth', type: 'date', placeholder: 'DD/MM/YYYY' },
       { key: 'age', label: 'Age', type: 'text', placeholder: 'Years' },
       { key: 'religion', label: 'Religion', type: 'text' },
       { key: 'blood_group', label: 'Blood Group', type: 'text' },
@@ -548,17 +564,7 @@ export default function DocumentsScreen({ onBack }) {
     };
 
     // REQUIRED FIELDS CHECK
-    const required = [
-      'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
-      // Contact & Geography
-      'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
-      // Academic & Career
-      'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 
-      'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
-      // Banking & Finance
-      'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
-    ];
-    if (required.includes(key) && (!value || String(value).trim() === '')) {
+    if (REQUIRED_FIELDS.includes(key) && (!value || String(value).trim() === '')) {
       return `${key.replace(/_/g, ' ').toUpperCase()} is required`;
     }
 
@@ -579,6 +585,11 @@ export default function DocumentsScreen({ onBack }) {
           const d = new Date(year, month - 1, day);
           if (isNaN(d.getTime()) || d.getDate() !== day || d.getMonth() + 1 !== month || d.getFullYear() !== year) {
             error = 'Invalid Date';
+          } else {
+            const today = new Date();
+            if (d > today) {
+              error = 'Date of Birth cannot be in the future';
+            }
           }
         }
       }
@@ -662,6 +673,12 @@ export default function DocumentsScreen({ onBack }) {
   };
 
   const handleChange = (key, value) => {
+    // If the value is selected from calendar (YYYY-MM-DD format), convert to DD/MM/YYYY
+    if (['dob', 'doj', 'lwd', 'separation'].includes(key) && value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const parts = value.split('-');
+      value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
     // Immediate cleaning for specific fields
     let cleanValue = value;
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
@@ -1271,13 +1288,7 @@ export default function DocumentsScreen({ onBack }) {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
                       <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                        {field.label} {[
-                          'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
-                          'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
-                          'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 
-                          'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
-                          'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
-                        ].includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
+                        {field.label} {REQUIRED_FIELDS.includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
                       </label>
                       {isLockedForRole && <Shield size={10} color="#000000" />}
                     </div>
@@ -1296,10 +1307,10 @@ export default function DocumentsScreen({ onBack }) {
                           }}
                         >
                           {field.key === 'gender' && (
-                            <option value="">Choose your gender</option>
+                            <option value="" disabled hidden>Choose your gender</option>
                           )}
                           {field.key === 'category' && (
-                            <option value="">Choose your category</option>
+                            <option value="" disabled hidden>Choose your category</option>
                           )}
                           {field.options.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
@@ -1526,6 +1537,7 @@ export default function DocumentsScreen({ onBack }) {
                       <div style={{ position: 'relative', width: '100%' }}>
                         <input
                           type={field.type === 'date' ? 'date' : 'text'}
+                          max={field.key === 'dob' ? new Date().toISOString().split('T')[0] : undefined}
                           value={(() => {
                             let val = form[field.key] || '';
                             if (typeof val === 'string' && val.includes('T') && val.length > 15) {
@@ -1543,22 +1555,39 @@ export default function DocumentsScreen({ onBack }) {
                             }
                             return val;
                           })()}
-                          readOnly={isDisabled}
+                          readOnly={isDisabled || field.key === 'age'}
                           onChange={e => handleChange(field.key, e.target.value)}
                           onKeyDown={e => {
+                            if (field.key === 'dob') {
+                              e.preventDefault();
+                            }
                             // Block numeric keys for department field
                             if (field.key === 'department' && /^[0-9]$/.test(e.key)) {
                               e.preventDefault();
+                            }
+                          }}
+                          onPaste={e => {
+                            if (field.key === 'dob') {
+                              e.preventDefault();
+                            }
+                          }}
+                          onClick={e => {
+                            if (field.type === 'date' && !isDisabled) {
+                              try {
+                                e.target.showPicker?.();
+                              } catch (err) {
+                                console.error("showPicker failed:", err);
+                              }
                             }
                           }}
                           placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
                           style={{
                             width: '100%', padding: isMobile ? '12px' : '16px 20px',
                             borderRadius: isMobile ? '10px' : '16px', fontSize: isMobile ? '13px' : '16px',
-                            fontWeight: '800', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
+                            fontWeight: '800', color: '#000000', backgroundColor: (isDisabled || field.key === 'age') ? '#f1f5f9' : '#f8fafc',
                             border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
                             outline: 'none', boxSizing: 'border-box',
-                            transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text'
+                            transition: 'all 0.2s', cursor: (isDisabled || field.key === 'age') ? 'default' : 'text'
                           }}
                         />
                       </div>

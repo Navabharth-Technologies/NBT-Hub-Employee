@@ -22,6 +22,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
     const [winWidth, setWinWidth] = useState(window.innerWidth);
     const [courses, setCourses] = useState([]);
+    const [videoDurations, setVideoDurations] = useState({});
     const [loading, setLoading] = useState(true);
     const [selectedCourse, setSelectedCourse] = useState(null);
 
@@ -101,6 +102,29 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             }
         }
     }, [selectedCourse, courseProgressMap]);
+
+    useEffect(() => {
+        if (courses.length > 0) {
+            courses.forEach(course => {
+                const videoLink = formatUrl(course.video || course.video_url || course.video_link || course.link);
+                if (videoLink && !videoLink.includes('youtube') && !videoLink.includes('vimeo') && !videoDurations[course.id]) {
+                    const tempVideo = document.createElement('video');
+                    tempVideo.src = videoLink;
+                    tempVideo.preload = 'metadata';
+                    tempVideo.onloadedmetadata = () => {
+                        const mins = Math.floor(tempVideo.duration / 60);
+                        const secs = Math.floor(tempVideo.duration % 60);
+                        const durationStr = `${mins}m ${secs}s`;
+                        setVideoDurations(prev => ({ ...prev, [course.id]: durationStr }));
+                        tempVideo.src = ""; // Clean up
+                    };
+                    tempVideo.onerror = () => {
+                        tempVideo.src = ""; // Clean up on error
+                    };
+                }
+            });
+        }
+    }, [courses]);
 
     const sendCourseCompletionToBackend = async (courseId) => {
         try {
@@ -887,7 +911,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                                 <div style={s.courseContent}>
                                     <h2 style={s.courseTitle}>{course.title}</h2>
                                     <div style={{ fontSize: '16px', color: '#64748b', display: 'flex', justifyContent: 'flex-start', marginBottom: '18px', fontWeight: '700' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={18} /> {course.duration || '2h 15m'}</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={18} /> {videoDurations[course.id] || course.duration || '2h 15m'}</span>
                                     </div>
                                     <div style={s.progressBar(0)}><div style={s.progressFill(progress)} /></div>
                                     <div style={{ fontSize: '14px', color: (progress >= 100) ? '#16a34a' : '#94a3b8', fontWeight: '800', marginBottom: '30px', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
