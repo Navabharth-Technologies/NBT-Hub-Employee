@@ -75,21 +75,50 @@ const Dashboard = ({ setActiveTab }) => {
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
 
-      const headers = { 
+      const headers = {
         'Accept': 'application/json',
         'Authorization': `Bearer ${cleanToken}`
       };
       const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
       if (res.ok) {
-        const data = await res.json();
-        const respName = data.project_name || data.projectName;
-        if (!respName || respName === currentProjectName) {
-          setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: data.sprint_status || data.sprintStatus || 'Pending' }));
-          setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: data.progress_percentage || data.progressPercentage || data.progress || 0 }));
-          localStorage.setItem(`sprint_progress_${targetId}_${currentProjectName}`, JSON.stringify({ 
-            status: data.sprint_status || data.sprintStatus || 'Pending', 
-            progress: data.progress_percentage || data.progressPercentage || data.progress || 0 
-          }));
+        const raw = await res.json();
+        const dataArr = Array.isArray(raw) ? raw : (raw.value && Array.isArray(raw.value) ? raw.value : [raw]);
+
+        // Find the latest update for this specific project by searching in reverse
+        const data = [...dataArr].reverse().find(d => {
+          if (!d) return false;
+          const respName = d.project_name || d.projectName;
+          return respName === currentProjectName;
+        });
+
+        if (data) {
+          const newStatus = data.sprint_status || data.sprintStatus;
+          const newProg = data.progress_percentage || data.progressPercentage || data.progress;
+
+          const currentCached = localStorage.getItem(`sprint_progress_${sid}_${currentProjectName}`);
+          let isLocallyCompleted = false;
+          try {
+            if (currentCached) {
+              const parsed = JSON.parse(currentCached);
+              if (parsed.status === 'Completed' || parsed.progress === 100) {
+                isLocallyCompleted = true;
+              }
+            }
+          } catch (e) { }
+
+          if (isLocallyCompleted) {
+            setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: 'Completed' }));
+            setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: 100 }));
+          } else {
+            if (newStatus) setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: newStatus }));
+            if (newProg !== undefined && newProg !== null) {
+              setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: newProg }));
+              localStorage.setItem(`sprint_progress_${sid}_${currentProjectName}`, JSON.stringify({
+                status: newStatus || 'Pending',
+                progress: newProg
+              }));
+            }
+          }
         }
       }
     } catch (e) { }
@@ -104,7 +133,7 @@ const Dashboard = ({ setActiveTab }) => {
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
 
-      const headers = { 
+      const headers = {
         'Accept': 'application/json',
         'Authorization': `Bearer ${cleanToken}`
       };
@@ -113,20 +142,28 @@ const Dashboard = ({ setActiveTab }) => {
         const data = await res.json();
         setTaskDetailMap(prev => ({ ...prev, [tid]: data }));
       }
-    } catch {}
+    } catch { }
   };
 
   const syncSprintToBackend = async (projName, st, prog, taskId = null) => {
     try {
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
-      localStorage.setItem(`sprint_progress_${uid}_${projName}`, JSON.stringify({ status: st, progress: prog }));
-      
-      // Dual-action sync: Attempt both specific task update and global sprint log
       const suid = sanitizeId(uid);
+      localStorage.setItem(`sprint_progress_${suid}_${projName}`, JSON.stringify({ status: st, progress: prog }));
+
+      const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
+
+      // Dual-action sync: Attempt both specific task update and global sprint log
       const payloads = [
         fetch(`${BASE_URL}/api/sprint-updates`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             projectName: projName,
             teamLeaderId: suid, // for backward compat/tracking
@@ -142,7 +179,7 @@ const Dashboard = ({ setActiveTab }) => {
         const sid = sanitizeId(taskId);
         payloads.push(fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(sid), {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ status: st, progress: prog })
         }));
       }
@@ -150,7 +187,7 @@ const Dashboard = ({ setActiveTab }) => {
       // Also mirror to Daily TASK_UPDATES so it shows in the report log
       payloads.push(fetch(API_ENDPOINTS.TASK_UPDATES, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: uid,
           userName: user?.name,
@@ -188,7 +225,7 @@ const Dashboard = ({ setActiveTab }) => {
         newProgress = Math.min(95, curProg + 5);
         if (newProgress < 5) newProgress = 5;
       }
-      
+
       setSprintStatusMap(prev => ({ ...prev, [projName]: st }));
       setSprintProgressMap(prev => ({ ...prev, [projName]: newProgress }));
       syncSprintToBackend(projName, st, newProgress, taskId);
@@ -198,7 +235,7 @@ const Dashboard = ({ setActiveTab }) => {
   const confirmStatusChange = () => {
     if (!pendingStatusData) return;
     const { projName, st, taskId } = pendingStatusData;
-    
+
     let newProgress = sprintProgressMap[projName] || 0;
     if (st === 'Pending') {
       newProgress = 5;
@@ -218,7 +255,7 @@ const Dashboard = ({ setActiveTab }) => {
       setNotificationFeedback(`Success: ${projName} marked as Completed!`);
       setTimeout(() => setNotificationFeedback(null), 3000);
     }
-    
+
     setShowFinalizeModal(false);
     setPendingStatusData(null);
   };
@@ -233,7 +270,7 @@ const Dashboard = ({ setActiveTab }) => {
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
-    
+
     if (user) {
       // Fast Hydration: Try to load from cache immediately
       try {
@@ -246,7 +283,7 @@ const Dashboard = ({ setActiveTab }) => {
         if (cachedReviews) setTaskReviews(JSON.parse(cachedReviews));
         // Optimistic hydration: load exactly what is in cache, or 0 if missing.
         setYesterdayCompletion(cachedCompletion !== null ? Number(cachedCompletion) : 0);
-      } catch (e) {}
+      } catch (e) { }
 
       fetchTaskHistory();
       fetchSecondaryData();
@@ -290,7 +327,7 @@ const Dashboard = ({ setActiveTab }) => {
               }
             });
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Ensure the current user is always included with their latest profile DOB
@@ -317,10 +354,10 @@ const Dashboard = ({ setActiveTab }) => {
         const getNextOccurrence = (d) => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          
+
           let bDate = parseSafe(d);
           let occurrence = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
-          
+
           if (occurrence < today) {
             occurrence.setFullYear(today.getFullYear() + 1);
           }
@@ -351,7 +388,7 @@ const Dashboard = ({ setActiveTab }) => {
         const response = await fetch(API_ENDPOINTS.SUGGESTIONS, {
           headers: { 'Authorization': `Bearer ${cleanToken}` }
         });
-        
+
         if (response.ok) {
           const sData = await response.json();
           setSuggestions(Array.isArray(sData) ? sData : (sData.data || []));
@@ -359,10 +396,10 @@ const Dashboard = ({ setActiveTab }) => {
       } catch (error) {
         console.error("Failed to fetch suggestions:", error);
       }
-      
-    } catch (err) { 
+
+    } catch (err) {
       // This catch is only for catastrophic failures in the promise setup
-      console.warn("Secondary optional data fetch reduced:", err); 
+      console.warn("Secondary optional data fetch reduced:", err);
     }
   };
 
@@ -405,7 +442,7 @@ const Dashboard = ({ setActiveTab }) => {
     if (!uid) return;
 
     let sortedLogs = []; // Initialize early to avoid scope errors
-    let backendYestRec = null; 
+    let backendYestRec = null;
     let finalTodayTasks = []; // Declare early for merge logic
     let finalYestTasks = [];  // Declare early for merge logic
     const todayDate = new Date();
@@ -426,7 +463,7 @@ const Dashboard = ({ setActiveTab }) => {
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
 
-      const headers = { 
+      const headers = {
         'Accept': 'application/json',
         'Authorization': `Bearer ${cleanToken}`
       };
@@ -449,7 +486,7 @@ const Dashboard = ({ setActiveTab }) => {
         const list = await assignedResp.json();
         const tasksData = (Array.isArray(list) ? list : (list.value || list.data || []));
         const validTasksData = tasksData.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle)));
-        
+
         setIndividualProjects(validTasksData);
         setAssignedTasksList(validTasksData);
         safeSetItem(`ind_projects_${user.id}`, JSON.stringify(validTasksData));
@@ -478,13 +515,13 @@ const Dashboard = ({ setActiveTab }) => {
       // 2. Process Manager / Team Projects
       // We need the TL's ID to fetch projects assigned TO them by the PM
       let mId = user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || user?.tl_id || user?.team_leader_id || user?.teamLeaderId || user?.representative_tl || user?.manager_email || user?.manager;
-      
+
       if (profileResp && profileResp.ok) {
         try {
           // Use clone() to allow multiple reads if necessary
           const mData = await profileResp.clone().json();
           mId = mData?.reporting_manager_id || mData?.reportingManagerId || mData?.manager_id || mData?.managerId || mData?.tl_id || mData?.team_leader_id || mData?.id || mId;
-        } catch {}
+        } catch { }
       }
 
       if (mId) {
@@ -525,9 +562,9 @@ const Dashboard = ({ setActiveTab }) => {
         console.log('[Dashboard] task-updates from backend:', list.length, 'records', list);
 
         sortedLogs = list.sort((a, b) => new Date(getLogDate(b)) - new Date(getLogDate(a)));
-        
+
         const todayLogs = sortedLogs.filter(r => isSameDay(todayDate, getLogDate(r)));
-        const yestLogs  = sortedLogs.filter(r => isSameDay(yesterdayDate, getLogDate(r)));
+        const yestLogs = sortedLogs.filter(r => isSameDay(yesterdayDate, getLogDate(r)));
 
         // Merge all tasks from all records for the day to avoid missing data
         const mergeTasks = (logs) => {
@@ -542,7 +579,7 @@ const Dashboard = ({ setActiveTab }) => {
         };
 
         finalTodayTasks = mergeTasks(todayLogs);
-        finalYestTasks  = mergeTasks(yestLogs);
+        finalYestTasks = mergeTasks(yestLogs);
 
         setTodayTasks(finalTodayTasks);
         setYesterdayTasks(finalYestTasks);
@@ -580,9 +617,9 @@ const Dashboard = ({ setActiveTab }) => {
       // ── Merge backend records with localStorage cache ──
       // localStorage is ALWAYS written on save, so it works even when backend fails.
       const lsTodayRaw = localStorage.getItem(lsKey(uid, todayDate));
-      const lsYestRaw  = localStorage.getItem(lsKey(uid, yesterdayDate));
+      const lsYestRaw = localStorage.getItem(lsKey(uid, yesterdayDate));
       const lsTodayRec = lsTodayRaw ? JSON.parse(lsTodayRaw) : null;
-      const lsYestRec  = lsYestRaw  ? JSON.parse(lsYestRaw)  : null;
+      const lsYestRec = lsYestRaw ? JSON.parse(lsYestRaw) : null;
 
       // Define finalYestRec for legacy performance calculations below
       let backendYestMatch = null;
@@ -613,10 +650,10 @@ const Dashboard = ({ setActiveTab }) => {
       if (finalYestRec) {
         const yestTasks = parseTasks(finalYestRec.tasks || finalYestRec.task_list || finalYestRec.content);
         setYesterdayTasks(yestTasks);
-        
+
         const yStatus = finalYestRec.overallStatus || finalYestRec.status || 'Pending';
         setYesterdayStatus(yStatus);
-        
+
         let percentage = 0;
         if (yStatus === 'Completed') {
           percentage = 100;
@@ -765,34 +802,34 @@ const Dashboard = ({ setActiveTab }) => {
   };
 
   const s = {
-    page: { 
-      paddingTop: winWidth < 768 ? '10px' : '20px', 
+    page: {
+      paddingTop: winWidth < 768 ? '10px' : '20px',
       paddingLeft: winWidth < 768 ? '15px' : '40px',
       paddingRight: winWidth < 768 ? '15px' : '40px',
-      paddingBottom: '120px', 
-      maxWidth: '100%', 
-      margin: '0 auto', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: winWidth < 768 ? '15px' : '30px', 
-      fontFamily: "'Inter', sans-serif", 
-      overflowX: 'hidden' 
+      paddingBottom: '120px',
+      maxWidth: '100%',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: winWidth < 768 ? '15px' : '30px',
+      fontFamily: "'Inter', sans-serif",
+      overflowX: 'hidden'
     },
     grid: { display: 'flex', flexDirection: 'column', gap: winWidth < 768 ? '12px' : '25px' },
-    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
+    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #0B1E3F', display: 'flex', flexDirection: 'column' },
     mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
     yesterdayBox: { backgroundColor: '#f0fdf4', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '180px', height: '100%', border: '1.5px solid #dcfce7', display: 'flex', flexDirection: 'column' },
     yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px', marginBottom: '8px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: '#f8fafc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.5px solid #bfdbfe', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
+    todayBox: { backgroundColor: '#f8fafc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.0px solid #bfdbfe', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
     todayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
     taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
     statusBadge: { fontSize: '10px', fontWeight: '1000', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#0B1E3F', width: 'fit-content', marginTop: '12px' },
     liveBadge: { fontSize: '10px', fontWeight: '1000', color: '#cbd5e1', alignSelf: 'flex-end', marginTop: 'auto' },
-    statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
+    statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #0B1E3F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
   };
 
   const avatarInitial = (name = '') => name?.charAt(0)?.toUpperCase() || '?';
@@ -802,80 +839,81 @@ const Dashboard = ({ setActiveTab }) => {
       <div style={s.grid}>
         {/* ────── ATTENDANCE PORTAL SECTION ────── */}
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <div style={{ ...s.mainTitle, fontSize: '18px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={20} color="#3B5998" /> Attendance Tracking
+          <div style={{ ...s.mainTitle, fontSize: '28px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Calendar size={20} color="#3B5998" /> Attendance Overview
           </div>
-          <div 
+          <div
             onClick={(e) => { e.stopPropagation(); setActiveTab('ATTENDANCE'); }}
-            style={{ 
-              padding: '30px', 
-              backgroundColor: '#eff6ff', 
-              borderRadius: '35px', 
-              border: '2px solid #dbeafe', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '25px', 
-              cursor: 'pointer', 
-              transition: 'all 0.2s ease', 
-              boxShadow: '0 10px 20px rgba(59, 89, 152, 0.05)' 
+            style={{
+              padding: '26px 24px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              border: '1px solid #0b1e3f',
+              borderLeft: '10px solid #0b1e3f',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '20px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)'
             }}
           >
-            <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '50%', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-              <Calendar size={28} color="#2563eb" />
+            <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '50%', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={24} color="#2563eb" />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>My Attendance</div>
-              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e3a8a' }}>Log History</div>
+              <div style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>My Attendance</div>
+              <div style={{ fontSize: '22px', fontWeight: '900', color: '#0b1e3f', marginTop: '2px' }}>Attendance History</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#dcfce7', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontSize: '11px', fontWeight: '900', letterSpacing: '0.5px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
-              <span style={{ fontSize: '10px', fontWeight: '1000', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Live Update</span>
+              <span>LIVE UPDATES</span>
             </div>
-            <ChevronRight size={24} color="#94a3b8" />
+            <ChevronRight size={20} color="#cbd5e1" />
           </div>
         </motion.div>
 
         <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1200 ? '1fr' : '1fr 320px', gap: '30px' }}>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} style={{ ...s.mainCard, minHeight: 'fit-content', padding: winWidth < 768 ? '25px' : '35px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: winWidth < 768 ? '15px' : '25px', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '18px', marginBottom: 0 }}>Team Command Center</div>
 
               </div>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '35px' }}>
-                <div 
+                <div
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'INDIVIDUAL' }); }}
-                  style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#3B5998', borderRadius: '35px', border: '1.5px solid #3B5998', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 15px 30px rgba(59, 89, 152, 0.15)' }}
+                  style={{ padding: winWidth < 768 ? '12px' : '16px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 15px 30px rgba(0,0,0,0.02)' }}
                 >
-                  <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: winWidth < 768 ? '10px' : '15px', borderRadius: '50%' }}>
-                    <User size={winWidth < 768 ? 22 : 28} color="white" />
+                  <div style={{ backgroundColor: '#eff6ff', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%' }}>
+                    <User size={winWidth < 768 ? 22 : 28} color="#3B5998" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '10px', fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.5px' }}>Individual</div>
-                    <div style={{ fontSize: winWidth < 768 ? '18px' : '20px', fontWeight: '900', color: 'white' }}>{individualProjects.length} <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>Projects</span></div>
+                    <div style={{ fontSize: '14px', fontWeight: '900', color: '#000000', letterSpacing: '0.5px' }}>Individual</div>
+                    <div style={{ fontSize: winWidth < 768 ? '22px' : '24px', fontWeight: '900', color: '#000000' }}>{individualProjects.length} <span style={{ fontSize: '16px', color: '#000000', fontWeight: '900' }}>Projects</span></div>
                   </div>
-                  <ChevronRight size={20} color="rgba(255,255,255,0.4)" />
+                  <ChevronRight size={20} color="#cbd5e1" />
                 </div>
- 
-                <div 
+
+                <div
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'TEAM' }); }}
-                  style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#f8fafc', borderRadius: '35px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  style={{ padding: winWidth < 768 ? '12px' : '16px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
-                  <div style={{ backgroundColor: '#eff6ff', padding: '15px', borderRadius: '50%' }}>
+                  <div style={{ backgroundColor: '#eff6ff', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%' }}>
                     <Users size={28} color="#3B5998" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>Team</div>
-                    <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>{teamProjects.length} <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '700' }}>Projects</span></div>
+                    <div style={{ fontSize: '14px', fontWeight: '900', color: '#000000', letterSpacing: '0.5px' }}>Team</div>
+                    <div style={{ fontSize: '24px', fontWeight: '900', color: '#000000' }}>{teamProjects.length} <span style={{ fontSize: '16px', color: '#000000', fontWeight: '900' }}>Projects</span></div>
                   </div>
                   <ChevronRight size={20} color="#cbd5e1" />
                 </div>
               </div>
 
 
-        <div style={s.taskGrid}>
+              <div style={s.taskGrid}>
                 <div style={{ ...s.yesterdayBox, position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={s.yesterdayLabel}>
@@ -886,17 +924,17 @@ const Dashboard = ({ setActiveTab }) => {
                         <div style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <Clock size={12} />
                           {(() => {
-                             const validTs = yesterdayTasks
-                               .map(t => typeof t === 'object' ? Number(t.id) : null)
-                               .filter(id => !isNaN(id) && id > 1000000000000);
-                             const latestId = validTs.length > 0 ? Math.max(...validTs) : null;
-                             return latestId
-                               ? new Date(latestId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                               : '';
+                            const validTs = yesterdayTasks
+                              .map(t => typeof t === 'object' ? Number(t.id) : null)
+                              .filter(id => !isNaN(id) && id > 1000000000000);
+                            const latestId = validTs.length > 0 ? Math.max(...validTs) : null;
+                            return latestId
+                              ? new Date(latestId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                              : '';
                           })()}
                         </div>
                       )}
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
                         style={{ ...s.editBtn, background: 'white', border: '1.5px solid #86efac', color: '#15803d', padding: '6px 14px', borderRadius: '20px', fontSize: '11px' }}
                       >
@@ -904,7 +942,7 @@ const Dashboard = ({ setActiveTab }) => {
                       </button>
                     </div>
                   </div>
-                  
+
                   {yesterdayTasks.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0', flex: 1 }}>
                       {yesterdayTasks.slice(0, 3).map((t, i) => {
@@ -916,7 +954,7 @@ const Dashboard = ({ setActiveTab }) => {
                           <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
                             <CheckCircle2 size={12} color="#16a34a" />
                             <span style={{ fontSize: '12px', color: '#475569' }}>
-                              {typeof t === 'string' ? t : t.text} 
+                              {typeof t === 'string' ? t : t.text}
                             </span>
                           </div>
                         );
@@ -955,41 +993,41 @@ const Dashboard = ({ setActiveTab }) => {
 
                   {!isEditing ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                       {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
-                       {todayTasks.length > 0 ? (
-                         todayTasks.map((t, i) => {
-                           return (
-                             <div key={i} style={s.taskItem}>
-                               <CheckCircle2 size={14} color="#3b82f6" />
-                               <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
-                             </div>
-                           );
-                         })
-                       ) : (
-                         <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
-                           <AlertCircle size={16} /> Update ur todays task
-                         </div>
-                       )}
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
-                           <div style={{ padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#0B1E3F', fontSize: '9px', fontWeight: '1000', textTransform: 'uppercase' }}>
-                             {todayStatus && todayStatus !== 'No Data' ? todayStatus : 'PENDING'}
-                           </div>
-                       </div>
+                      {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
+                      {todayTasks.length > 0 ? (
+                        todayTasks.map((t, i) => {
+                          return (
+                            <div key={i} style={s.taskItem}>
+                              <CheckCircle2 size={14} color="#3b82f6" />
+                              <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
+                          <AlertCircle size={16} /> Update ur todays task
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
+                        <div style={{ padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#0B1E3F', fontSize: '9px', fontWeight: '1000', textTransform: 'uppercase' }}>
+                          {todayStatus && todayStatus !== 'No Data' ? todayStatus : 'PENDING'}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
                       {editBuffer.map((t, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input 
-                             type="text"
-                             value={t.text}
-                             onChange={(e) => {
-                               const nb = [...editBuffer];
-                               nb[i].text = e.target.value;
-                               setEditBuffer(nb);
-                             }}
-                             style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
-                             placeholder="Type task details..."
+                          <input
+                            type="text"
+                            value={t.text}
+                            onChange={(e) => {
+                              const nb = [...editBuffer];
+                              nb[i].text = e.target.value;
+                              setEditBuffer(nb);
+                            }}
+                            style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
+                            placeholder="Type task details..."
                           />
                           <button onClick={() => setEditBuffer(editBuffer.filter((_, idx) => idx !== i))} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
                             <Trash2 size={16} color="#ef4444" />
@@ -997,12 +1035,12 @@ const Dashboard = ({ setActiveTab }) => {
                         </div>
                       ))}
                       <button onClick={() => setEditBuffer([...editBuffer, { text: '', id: Date.now() }])} style={{ padding: '8px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '5px' }}>
-                         + Add Task
+                        + Add Task
                       </button>
                       <div style={{ marginTop: '15px' }}>
                         <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px' }}>End of day status override</div>
-                        <select 
-                          value={editStatus} 
+                        <select
+                          value={editStatus}
                           onChange={e => setEditStatus(e.target.value)}
                           style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', fontWeight: '700' }}
                         >
@@ -1015,7 +1053,7 @@ const Dashboard = ({ setActiveTab }) => {
                   )}
                 </div>
               </div>
-              
+
               <AnimatePresence>
                 {notificationFeedback && (
                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#16a34a', color: 'white', padding: '10px 25px', borderRadius: '40px', fontSize: '13px', fontWeight: '1000', zIndex: 10000, boxShadow: '0 15px 30px rgba(0,0,0,0.1)' }}>
@@ -1095,7 +1133,7 @@ const Dashboard = ({ setActiveTab }) => {
                 <FileText size={24} color="#f59e0b" /> Team Suggestions
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {suggestions.slice(0, 3).map((sug, i) => (
                 <div key={i} style={{ padding: '14px 18px', borderRadius: '18px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7' }}>
@@ -1123,7 +1161,7 @@ const Dashboard = ({ setActiveTab }) => {
       <AnimatePresence>
         {showFinalizeModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, backdropFilter: 'blur(4px)' }}>
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1134,17 +1172,17 @@ const Dashboard = ({ setActiveTab }) => {
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0B1E3F', marginBottom: '12px' }}>Finalize Task?</h2>
               <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '32px' }}>
-                Are you sure you want to mark <span style={{ fontWeight: '800', color: '#1e3a8a' }}>{pendingStatusData?.projName}</span> as <span style={{ fontWeight: '800' }}>{pendingStatusData?.st}</span>? 
+                Are you sure you want to mark <span style={{ fontWeight: '800', color: '#1e3a8a' }}>{pendingStatusData?.projName}</span> as <span style={{ fontWeight: '800' }}>{pendingStatusData?.st}</span>?
                 {pendingStatusData?.st === 'Completed' && " This will set progress to 100%."}
               </p>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
+                <button
                   onClick={() => setShowFinalizeModal(false)}
                   style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={confirmStatusChange}
                   style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(11, 30, 63, 0.2)' }}
                 >
