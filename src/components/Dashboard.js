@@ -816,7 +816,7 @@ const Dashboard = ({ setActiveTab }) => {
       overflowX: 'hidden'
     },
     grid: { display: 'flex', flexDirection: 'column', gap: winWidth < 768 ? '12px' : '25px' },
-    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #0B1E3F', display: 'flex', flexDirection: 'column' },
+    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '1px solid #0B1E3F', display: 'flex', flexDirection: 'column' },
     mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
     yesterdayBox: { backgroundColor: '#f0fdf4', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '180px', height: '100%', border: '1.5px solid #dcfce7', display: 'flex', flexDirection: 'column' },
@@ -866,7 +866,7 @@ const Dashboard = ({ setActiveTab }) => {
               <div style={{ fontSize: '22px', fontWeight: '900', color: '#0b1e3f', marginTop: '2px' }}>Attendance History</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontSize: '11px', fontWeight: '900', letterSpacing: '0.5px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
               <span>LIVE UPDATES</span>
             </div>
             <ChevronRight size={20} color="#cbd5e1" />
@@ -878,37 +878,37 @@ const Dashboard = ({ setActiveTab }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} style={{ ...s.mainCard, minHeight: 'fit-content', padding: winWidth < 768 ? '25px' : '35px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: winWidth < 768 ? '15px' : '25px', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '18px', marginBottom: 0 }}>Team Command Center</div>
+                <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '24px', marginBottom: 0 }}>Team Command Center</div>
 
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '35px' }}>
                 <div
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'INDIVIDUAL' }); }}
-                  style={{ padding: winWidth < 768 ? '12px' : '16px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 15px 30px rgba(0,0,0,0.02)' }}
+                  style={{ padding: winWidth < 768 ? '12px' : '16px', backgroundColor: '#eff6ff', borderRadius: '24px', border: '2px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 15px 30px rgba(0,0,0,0.02)' }}
                 >
-                  <div style={{ backgroundColor: '#eff6ff', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%' }}>
-                    <User size={winWidth < 768 ? 22 : 28} color="#3B5998" />
+                  <div style={{ backgroundColor: 'white', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%', boxShadow: '0 4px 10px rgba(37,99,235,0.08)' }}>
+                    <User size={winWidth < 768 ? 22 : 28} color="#2563eb" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '14px', fontWeight: '900', color: '#000000', letterSpacing: '0.5px' }}>Individual</div>
                     <div style={{ fontSize: winWidth < 768 ? '22px' : '24px', fontWeight: '900', color: '#000000' }}>{individualProjects.length} <span style={{ fontSize: '16px', color: '#000000', fontWeight: '900' }}>Projects</span></div>
                   </div>
-                  <ChevronRight size={20} color="#cbd5e1" />
+                  <ChevronRight size={20} color="#2563eb" />
                 </div>
 
                 <div
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'TEAM' }); }}
-                  style={{ padding: winWidth < 768 ? '12px' : '16px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  style={{ padding: winWidth < 768 ? '12px' : '16px', backgroundColor: '#f5f3ff', borderRadius: '24px', border: '2px solid #ddd6fe', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
-                  <div style={{ backgroundColor: '#eff6ff', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%' }}>
-                    <Users size={28} color="#3B5998" />
+                  <div style={{ backgroundColor: 'white', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%', boxShadow: '0 4px 10px rgba(124,58,237,0.08)' }}>
+                    <Users size={28} color="#7c3aed" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '14px', fontWeight: '900', color: '#000000', letterSpacing: '0.5px' }}>Team</div>
                     <div style={{ fontSize: '24px', fontWeight: '900', color: '#000000' }}>{teamProjects.length} <span style={{ fontSize: '16px', color: '#000000', fontWeight: '900' }}>Projects</span></div>
                   </div>
-                  <ChevronRight size={20} color="#cbd5e1" />
+                  <ChevronRight size={20} color="#7c3aed" />
                 </div>
               </div>
 
@@ -936,9 +936,9 @@ const Dashboard = ({ setActiveTab }) => {
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #86efac', color: '#15803d', padding: '6px 14px', borderRadius: '20px', fontSize: '11px' }}
+                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #0f4824ff', color: '#15803d', padding: '8px 14px', borderRadius: '20px', fontSize: '11px', fontFamily: 'sans-serif' }}
                       >
-                        View Report
+                        View Report ->
                       </button>
                     </div>
                   </div>
