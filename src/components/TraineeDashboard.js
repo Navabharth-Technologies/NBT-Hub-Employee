@@ -425,7 +425,7 @@ const TraineeDashboard = () => {
                   {course.category || 'Technical'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11px', fontWeight: '700' }}>
-                  <Calendar size={13} /> Deadline: {course.deadline ? new Date(course.deadline).toLocaleDateString() : 'No Date'}
+                  <Calendar size={13} /> Deadline: {course.deadline ? (() => { const p = String(course.deadline).split('T')[0].split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : course.deadline; })() : 'No Date'}
                 </div>
               </div>
               {/* Course Title and Status */}

@@ -34,20 +34,21 @@ import Reports from './components/Reports';
 import SaturdayRequirementsPopover from './components/SaturdayRequirementsPopover';
 
 
+const pathToTab = {
+  '/': 'HOME',
+  '/profile': 'PROFILE',
+  '/courses': 'COURSES',
+  '/thread': 'THREAD',
+  '/leave': 'LEAVE',
+  '/attendance': 'ATTENDANCE',
+  '/fun': 'FUN',
+  '/awards': 'AWARDS',
+  '/resignation': 'RESIGNATION'
+};
+
+
 function App() {
   const { user, loading, logout } = useAuth();
-  
-  const pathToTab = {
-    '/': 'HOME',
-    '/profile': 'PROFILE',
-    '/courses': 'COURSES',
-    '/thread': 'THREAD',
-    '/leave': 'LEAVE',
-    '/attendance': 'ATTENDANCE',
-    '/fun': 'FUN',
-    '/awards': 'AWARDS',
-    '/resignation': 'RESIGNATION'
-  };
 
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -169,9 +170,16 @@ function App() {
     const path = tabToPathMap[activeTab] || '/' + activeTab.toLowerCase().replace(/_/g, '-');
     const displayPath = '#' + path;
     
-    // Update Browser History without full page reload
+    // Update Browser History: Use pushState for screen transitions and sentinel for HOME page to block exit
     if (window.location.hash !== displayPath && !(window.location.hash === '' && displayPath === '#/')) {
-      window.history.replaceState(null, '', displayPath);
+      if (activeTab === 'HOME') {
+        window.history.pushState({ sentinel: true }, '', displayPath);
+      } else {
+        window.history.pushState(null, '', displayPath);
+      }
+    } else if (activeTab === 'HOME' && (!window.history.state || !window.history.state.sentinel)) {
+      // If we are already on HOME but don't have the sentinel state (e.g. initial load), push it
+      window.history.pushState({ sentinel: true }, '', '#/');
     }
 
     // Update Document Title
@@ -179,27 +187,49 @@ function App() {
     document.title = `NBT Hub | ${title === 'Home' ? 'Dashboard' : (title === 'Fun' ? 'Fun Zone' : title)}`;
   }, [activeTab, user]);
 
-  // ✅ Keep back/forward navigation working
+  // ✅ Keep back/forward navigation working & restrict exiting from HOME tab
   useEffect(() => {
-    const handleHashChange = () => {
+    if (!user) return;
+
+    const handlePopState = (event) => {
       const hash = window.location.hash;
       const path = hash.startsWith('#') ? hash.substring(1) : '/';
+      
+      let targetTab = 'HOME';
       if (pathToTab[path]) {
-        setActiveTab(pathToTab[path]);
-      } else {
-        if (path && path.startsWith('/')) {
-          const legacyTab = path.substring(1).toUpperCase().replace(/-/g, '_');
-          const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
-          if (validTabs.includes(legacyTab)) {
-            setActiveTab(legacyTab);
-          }
+        targetTab = pathToTab[path];
+      } else if (path && path.startsWith('/')) {
+        const legacyTab = path.substring(1).toUpperCase().replace(/-/g, '_');
+        const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
+        if (validTabs.includes(legacyTab)) {
+          targetTab = legacyTab;
         }
       }
+
+      // If they popped a state and target is HOME, make sure it has the sentinel state
+      if (targetTab === 'HOME') {
+        if (!event.state || !event.state.sentinel) {
+          // Push sentinel back so back button has to pop it again
+          window.history.pushState({ sentinel: true }, '', '#/');
+          setActiveTab('HOME');
+          return;
+        }
+      }
+
+      setActiveTab(targetTab);
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    window.addEventListener('popstate', handlePopState);
+    
+    // Ensure sentinel state is active on initial load if starting on HOME
+    const hash = window.location.hash;
+    const path = hash.startsWith('#') ? hash.substring(1) : '/';
+    if ((path === '/' || !path) && (!window.history.state || !window.history.state.sentinel)) {
+      window.history.pushState({ sentinel: true }, '', '#/');
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user]);
 
 
 

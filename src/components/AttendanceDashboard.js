@@ -270,8 +270,9 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139); // #64748b
+      const fmtDate = (raw) => { if (!raw) return 'All'; const p = String(raw).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : raw; };
       doc.text(`Employee: ${user?.name || 'N/A'} (ID: ${user?.id || user?.empId || 'N/A'})`, 14, 28);
-      doc.text(`Date Range: ${startDate || 'All'} to ${endDate || 'All'}`, 14, 34);
+      doc.text(`Date Range: ${fmtDate(startDate)} to ${fmtDate(endDate)}`, 14, 34);
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
 
       const tableColumn = ["Date", "Punch In", "Punch Out", "Work Hrs", "Status", "Audit Location"];
@@ -342,12 +343,13 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    const d = new Date(dateStr);
+    // Prevent timezone shifts for date-only strings (e.g., "2026-06-06")
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+      const [year, month, day] = dateStr.trim().split('-').map(Number);
+      return `${day}/${month}/${year}`;
+    }
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   };
 
   const getStatusConfig = (log) => {
@@ -560,28 +562,6 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <FileText size={18} color="#ef4444" /> Export as PDF
-                    </button>
-                    <button
-                      onClick={exportToExcel}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        backgroundColor: 'transparent',
-                        cursor: 'pointer',
-                        color: '#1e293b',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <FileSpreadsheet size={18} color="#22c55e" /> Export as Excel
                     </button>
                   </motion.div>
                 </>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, X, Play, Clock, Zap, Award } from 'lucide-react';
+import { Bell, X, Play, Clock, Zap, Award, CheckCircle, XCircle, RefreshCw, ClipboardList } from 'lucide-react';
 import { useAuth, checkAuthOnce } from '../context/AuthContext';
 import { API_ENDPOINTS } from '../config';
 
@@ -47,7 +47,7 @@ const TaskNotification = ({ onOpenTask }) => {
     const day = date.getDate() < 10 ? '0' + date.getDate() : date.getDate();
     const month = (date.getMonth() + 1) < 10 ? '0' + (date.getMonth() + 1) : (date.getMonth() + 1);
     const year = date.getFullYear();
-    return `${year}/${month}/${day} at ${String(h).padStart(2, '0')}:${m}:${s} ${ampm}`;
+    return `${day}/${month}/${year} at ${String(h).padStart(2, '0')}:${m}:${s} ${ampm}`;
   };
 
   const fetchNotifications = async () => {
@@ -101,8 +101,19 @@ const TaskNotification = ({ onOpenTask }) => {
                 dynamicTitle = 'Leave Update';
             } else if (lowerMsg.includes('quiz')) {
                 dynamicTitle = 'New Fun Quiz';
-            } else if (lowerMsg.includes('task') || lowerMsg.includes('assigned')) {
+            } else if (lowerMsg.includes('task') && (lowerMsg.includes('approved') || lowerMsg.includes('accepted'))) {
+                dynamicTitle = 'Task Approved';
+            } else if (lowerMsg.includes('task') && (lowerMsg.includes('rejected') || lowerMsg.includes('declined'))) {
+                dynamicTitle = 'Task Rejected';
+            } else if (lowerMsg.includes('task') && (lowerMsg.includes('completed') || lowerMsg.includes('done') || lowerMsg.includes('finished'))) {
+                dynamicTitle = 'Task Completed';
+            } else if (lowerMsg.includes('task') && (lowerMsg.includes('updated') || lowerMsg.includes('changed') || lowerMsg.includes('modified'))) {
+                dynamicTitle = 'Task Update';
+            } else if (lowerMsg.includes('task') && lowerMsg.includes('assigned to')) {
                 dynamicTitle = 'New Task Assigned';
+            } else if (lowerMsg.includes('task') || lowerMsg.includes('assigned')) {
+                // Check if it's a status update (has "has been" pattern) or new assignment
+                dynamicTitle = lowerMsg.includes('has been') ? 'Task Update' : 'New Task Assigned';
             } else if (lowerMsg.includes('reward') || lowerMsg.includes('points')) {
                 dynamicTitle = 'Reward Earned';
             } else {
@@ -261,13 +272,23 @@ const TaskNotification = ({ onOpenTask }) => {
                         let tab = 'HOME';
                         const nType = String(notif.type || '').toUpperCase();
                         const nTitle = String(notif.title || '').toLowerCase();
+                        const nDesc = String(notif.description || '').toLowerCase();
                         
-                        if (nType === 'LEAVE' || nTitle.includes('leave')) {
+                        if (nType === 'LEAVE' || nTitle.includes('leave') || nDesc.includes('leave')) {
                           tab = 'LEAVE';
-                        } else if (nType === 'THREAD' || nTitle.includes('thread')) {
+                        } else if (nType === 'THREAD' || nTitle.includes('thread') || nDesc.includes('thread')) {
                           tab = 'THREAD';
-                        } else if (nType === 'QUIZ' || nTitle.includes('quiz')) {
+                        } else if (nType === 'QUIZ' || nTitle.includes('quiz') || nDesc.includes('quiz')) {
                           tab = 'FUN';
+                        } else if (
+                          nType === 'TASK' ||
+                          nTitle.includes('task') ||
+                          nTitle.includes('assigned') ||
+                          nDesc.includes('task assigned') ||
+                          nDesc.includes('new task') ||
+                          nDesc.includes('assigned to')
+                        ) {
+                          tab = 'PROJECTS';
                         }
 
                         onOpenTask(tab);
@@ -297,21 +318,24 @@ const TaskNotification = ({ onOpenTask }) => {
                         e.currentTarget.style.transform = 'translateX(0)';
                       }}
                     >
-                      {/* Left Icon Box */}
-                      <div style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '12px',
-                        backgroundColor: notif.type === 'QUIZ' ? '#0d676c' : (!isRead ? '#3B5998' : '#f1f5f9'),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: (!isRead || notif.type === 'QUIZ') ? 'white' : '#94a3b8',
-                        flexShrink: 0,
-                        transition: 'all 0.3s ease'
-                      }}>
-                        {notif.type === 'QUIZ' ? <Zap size={18} fill="white" /> : notif.type === 'AWARD' ? <Award size={18} /> : <Bell size={18} fill={!isRead ? 'white' : 'transparent'} />}
-                      </div>
+                      {/* Left Icon Box — color-coded by task status */}
+                      {(() => {
+                        const t = String(notif.title || '').toLowerCase();
+                        let bg = !isRead ? '#3B5998' : '#f1f5f9';
+                        let iconEl = <Bell size={18} fill={!isRead ? 'white' : 'transparent'} />;
+                        if (notif.type === 'QUIZ') { bg = '#0d676c'; iconEl = <Zap size={18} fill="white" />; }
+                        else if (notif.type === 'AWARD') { bg = '#f59e0b'; iconEl = <Award size={18} />; }
+                        else if (t.includes('approved') || t.includes('accepted')) { bg = '#16a34a'; iconEl = <CheckCircle size={18} />; }
+                        else if (t.includes('rejected') || t.includes('declined')) { bg = '#ef4444'; iconEl = <XCircle size={18} />; }
+                        else if (t.includes('completed') || t.includes('done')) { bg = '#8b5cf6'; iconEl = <CheckCircle size={18} />; }
+                        else if (t.includes('update') || t.includes('changed') || t.includes('modified')) { bg = '#f97316'; iconEl = <RefreshCw size={18} />; }
+                        else if (t.includes('task') || t.includes('assigned')) { bg = '#3B5998'; iconEl = <ClipboardList size={18} />; }
+                        return (
+                          <div style={{ width: '38px', height: '38px', borderRadius: '12px', backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0, transition: 'all 0.3s ease' }}>
+                            {iconEl}
+                          </div>
+                        );
+                      })()}
 
                       {/* Text details */}
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -338,6 +362,24 @@ const TaskNotification = ({ onOpenTask }) => {
                           overflow: 'hidden',
                           transition: 'all 0.3s ease'
                         }}>{notif.description}</p>
+                        {/* Assignee chip for task notifications */}
+                        {(String(notif.title || '').toLowerCase().includes('task') || String(notif.title || '').toLowerCase().includes('assigned')) && (() => {
+                          const desc = notif.description || '';
+                          // Extract "assigned to [Name]" or "by [Name]"
+                          let assignee = '';
+                          const toMatch = desc.match(/assigned to ([^:]+?)(?:\s*:|,|\s+by\s|$)/i);
+                          const byMatch = desc.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/i);
+                          if (toMatch) assignee = toMatch[1].trim();
+                          else if (byMatch) assignee = byMatch[1].trim();
+                          return assignee ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '5px' }}>
+                              <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: !isRead ? '#3B5998' : '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: '900', color: 'white', flexShrink: 0 }}>
+                                {assignee.charAt(0).toUpperCase()}
+                              </div>
+                              <span style={{ fontSize: '10px', fontWeight: '900', color: !isRead ? '#3B5998' : '#94a3b8' }}>{assignee}</span>
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
 
                       {/* Unread Blue dot */}

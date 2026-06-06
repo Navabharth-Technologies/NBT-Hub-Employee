@@ -91,9 +91,9 @@ export default function PayslipScreen({ onBack }) {
       const el = document.querySelector('.printable-payslip');
       if (!el) return;
 
-      const canvas = await html2canvas(el, { 
-        scale: 2, 
-        useCORS: true, 
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
         windowWidth: el.scrollWidth,
@@ -102,7 +102,7 @@ export default function PayslipScreen({ onBack }) {
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      
+
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
 
@@ -120,7 +120,7 @@ export default function PayslipScreen({ onBack }) {
 
       pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH);
       const label = formatMonthLabel(selectedPayslip).replace(/\s+/g, '_');
-      
+
       // Save directly as standard PDF file
       pdf.save(`Payslip_${label}.pdf`);
     } catch (err) {
@@ -134,7 +134,7 @@ export default function PayslipScreen({ onBack }) {
     const n = parseFloat(String(val || '0').replace(/,/g, ''));
     return isNaN(n) ? 0 : n;
   };
-  
+
   const getNetPayAmt = (ps) => {
     // 1. Priority to explicit net_payable from backend
     const explicitNet = parseAmt(ps.net_payable || ps.net_pay || ps.netPay || ps.amount || 0);
@@ -259,9 +259,7 @@ export default function PayslipScreen({ onBack }) {
                           <div style={{ fontSize: '22px', fontWeight: '900', color: '#1e40af', marginTop: '2px' }}>₹ {netPay}</div>
                         </div>
                       </div>
-                      <span style={{ fontSize: '12px', fontWeight: '800', color: isPaid ? '#10b981' : '#f59e0b', backgroundColor: isPaid ? '#dcfce7' : '#fef3c7', padding: '6px 12px', borderRadius: '10px' }}>
-                        {status}
-                      </span>
+
                     </div>
 
                     {/* Bottom Row: View Statement footer */}
@@ -298,15 +296,15 @@ export default function PayslipScreen({ onBack }) {
   const monthLabel = formatMonthLabel(ps);
 
   // Earnings
-  const basicAmt        = parseAmt(ps.basic_salary     || ps.basic          || ps.basicSalary        || 0);
-  const hraAmt          = parseAmt(ps.hra              || ps.house_rent_allowance || ps.houseRentAllowance || 0);
-  const conveyanceAmt   = parseAmt(ps.conveyance       || ps.conveyance_allowance || ps.conveyanceAllowance || 0);
-  const specialAllowAmt = parseAmt(ps.special_allowance || ps.specialAllowance || ps.other_allowance   || 0);
+  const basicAmt = parseAmt(ps.basic_salary || ps.basic || ps.basicSalary || 0);
+  const hraAmt = parseAmt(ps.hra || ps.house_rent_allowance || ps.houseRentAllowance || 0);
+  const conveyanceAmt = parseAmt(ps.conveyance || ps.conveyance_allowance || ps.conveyanceAllowance || 0);
+  const specialAllowAmt = parseAmt(ps.special_allowance || ps.specialAllowance || ps.other_allowance || 0);
 
   const earningRows = [
-    ['Basic',             formatAmount(basicAmt)],
-    ['HRA',               formatAmount(hraAmt)],
-    ['Conveyance',        formatAmount(conveyanceAmt)],
+    ['Basic', formatAmount(basicAmt)],
+    ['HRA', formatAmount(hraAmt)],
+    ['Conveyance', formatAmount(conveyanceAmt)],
     ['Special Allowance', formatAmount(specialAllowAmt)],
   ];
   const totalEarningAmt = parseAmt(ps.total_earnings || ps.total_earning || ps.totalEarning || ps.gross_salary || ps.grossSalary || 0)
@@ -314,28 +312,28 @@ export default function PayslipScreen({ onBack }) {
   const totalEarning = formatAmount(totalEarningAmt);
 
   // Incentives
-  const perfAmt   = parseAmt(ps.performance_incentive || ps.performanceIncentive || ps.performance || 0);
-  const yearlyAmt = parseAmt(ps.yearly_incentive      || ps.yearlyIncentive      || ps.yearly      || 0);
+  const perfAmt = parseAmt(ps.performance_incentive || ps.performanceIncentive || ps.performance || 0);
+  const yearlyAmt = parseAmt(ps.yearly_incentive || ps.yearlyIncentive || ps.yearly || 0);
   const incentiveRows = [
-    ['Performance',      formatAmount(perfAmt)],
+    ['Performance', formatAmount(perfAmt)],
     ['Yearly Incentive', formatAmount(yearlyAmt)],
   ];
   const totalIncentiveAmt = parseAmt(ps.total_incentive || ps.totalIncentive || 0) || (perfAmt + yearlyAmt);
-  const totalIncentive    = formatAmount(totalIncentiveAmt);
+  const totalIncentive = formatAmount(totalIncentiveAmt);
 
   // Deductions
-  const pfAmt        = parseAmt(ps.pf_deduction  || ps.pf  || ps.provident_fund    || ps.providentFund            || 0);
-  const esiAmt       = parseAmt(ps.esi_deduction || ps.esi || ps.employee_state_insurance || ps.employeeStateInsurance || 0);
-  const ptAmt        = parseAmt(ps.pt_deduction  || ps.pt  || ps.professional_tax   || ps.professionalTax          || 0);
-  const lwfAmt       = parseAmt(ps.lwf           || ps.labour_welfare_fund || ps.labourWelfareFund || 0);
-  const incomeTaxAmt = parseAmt(ps.income_tax    || ps.incomeTax || ps.tds || 0);
+  const pfAmt = parseAmt(ps.pf_deduction || ps.pf || ps.provident_fund || ps.providentFund || 0);
+  const esiAmt = parseAmt(ps.esi_deduction || ps.esi || ps.employee_state_insurance || ps.employeeStateInsurance || 0);
+  const ptAmt = parseAmt(ps.pt_deduction || ps.pt || ps.professional_tax || ps.professionalTax || 0);
+  const lwfAmt = parseAmt(ps.lwf || ps.labour_welfare_fund || ps.labourWelfareFund || 0);
+  const incomeTaxAmt = parseAmt(ps.income_tax || ps.incomeTax || ps.tds || 0);
   const lopDeductionAmt = parseAmt(ps.lop_deduction || ps.lopDeduction || 0);
 
   const deductionRows = [
-    ['PF',         formatAmount(pfAmt)],
-    ['ESI',        formatAmount(esiAmt)],
-    ['PT',         formatAmount(ptAmt)],
-    ['LWF',        formatAmount(lwfAmt)],
+    ['PF', formatAmount(pfAmt)],
+    ['ESI', formatAmount(esiAmt)],
+    ['PT', formatAmount(ptAmt)],
+    ['LWF', formatAmount(lwfAmt)],
     ['Income Tax', formatAmount(incomeTaxAmt)],
     ['LOP Deduction', formatAmount(lopDeductionAmt)],
   ];
@@ -344,7 +342,7 @@ export default function PayslipScreen({ onBack }) {
   const totalDeduction = formatAmount(totalDeductionAmt);
 
   // Net Payable
-  const netPayAmt = parseAmt(ps.net_payable || ps.net_pay || ps.netPay || ps.amount || 0) 
+  const netPayAmt = parseAmt(ps.net_payable || ps.net_pay || ps.netPay || ps.amount || 0)
     || ((totalEarningAmt + totalIncentiveAmt) - totalDeductionAmt);
   const netPay = formatAmount(netPayAmt);
 
@@ -428,11 +426,11 @@ export default function PayslipScreen({ onBack }) {
             <tbody>
               <tr>
                 {[
-                  ['TOT. PRE:',   ps.total_present   || ps.totalPresent   || '0'],
-                  ['TOT. WO:-',    ps.total_weekly_off || ps.total_wo      || ps.totalWO        || '0'],
-                  ['TOT. HL:-',    ps.total_holidays   || ps.totalHolidays || '0'],
-                  ['TOT. LEAVE:-', ps.total_leaves     || ps.total_leave   || ps.totalLeave     || '0'],
-                  ['TOTAL ABSENT', ps.total_absent     || ps.totalAbsent   || '0'],
+                  ['TOT. PRE:', ps.total_present || ps.totalPresent || '0'],
+                  ['TOT. WO:-', ps.total_weekly_off || ps.total_wo || ps.totalWO || '0'],
+                  ['TOT. HL:-', ps.total_holidays || ps.totalHolidays || '0'],
+                  ['TOT. LEAVE:-', ps.total_leaves || ps.total_leave || ps.totalLeave || '0'],
+                  ['TOTAL ABSENT', ps.total_absent || ps.totalAbsent || '0'],
                 ].map(([l, v], i) => (
                   <td key={i} style={cell({ padding: '14px 12px' })}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
@@ -444,11 +442,11 @@ export default function PayslipScreen({ onBack }) {
               </tr>
               <tr>
                 {[
-                  ['TOTAL WORK+OT',     ps.total_work_ot    || ps.totalWorkOt  || '0'],
-                  ['TOTAL OT',          ps.total_ot_hours   || ps.total_ot     || ps.totalOt     || '0'],
+                  ['TOTAL WORK+OT', ps.total_work_ot || ps.totalWorkOt || '0'],
+                  ['TOTAL OT', ps.total_ot_hours || ps.total_ot || ps.totalOt || '0'],
                   ['AVAILABLE LEAVE', ps.available_leave || '0'],
                   ['LOP COUNT', ps.lop_count || '0'],
-                  ['BS/REF AMT.', ps.bonus_ref_amt    || ps.bs_reference_amt || ps.bsReferenceAmt || '0'],
+                  ['BS/REF AMT.', ps.bonus_ref_amt || ps.bs_reference_amt || ps.bsReferenceAmt || '0'],
                 ].map(([l, v], i) => (
                   <td key={i} style={cell({ padding: '14px 12px' })}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
@@ -470,8 +468,8 @@ export default function PayslipScreen({ onBack }) {
             ))}
           </div>
           <div style={{ display: 'flex' }}>
-            <SectionCard rows={earningRows}   total={totalEarning}   totalLabel="Total Earning"  />
-            <SectionCard rows={incentiveRows} total={totalIncentive} totalLabel="Total Incent."  />
+            <SectionCard rows={earningRows} total={totalEarning} totalLabel="Total Earning" />
+            <SectionCard rows={incentiveRows} total={totalIncentive} totalLabel="Total Incent." />
             <SectionCard rows={deductionRows} total={totalDeduction} totalLabel="Total Deduct." isLast={true} />
           </div>
 

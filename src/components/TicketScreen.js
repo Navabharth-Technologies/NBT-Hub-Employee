@@ -249,7 +249,7 @@ export default function TicketScreen({ onBack }) {
                     {ticket.department || ticket.category || 'SUPPORT'}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {ticket.time || new Date(ticket.timestamp || Date.now()).toLocaleDateString()}
+                    {ticket.time || (() => { const d = new Date(ticket.timestamp || Date.now()); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; })()}
                     <span style={{ color: isMobile() ? '#315A9E' : '#cbd5e1' }}>{isMobile() ? '—' : '|'}</span>
                     {ticket.priority}
                   </span>

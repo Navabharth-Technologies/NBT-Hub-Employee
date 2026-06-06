@@ -1098,7 +1098,7 @@ const Dashboard = ({ setActiveTab }) => {
               <span style={{ fontSize: '24px', fontWeight: '900', color: 'white' }}>{yesterdayCompletion}%</span>
             </div>
             <div style={{ marginTop: '24px', fontSize: '11px', color: yesterdayCompletion === 100 ? '#4ade80' : '#cbd5e1', fontWeight: '800', textAlign: 'center', backgroundColor: yesterdayCompletion === 100 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(255, 255, 255, 0.1)', padding: '10px 20px', borderRadius: '15px' }}>
-              {yesterdayCompletion === 100 ? 'Full Success!' : yesterdayCompletion > 0 ? 'In Progress' : 'Verified'}
+              {yesterdayCompletion === 100 ? 'Completed' : yesterdayCompletion > 0 ? 'In Progress' : 'Verified'}
             </div>
           </motion.div>
         </div>
@@ -1126,7 +1126,7 @@ const Dashboard = ({ setActiveTab }) => {
                   transition: 'all 0.2s'
                 }}
               >
-                View All ({birthdaysList.length}) &rarr;
+                View All &rarr;
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
@@ -1146,14 +1146,6 @@ const Dashboard = ({ setActiveTab }) => {
                           })()}
                         </div>
                       </div>
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '5px 10px', backgroundColor: '#f1f5f9', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      {(() => {
-                        const nextOccur = getNextOccurrence(b.date);
-                        const diffMs = nextOccur.getTime() - new Date().setHours(0, 0, 0, 0);
-                        const daysAway = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                        return daysAway === 0 ? "Today" : `${daysAway}d`;
-                      })()}
                     </div>
                   </div>
                 );
@@ -1184,7 +1176,7 @@ const Dashboard = ({ setActiveTab }) => {
                   transition: 'all 0.2s'
                 }}
               >
-                View All ({holidays.length}) &rarr;
+                View All &rarr;
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
@@ -1207,14 +1199,6 @@ const Dashboard = ({ setActiveTab }) => {
                           {hDate.toLocaleDateString('en-US', { weekday: 'long' })}
                         </div>
                       </div>
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#1e40af', padding: '5px 10px', backgroundColor: '#dbeafe', borderRadius: '12px', whiteSpace: 'nowrap' }}>
-                      {(() => {
-                        hDate.setHours(0, 0, 0, 0);
-                        const diffMs = hDate.getTime() - new Date().setHours(0, 0, 0, 0);
-                        const daysAway = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                        return daysAway === 0 ? "Today" : `${daysAway}d away`;
-                      })()}
                     </div>
                   </div>
                 );

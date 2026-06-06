@@ -13,10 +13,10 @@ export default function FocusLogs({ onBack }) {
   const startDateRef = useRef(null);
   const endDateRef = useRef(null);
   const formatDisplayDate = (dateStr) => {
-    if (!dateStr) return 'dd-mm-yyyy';
+    if (!dateStr) return 'dd/mm/yyyy';
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
     return dateStr;
   };
@@ -166,14 +166,7 @@ export default function FocusLogs({ onBack }) {
         dateStr,
         d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
         log.overallStatus || "PENDING",
-        (log.tasks || []).map(t => {
-          const taskId = typeof t === 'object' ? Number(t.id) : null;
-          const tTime = (!isNaN(taskId) && taskId > 1000000000000)
-            ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-            : '';
-          const prefix = tTime ? `[${tTime}] ` : '';
-          return `${prefix}${typeof t === 'string' ? t : (t.text || '')}`;
-        }).join('\n')
+        (log.tasks || []).map(t => typeof t === 'string' ? t : (t.text || '')).join('\n')
       ];
       tableRows.push(logData);
     });
@@ -376,29 +369,9 @@ export default function FocusLogs({ onBack }) {
               Clear Filter
             </button>
             <div style={{ position: 'relative', width: winWidth < 768 ? '100%' : 'auto' }}>
-              <button style={s.downloadBtn} onClick={() => setShowDownloadMenu(!showDownloadMenu)}>
-                <Download size={18} /> Download Logs
+              <button style={s.downloadBtn} onClick={downloadPDF}>
+                <Download size={18} /> Download PDF
               </button>
-              {showDownloadMenu && (
-                <div style={s.dropdownMenu}>
-                  <button 
-                    style={s.dropdownItem} 
-                    onMouseEnter={e => e.target.style.backgroundColor = '#f1f5f9'}
-                    onMouseLeave={e => e.target.style.backgroundColor = 'white'}
-                    onClick={downloadSpreadsheet}
-                  >
-                    <FileText size={16} color="#059669" /> Download Spreadsheet
-                  </button>
-                  <button 
-                    style={s.dropdownItem}
-                    onMouseEnter={e => e.target.style.backgroundColor = '#f1f5f9'}
-                    onMouseLeave={e => e.target.style.backgroundColor = 'white'}
-                    onClick={downloadPDF}
-                  >
-                    <FileText size={16} color="#e11d48" /> Download PDF
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>

@@ -145,7 +145,7 @@ const AttendanceScreen = ({ onBack }) => {
 
         <div style={{ fontSize: '13px', fontWeight: '800', color: theme.color, letterSpacing: '2px' }}>CURRENT TIME</div>
         <div style={s.timeText}>{currentTime.toLocaleTimeString()}</div>
-        <div style={s.dateText}>{currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div style={s.dateText}>{currentTime.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
 
         <motion.div
           whileTap={{ scale: 0.9 }}
@@ -181,7 +181,7 @@ const AttendanceScreen = ({ onBack }) => {
             <div key={i} style={s.logItem}>
               <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: '#f8fafc' }}><Clock size={20} color="#64748b" /></div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1e293b' }}>{new Date(log.punch_date || log.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1e293b' }}>{(() => { const raw = log.punch_date || log.date; if (!raw) return 'N/A'; const clean = String(raw).split('T')[0]; const p = clean.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : raw; })()}</div>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8' }}>{calculateDuration(log.in_time, log.out_time, log.work_time)} Total Duration</div>
               </div>
               <div style={{ textAlign: 'right' }}>
