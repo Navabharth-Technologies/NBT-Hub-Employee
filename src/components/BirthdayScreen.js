@@ -44,7 +44,7 @@ const BirthdayScreen = ({ onBack }) => {
   async function fetchBirthdays() {
     setLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       let combinedData = [];
@@ -65,23 +65,26 @@ const BirthdayScreen = ({ onBack }) => {
 
       for (const endpoint of endpoints) {
         try {
-          console.log("[DOB Flow] Fetching birthdays from endpoint:", endpoint);
           const bResp = await fetch(endpoint, { headers, signal: controller.signal });
           if (bResp.ok) {
             const raw = await bResp.json();
-            console.log(`[DOB Flow] Received raw data from ${endpoint}:`, raw);
             const list = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
             list.forEach(item => {
-              // Ensure we pick up the best available date (prefer date_of_birth for profile-synced DOBs)
+              // Pick up the best available date (prefer date_of_birth for profile-synced DOBs)
               const bestDate = item.date_of_birth || item.dob || item.dateOfBirth || item.date || item.birthday;
               const personName = item.name || item.emp_name || item.employee_name || item.userName;
               
               if (personName) {
                 const existingIndex = combinedData.findIndex(p => (p.name || '').toLowerCase() === personName.toLowerCase());
                 if (existingIndex !== -1) {
-                  // If we already have this person but they don't have a date yet, and we just found one
-                  if (!combinedData[existingIndex].date && bestDate) {
+                  // Update date if we found a better one
+                  if (bestDate && !combinedData[existingIndex].date) {
                     combinedData[existingIndex].date = bestDate;
+                  } else if (bestDate && combinedData[existingIndex].date !== bestDate) {
+                    // Prefer a non-null date from a more authoritative source (date_of_birth wins)
+                    if (item.date_of_birth || item.dob) {
+                      combinedData[existingIndex].date = bestDate;
+                    }
                   }
                 } else {
                   combinedData.push({
@@ -98,11 +101,29 @@ const BirthdayScreen = ({ onBack }) => {
 
       clearTimeout(timeoutId);
 
-      // Ensure the current user is always included with their latest profile DOB
+      // ── Always fetch the logged-in user's own latest profile to get their up-to-date DOB ──
+      // This ensures the birthday shows even if /api/birthdays doesn't have it yet.
       if (user) {
         const myName = user.name || user.employee_name || user.emp_name;
-        const myDob = user.date_of_birth || user.dob || user.dateOfBirth;
+        const myEmail = user.email;
+
+        // Start with DOB from the in-memory user context (already synced on login)
+        let myDob = user.date_of_birth || user.dob || user.dateOfBirth || user.birthday || user.date;
+
+        // If user context has no DOB, try fetching the profile directly
+        if (!myDob && myEmail) {
+          try {
+            const profileRes = await fetch(`${BASE_URL}/api/profile/${myEmail}`, { headers });
+            if (profileRes.ok) {
+              const profileData = await profileRes.json();
+              myDob = profileData.date_of_birth || profileData.dob || profileData.dateOfBirth
+                   || profileData.birthday || profileData.date || null;
+            }
+          } catch (e) {}
+        }
+
         if (myName) {
+          // Remove any existing entry for this user and replace with the freshest data
           combinedData = combinedData.filter(p => (p.name || '').toLowerCase() !== myName.toLowerCase());
           combinedData.push({
             ...user,

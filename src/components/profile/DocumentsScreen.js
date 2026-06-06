@@ -1464,6 +1464,17 @@ export default function DocumentsScreen({ onBack }) {
                               <RefreshCw size={12} /> Update File
                             </button>
                           )}
+                          {form[field.key] && !isDisabled && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleChange(field.key, '');
+                              }}
+                              style={{ fontSize: '11px', color: '#dc2626', fontWeight: '800', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Trash2 size={12} /> Remove
+                            </button>
+                          )}
                           {form[field.key] && form[field.key] !== 'Not Provided' && String(form[field.key]).trim() !== '' && (
                             <button
                               onClick={(e) => {
