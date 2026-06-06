@@ -201,26 +201,7 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // ✅ Browser back-button guard: redirect to login when authenticated user presses back
-  useEffect(() => {
-    if (!user) return;
 
-    // Push a sentinel entry so the back button has a history entry to trigger against
-    window.history.pushState({ nbtGuard: true }, '', window.location.href);
-
-    const handlePopState = (e) => {
-      // If the user is still logged in and they hit the back button, log them out
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (token) {
-        // Re-push the guard so repeated back presses also redirect
-        window.history.pushState({ nbtGuard: true }, '', window.location.href);
-        logout();
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [user]);
 
   if (loading) return null;
   if (!user) return <LoginScreen />;
