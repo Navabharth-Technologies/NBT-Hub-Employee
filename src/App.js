@@ -31,10 +31,11 @@ import DocumentsScreen from './components/profile/DocumentsScreen';
 import ServiceCertificateScreen from './components/profile/ServiceCertificateScreen';
 import EmployeeAttendanceDetail from './components/EmployeeAttendanceDetail';
 import Reports from './components/Reports';
+import SaturdayRequirementsPopover from './components/SaturdayRequirementsPopover';
 
 
 function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   
   const pathToTab = {
     '/': 'HOME',
@@ -84,9 +85,7 @@ function App() {
     const roleStr = String(user.role || '').toUpperCase();
     return !!(user.isNewJoinee || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE'));
   });
-  const [isNavVisible, setIsNavVisible] = useState(true);
   const scrollRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
   const isInitialMount = useRef(true);
 
   React.useEffect(() => {
@@ -149,33 +148,7 @@ function App() {
     previousUser.current = user;
   }, [user]);
 
-  const showNav = React.useCallback(() => {
-    setIsNavVisible(true);
-    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-  }, []);
 
-  const hideNavTemporarily = React.useCallback(() => {
-    setIsNavVisible(false);
-    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsNavVisible(true);
-    }, 3000);
-  }, []);
-
-  const handleScroll = React.useCallback(() => {
-    showNav();
-  }, [showNav]);
-
-  useEffect(() => {
-    const mainEl = scrollRef.current;
-    if (mainEl) {
-      mainEl.addEventListener('scroll', handleScroll);
-      return () => {
-        mainEl.removeEventListener('scroll', handleScroll);
-        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      };
-    }
-  }, [handleScroll]);
 
   // ✅ Proper Navigation: Sync URL and Title with Active Tab
   useEffect(() => {
@@ -227,6 +200,27 @@ function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // ✅ Browser back-button guard: redirect to login when authenticated user presses back
+  useEffect(() => {
+    if (!user) return;
+
+    // Push a sentinel entry so the back button has a history entry to trigger against
+    window.history.pushState({ nbtGuard: true }, '', window.location.href);
+
+    const handlePopState = (e) => {
+      // If the user is still logged in and they hit the back button, log them out
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (token) {
+        // Re-push the guard so repeated back presses also redirect
+        window.history.pushState({ nbtGuard: true }, '', window.location.href);
+        logout();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user]);
 
   if (loading) return null;
   if (!user) return <LoginScreen />;
@@ -286,11 +280,12 @@ function App() {
     <ThreadProvider>
       <div className="App" style={{ overflowX: 'hidden' }}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
-        <main key={activeTab} ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '110px' }}>
+        <main key={activeTab} ref={scrollRef} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '110px' }}>
           {renderTab()}
         </main>
-        <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} isVisible={isNavVisible} />
+        <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} />
         {!isNewJoinee && <TaskNotification onOpenTask={handleTabChange} />}
+        <SaturdayRequirementsPopover />
         <ScrollToTop scrollRef={scrollRef} />
       </div>
     </ThreadProvider>

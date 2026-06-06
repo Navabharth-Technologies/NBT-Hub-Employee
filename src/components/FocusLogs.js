@@ -166,7 +166,14 @@ export default function FocusLogs({ onBack }) {
         dateStr,
         d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
         log.overallStatus || "PENDING",
-        (log.tasks || []).map(t => typeof t === 'string' ? t : (t.text || '')).join('\n')
+        (log.tasks || []).map(t => {
+          const taskId = typeof t === 'object' ? Number(t.id) : null;
+          const tTime = (!isNaN(taskId) && taskId > 1000000000000)
+            ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+            : '';
+          const prefix = tTime ? `[${tTime}] ` : '';
+          return `${prefix}${typeof t === 'string' ? t : (t.text || '')}`;
+        }).join('\n')
       ];
       tableRows.push(logData);
     });

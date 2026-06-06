@@ -195,12 +195,15 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
         const allDone = (hasVideo || hasPdf) && videoOk && pdfOk;
 
-        if (allDone && lastCompletedCourseId !== selectedCourse.id) {
+        // Guard against duplicate backend completion sync if already completed
+        const alreadyCompleted = courseProgressMap[selectedCourse.id]?.progress >= 100;
+
+        if (allDone && lastCompletedCourseId !== selectedCourse.id && !alreadyCompleted) {
             setLastCompletedCourseId(selectedCourse.id);
             sendCourseCompletionToBackend(selectedCourse.id);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCourse, isVideoDone, isPdfDone, lastCompletedCourseId]);
+    }, [selectedCourse, isVideoDone, isPdfDone, lastCompletedCourseId, courseProgressMap]);
 
     const fetchProgress = async () => {
         try {
@@ -292,7 +295,13 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             console.log("Synchronized Employee Progress Map:", map);
             // Merge with local storage progress map so we preserve local items
             setCourseProgressMap(prev => {
-                const merged = { ...prev, ...map };
+                const merged = { ...prev };
+                Object.keys(map).forEach(cid => {
+                    merged[cid] = {
+                        ...prev[cid],
+                        ...map[cid]
+                    };
+                });
                 localStorage.setItem(lsKey, JSON.stringify(merged));
                 return merged;
             });
@@ -396,12 +405,12 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         container: { backgroundColor: '#f8fafc', minHeight: '100vh', padding: winWidth < 768 ? '20px 15px 120px 15px' : '30px 40px 150px 40px', fontFamily: "'Inter', sans-serif" },
         main: { maxWidth: '100%', margin: '0 auto' },
         headerSection: { marginBottom: winWidth < 768 ? '25px' : '35px', textAlign: winWidth < 768 ? 'center' : 'left', display: 'flex', alignItems: 'center', gap: '20px' },
-        title: { fontSize: winWidth < 768 ? '18px' : '20px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.5px', margin: 0 },
+        title: { fontSize: winWidth < 768 ? '18px' : '28px', fontWeight: '1000', color: '#183c79ff', letterSpacing: '-0.5px', margin: 0 },
         subtitle: { display: 'none' },
 
-        grid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(3, 1fr)', gap: '25px' },
-        courseCard: { backgroundColor: 'white', borderRadius: '35px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 15px 35px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', transition: 'all 0.4s ease', cursor: 'pointer', position: 'relative' },
-        courseImage: { width: '100%', height: '180px', objectFit: 'cover' },
+        grid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : (winWidth < 1024 ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)'), gap: '25px' },
+        courseCard: { backgroundColor: 'white', borderRadius: '35px', overflow: 'hidden', border: '1.5px solid #000000', boxShadow: '0 15px 35px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', transition: 'all 0.4s ease', cursor: 'pointer', position: 'relative' },
+        courseImage: { width: '100%', height: '220px', objectFit: 'cover' },
         courseContent: { padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' },
         levelBadge: { backgroundColor: '#eff6ff', padding: '6px 14px', borderRadius: '12px', alignSelf: 'flex-start', marginBottom: '15px', color: '#3b82f6', fontSize: '11px', fontWeight: '1000', letterSpacing: '0.5px', textTransform: 'uppercase' },
         courseTitle: { fontSize: '24px', fontWeight: '1000', color: '#0B1E3F', marginBottom: '15px', lineHeight: '1.3' },
@@ -426,7 +435,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
         iframeContainer: { width: '100%', maxWidth: '960px', aspectRatio: '16/9', maxHeight: winWidth < 768 ? '300px' : '400px', borderRadius: '35px', overflow: 'hidden', backgroundColor: 'black', boxShadow: '0 30px 60px rgba(0,0,0,0.1)', margin: '0 auto' },
         pdfContainer: { width: '100%', minHeight: winWidth < 768 ? '400px' : '650px', borderRadius: '35px', border: '1.2px solid #f1f5f9', backgroundColor: 'white', boxShadow: '0 30px 60px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' },
-        finishBtn: { width: 'auto', backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '14px 40px', borderRadius: '25px', fontWeight: '900', marginTop: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 25px rgba(11, 30, 63, 0.2)', margin: '30px auto 0' },
+        finishBtn: { width: 'fit-content', backgroundColor: '#0B1E3F', color: 'white', border: 'none', padding: '14px 40px', borderRadius: '25px', fontWeight: '900', marginTop: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 25px rgba(11, 30, 63, 0.2)', margin: '30px auto 0' },
         disabledBtn: { backgroundColor: '#94a3b8', color: '#cbd5e1', cursor: 'not-allowed', opacity: 0.6 },
 
         // CONGRATS POPUP
@@ -475,7 +484,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
             const userName = user?.name || user?.userName || 'Employee Name';
             const courseName = selectedCourse?.title || 'COURSE';
-            
+
             const progressData = courseProgressMap[selectedCourse?.id];
             let completionDateObj = progressData?.completion_date ? new Date(progressData.completion_date) : new Date();
             if (isNaN(completionDateObj.getTime())) completionDateObj = new Date();
@@ -510,38 +519,46 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
             pdf.save(`${courseName.replace(/\s+/g, '_')}_Certificate.pdf`);
 
             // 2. Send to employee email ID
+            const emailAlreadySent = progressData?.emailSent || progressData?.email_sent;
+
             if (sendEmail) {
-                const pdfBase64 = pdf.output('datauristring').split(',')[1];
                 const userEmail = user?.email || user?.email_id || user?.emailId || 'imsha@navabharathtechnologie.com';
 
-                if (userEmail) {
-                    // Always show success to user — email delivery happens in background
-                    alert(`🎉 Certificate downloaded successfully!\n\nA copy will be sent to your registered email: ${userEmail}`);
+                if (emailAlreadySent) {
+                    alert(`🎉 Certificate downloaded successfully!\n\n(Note: The email copy has already been sent to your registered email address.)`);
+                } else {
+                    const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-                    // Attempt email delivery silently — if backend isn't ready, just log it
-                    try {
-                        const token = localStorage.getItem('token');
-                        const response = await fetch(`${BASE_URL}/api/send-certificate`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                email: userEmail,
-                                userName: userName,
-                                courseName: courseName,
-                                certificateData: pdfBase64
-                            })
-                        });
+                    if (userEmail) {
+                        // Always show success to user — email delivery happens in background
+                        alert(`🎉 Certificate downloaded successfully!\n\nA copy will be sent to your registered email: ${userEmail}`);
 
-                        if (response.ok) {
-                            console.log(`Certificate email sent successfully to ${userEmail}`);
-                        } else {
-                            console.warn(`Certificate email API returned ${response.status} — backend may not be ready yet.`);
+                        // Attempt email delivery silently — if backend isn't ready, just log it
+                        try {
+                            const token = localStorage.getItem('token');
+                            const response = await fetch(`${BASE_URL}/api/send-certificate`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                    email: userEmail,
+                                    userName: userName,
+                                    courseName: courseName,
+                                    certificateData: pdfBase64
+                                })
+                            });
+
+                            if (response.ok) {
+                                console.log(`Certificate email sent successfully to ${userEmail}`);
+                                updateCourseProgress(selectedCourse, { emailSent: true });
+                            } else {
+                                console.warn(`Certificate email API returned ${response.status} — backend may not be ready yet.`);
+                            }
+                        } catch (e) {
+                            console.warn("Certificate email API not reachable — backend endpoint pending:", e.message);
                         }
-                    } catch (e) {
-                        console.warn("Certificate email API not reachable — backend endpoint pending:", e.message);
                     }
                 }
             }
@@ -608,7 +625,6 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 <div style={s.innerContainer}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
                         <BackButton onClick={() => setCurrentView(null)} />
-                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Return to curriculum</span>
                     </div>
                     <h2 style={{ ...s.title, marginBottom: '30px' }}>Watching: {selectedCourse.title}</h2>
                     <div style={s.iframeContainer}>
@@ -673,7 +689,6 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 <div style={s.innerContainer}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
                         <BackButton onClick={() => setCurrentView(null)} />
-                        <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Return to curriculum</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                         <h2 style={{ ...s.title, margin: 0 }}>Reviewing Technical Specification</h2>
@@ -713,7 +728,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                     <div style={s.innerContainer}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '30px' }}>
                             <BackButton onClick={handleBackToFleet} />
-                            <span style={{ fontWeight: '900', color: '#94a3b8', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Back to Course</span>
+
                         </div>
                         <h1 style={{ ...s.title, marginBottom: '40px' }}>{selectedCourse.title}</h1>
                         {/* Video module — only shown if backend provides a video URL */}

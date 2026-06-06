@@ -18,7 +18,14 @@ const CalendarScreen = ({ onBack }) => {
 
   const fetchHolidays = async () => {
     try {
-      const resp = await fetch(API_ENDPOINTS.HOLIDAYS).catch(() => null);
+      const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+      const headers = { 'Accept': 'application/json' };
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
+
+      const resp = await fetch(API_ENDPOINTS.HOLIDAYS, { headers }).catch(() => null);
       
       let data = [];
       if (resp && resp.ok) {

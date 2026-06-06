@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Download, Printer, Calendar, ChevronRight, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Calendar, ChevronRight, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { BASE_URL, API_ENDPOINTS, COMPANY_INFO } from '../../config';
+import { API_ENDPOINTS, COMPANY_INFO } from '../../config';
 import logo from '../../assets/image.png';
 import BackButton from '../BackButton';
 
@@ -82,8 +82,6 @@ export default function PayslipScreen({ onBack }) {
 
     fetchPayslips();
   }, [user]);
-
-  const handlePrint = () => window.print();
 
   const handleDownload = async () => {
     if (!selectedPayslip) return;
@@ -190,7 +188,7 @@ export default function PayslipScreen({ onBack }) {
   if (!selectedPayslip) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', padding: winWidth < 768 ? '20px 15px 120px' : '40px 20px 120px', fontFamily: "'Inter', sans-serif" }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto' }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
             <BackButton onClick={onBack} />
@@ -228,7 +226,11 @@ export default function PayslipScreen({ onBack }) {
 
           {/* Payslip Cards */}
           {!loading && !error && payslips.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(3, 1fr)',
+              gap: '14px'
+            }}>
               {payslips.map((ps, idx) => {
                 const netPay = formatAmount(getNetPayAmt(ps));
                 const monthLabel = formatMonthLabel(ps);
@@ -244,22 +246,32 @@ export default function PayslipScreen({ onBack }) {
                     onClick={() => setSelectedPayslip(ps)}
                     whileHover={{ scale: 1.01, boxShadow: '0 8px 30px rgba(11,30,63,0.12)' }}
                     whileTap={{ scale: 0.99 }}
-                    style={{ backgroundColor: 'white', borderRadius: '18px', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', border: '2px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', transition: 'all 0.2s ease' }}
+                    style={{ backgroundColor: 'white', borderRadius: '18px', padding: '24px 24px 18px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', cursor: 'pointer', border: '2px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', transition: 'all 0.2s ease' }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <FileText size={22} color="#1e40af" />
+                    {/* Top Row: Info & Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ width: '56px', height: '56px', borderRadius: '14px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FileText size={26} color="#1e40af" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '17px', fontWeight: '800', color: '#0B1E3F' }}>{monthLabel}</div>
+                          <div style={{ fontSize: '22px', fontWeight: '900', color: '#1e40af', marginTop: '2px' }}>₹ {netPay}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: '#0B1E3F' }}>{monthLabel}</div>
-                        <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e40af', marginTop: '2px' }}>₹ {netPay}</div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: isPaid ? '#10b981' : '#f59e0b', backgroundColor: isPaid ? '#dcfce7' : '#fef3c7', padding: '4px 10px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: isPaid ? '#10b981' : '#f59e0b', backgroundColor: isPaid ? '#dcfce7' : '#fef3c7', padding: '6px 12px', borderRadius: '10px' }}>
                         {status}
                       </span>
-                      <ChevronRight size={20} color="#94a3b8" />
+                    </div>
+
+                    {/* Bottom Row: View Statement footer */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', borderTop: '1px solid #f1f5f9', paddingTop: '12px', color: '#1e40af' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '800' }}>
+                          View Statement
+                        </span>
+                        <ChevronRight size={20} />
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -271,7 +283,7 @@ export default function PayslipScreen({ onBack }) {
           {!loading && (
             <div style={{ marginTop: '24px', padding: '14px 18px', backgroundColor: '#eff6ff', borderRadius: '14px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Calendar size={18} color="#3b82f6" />
-              <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: '600' }}>Click on any month to view and print your full payslip</span>
+              <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: '600' }}>Click on any month to view and download your full payslip</span>
             </div>
           )}
         </div>
@@ -343,9 +355,6 @@ export default function PayslipScreen({ onBack }) {
       <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <BackButton onClick={() => setSelectedPayslip(null)} />
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: 'white', color: '#0B1E3F', fontWeight: '800', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-            <Printer size={18} /> Print
-          </button>
           <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
             <Download size={18} /> Download
           </button>

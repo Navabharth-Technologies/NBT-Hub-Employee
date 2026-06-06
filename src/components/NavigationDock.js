@@ -28,25 +28,64 @@ const resolveParentTab = (tab) => {
   return parentMap[tab] || tab;
 };
 
-const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
+const NavigationDock = ({ activeTab, onTabChange, isNewJoinee }) => {
   const { user, isBlocked } = useAuth();
   const { unreadCount, clearNotifications } = useThread();
   const theme = getTheme(user?.role);
   const highlightedTab = resolveParentTab(activeTab);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
+  const [isVisible, setIsVisible] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const hideTimeout = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
+    const handleScroll = () => {
+      setIsVisible(true);
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+      
+      // If mouse is over the dock, don't start the hide timer
+      if (isHovered) return;
+
+      hideTimeout.current = setTimeout(() => {
+        setIsVisible(false);
+      }, 1000);
+    };
+
     window.addEventListener('resize', handleResize);
-    
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('wheel', handleScroll, { passive: true });
+    window.addEventListener('touchmove', handleScroll, { passive: true });
+
+    // Initial hide timeout
+    if (unreadCount === 0 && !isHovered) {
+      hideTimeout.current = setTimeout(() => setIsVisible(false), 1000);
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('wheel', handleScroll);
+      window.removeEventListener('touchmove', handleScroll);
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
     };
-  }, []); 
+  }, [unreadCount, isHovered]);
 
-  // Removed automatic clear on render so badge shows even if on the tab until clicked
+  // Auto-show when new notification arrives or when hovered
+  useEffect(() => {
+    if (unreadCount > 0 || isHovered) {
+      setIsVisible(true);
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    } else if (!isHovered && isVisible) {
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+      hideTimeout.current = setTimeout(() => setIsVisible(false), 1000);
+    }
+  }, [unreadCount, isHovered]);
 
-  // (Removed Auto-show effect since it is now permanently visible)
+  // Auto-show when new notification arrives
+  useEffect(() => {
+    if (unreadCount > 0) setIsVisible(true);
+  }, [unreadCount]);
 
   const navItems = [
     { id: 'HOME', icon: <Home className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Home' },
@@ -62,6 +101,8 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
       {isVisible && (
         <motion.div
           className="nav-dock-container"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           style={{ 
             position: 'fixed', 
             bottom: winWidth < 768 ? '0' : '20px', 
@@ -85,7 +126,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee, isVisible }) => {
             display: 'flex', 
             justifyContent: 'space-around', 
             alignItems: 'center', 
-            padding: winWidth < 768 ? '4px 6px' : '5px 12px', 
+            padding: winWidth < 768 ? '10px 12px' : '16px 25px', 
             gap: winWidth < 768 ? '1px' : '8px', 
             boxShadow: winWidth < 768 ? '0 -4px 15px rgba(0,0,0,0.05)' : '0 10px 40px rgba(0,0,0,0.12)', 
             border: winWidth < 768 ? 'none' : '1.5px solid rgba(255,255,255,0.5)', 

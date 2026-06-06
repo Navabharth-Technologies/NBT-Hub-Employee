@@ -14,15 +14,26 @@ const SaturdayRequirementsPopover = () => {
 
     const isSaturday = new Date().getDay() === 6; // 0=Sun, 6=Sat
     const today = new Date().toDateString();
-    
-    const submittedKey = `saturdayReflectionSubmittedDate_${uid}`;
-    const dismissedKey = `saturdayReflectionDismissedDate_${uid}`;
 
-    const hasSubmittedEver = !!localStorage.getItem(submittedKey);
-    const hasDismissedToday = localStorage.getItem(dismissedKey) === today;
+    // Compute the date string of the current Saturday (used as weekly reset key)
+    const getSaturdayKey = () => {
+        const d = new Date();
+        // If today is Saturday, use today; otherwise compute the next Saturday date isn't used here since popup only shows on Saturdays
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+    const saturdayKey = getSaturdayKey();
+
+    const submittedKey = `saturdayReflectionSubmitted_${uid}_${saturdayKey}`;
+    const dismissedKey = `saturdayReflectionDismissed_${uid}_${saturdayKey}`;
+
+    const hasSubmittedToday = !!localStorage.getItem(submittedKey);
+    const hasDismissedToday = !!localStorage.getItem(dismissedKey);
 
     useEffect(() => {
-        if (!isSaturday || hasSubmittedEver) {
+        if (!isSaturday || hasSubmittedToday) {
             setShow(false);
             setIsMinimized(false);
             return;
@@ -34,12 +45,12 @@ const SaturdayRequirementsPopover = () => {
         } else {
             setIsMinimized(true);
         }
-    }, [isSaturday, hasSubmittedEver, hasDismissedToday]);
+    }, [isSaturday, hasSubmittedToday, hasDismissedToday]);
 
     const handleDismiss = () => {
         setShow(false);
         if (!submitted) {
-            localStorage.setItem(dismissedKey, new Date().toDateString());
+            localStorage.setItem(dismissedKey, '1');
             setIsMinimized(true);
         }
     };
@@ -73,7 +84,7 @@ const SaturdayRequirementsPopover = () => {
 
             if (response.ok) {
                 setSubmitted(true);
-                localStorage.setItem(submittedKey, new Date().toDateString());
+                localStorage.setItem(submittedKey, '1');
                 setTimeout(() => {
                     setShow(false);
                     setIsMinimized(false);
@@ -85,8 +96,8 @@ const SaturdayRequirementsPopover = () => {
     };
 
     if (!isSaturday) return null;
-    // Hide entirely if already submitted ever, UNLESS they just submitted (to show the success message)
-    if (hasSubmittedEver && !submitted) return null;
+    // Hide entirely if already submitted today, UNLESS they just submitted (to show the success message)
+    if (hasSubmittedToday && !submitted) return null;
 
     return (
         <>

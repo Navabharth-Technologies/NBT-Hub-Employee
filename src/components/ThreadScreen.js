@@ -687,23 +687,23 @@ export default function ThreadScreen() {
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                                                                 <span style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F' }}>{cUser}</span>
                                                                 {isMyComment && (
-                                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); setDeletingCommentId(null); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
+                                                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); setDeletingCommentId(null); }} style={{ border: 'none', background: 'none', color: '#334155', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}><Edit3 size={16} /></button>
                                                                         
                                                                         {deletingCommentId === c.id ? (
-                                                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: '#fef2f2', padding: '2px 6px', borderRadius: '8px' }}>
-                                                                                <span style={{fontSize: '10px', color: '#ef4444', fontWeight: '900'}}>Sure?</span>
+                                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#fef2f2', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fee2e2' }}>
+                                                                                <span style={{fontSize: '11px', color: '#ef4444', fontWeight: '900'}}>Sure?</span>
                                                                                 <button onClick={async () => {
                                                                                     const success = await deleteComment(post.id, c.id);
                                                                                     if (success) {
                                                                                         const comments = await fetchComments(post.id);
                                                                                         setPostComments(prev => ({ ...prev, [post.id]: comments }));
                                                                                     }
-                                                                                }} style={{ border: 'none', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', fontSize: '9px', fontWeight: '900' }}>Yes</button>
-                                                                                <button onClick={() => setDeletingCommentId(null)} style={{ border: '1px solid #ef4444', background: 'white', color: '#ef4444', padding: '1px 5px', borderRadius: '6px', cursor: 'pointer', fontSize: '9px', fontWeight: '900' }}>No</button>
+                                                                                }} style={{ border: 'none', background: '#ef4444', color: 'white', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '10px', fontWeight: '900' }}>Yes</button>
+                                                                                <button onClick={() => setDeletingCommentId(null)} style={{ border: '1px solid #ef4444', background: 'white', color: '#ef4444', padding: '2px 7px', borderRadius: '6px', cursor: 'pointer', fontSize: '10px', fontWeight: '900' }}>No</button>
                                                                             </div>
                                                                         ) : (
-                                                                            <button onClick={() => setDeletingCommentId(c.id)} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
+                                                                            <button onClick={() => setDeletingCommentId(c.id)} style={{ border: 'none', background: 'none', color: '#e11d48', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}><Trash2 size={16} /></button>
                                                                         )}
                                                                     </div>
                                                                 )}

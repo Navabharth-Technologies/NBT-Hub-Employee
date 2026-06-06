@@ -60,9 +60,28 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   const OFFICE_ADDRESS = "NAVABHARATH TECHNOLOGIES, 2nd Floor, 667/B, Chitrabhanu Road, Kuvempu Nagara, Mysuru, Karnataka 570023";
   const displayAddress = currentLocation || OFFICE_ADDRESS;
 
+  const getDefaultDates = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const start = new Date(y, m, 1);
+    const end = new Date(y, m + 1, 0);
+    const format = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    return {
+      start: format(start),
+      end: format(end)
+    };
+  };
+
+  const defaults = getDefaultDates();
   const [error, setError] = useState(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(defaults.start);
+  const [endDate, setEndDate] = useState(defaults.end);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [punchLoading, setPunchLoading] = useState(false);

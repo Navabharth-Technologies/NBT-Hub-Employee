@@ -35,9 +35,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
   const hideForJoinees = !!(
-    isNewJoinee || 
-    user?.isNewJoinee || 
-    String(user?.role || '').toUpperCase().includes('TRAINEE') || 
+    isNewJoinee ||
+    user?.isNewJoinee ||
+    String(user?.role || '').toUpperCase().includes('TRAINEE') ||
     String(user?.role || '').toUpperCase().includes('JOINEE')
   );
   const [activeTab, setActiveTab] = useState('My Profile');
@@ -283,9 +283,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
             const raw = String(eid);
             const len = raw.length;
             let clean = raw;
-            if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0,p) === raw.slice(p,p*2) && raw.slice(0,p) === raw.slice(p*2)) clean = raw.slice(0,p); }
-            else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0,p) === raw.slice(p)) clean = raw.slice(0,p); }
-          setCleanEmployeeId(clean);
+            if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0, p) === raw.slice(p, p * 2) && raw.slice(0, p) === raw.slice(p * 2)) clean = raw.slice(0, p); }
+            else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0, p) === raw.slice(p)) clean = raw.slice(0, p); }
+            setCleanEmployeeId(clean);
           }
 
           // Fetch Team Name from Users table
@@ -304,17 +304,17 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           if (!mName && fetchedTeam) {
             // Check the TEAMS API
             const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
-            const matchingTeam = teamsData.find(t => 
+            const matchingTeam = teamsData.find(t =>
               String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
             );
             if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
               mName = matchingTeam.leader || matchingTeam.lead;
             } else {
               // Fallback to user list
-              const teamLeader = usersList.find(u => 
-                (String(u.role || '').toLowerCase().includes('teamleader') || 
-                 String(u.role || '').toLowerCase() === 'team_leader' || 
-                 String(u.designation || '').toLowerCase().includes('team leader')) && 
+              const teamLeader = usersList.find(u =>
+                (String(u.role || '').toLowerCase().includes('teamleader') ||
+                  String(u.role || '').toLowerCase() === 'team_leader' ||
+                  String(u.designation || '').toLowerCase().includes('team leader')) &&
                 (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
               );
               if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
@@ -393,7 +393,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         if (imgPath) {
           const finalImg = imgPath.startsWith('http') || imgPath.startsWith('data:') ? imgPath : `${BASE_URL}${imgPath}`;
           setProfileImage(finalImg);
-          
+
           if (refreshUser) {
             refreshUser();
           }
@@ -533,7 +533,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           new_password: passData.new
         })
       });
-      
+
       let data = {};
       try {
         data = await res.json();
@@ -818,9 +818,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
                   <Calendar size={14} />
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {dob}
-                    </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {dob}
+                  </span>
                 </div>
 
                 {!isMobile && !isTablet && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
@@ -835,9 +835,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                   </div>
                 </div>
               </div>
+            </div>
           </div>
         </div>
-      </div>
 
         <div style={styles.infoGrid}>
           {/* TEAM CARD */}
@@ -877,10 +877,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
             <div
               onMouseEnter={() => setHoverSecurity(true)}
               onMouseLeave={() => setHoverSecurity(false)}
-              style={{ 
-                ...styles.infoCard, 
-                cursor: 'pointer', 
-                borderColor: '#bfdbfe', 
+              style={{
+                ...styles.infoCard,
+                cursor: 'pointer',
+                borderColor: '#bfdbfe',
                 backgroundColor: '#eff6ff',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 transform: hoverSecurity ? 'translateY(-5px)' : 'translateY(0)',
@@ -899,10 +899,10 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
             <div
               onMouseEnter={() => setHoverTicket(true)}
               onMouseLeave={() => setHoverTicket(false)}
-              style={{ 
-                ...styles.infoCard, 
-                cursor: 'pointer', 
-                borderColor: '#fed7aa', 
+              style={{
+                ...styles.infoCard,
+                cursor: 'pointer',
+                borderColor: '#fed7aa',
                 backgroundColor: '#fff7ed',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 transform: hoverTicket ? 'translateY(-5px)' : 'translateY(0)',
@@ -1130,7 +1130,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                       },
                       body: JSON.stringify({ about_me: aboutMe, email: user?.email, employee_id: user?.employee_id || user?.id || user?.userId })
                     });
-                    
+
                     if (res.ok) {
                       updateProfile('about_me', aboutMe); // keep context in sync
                     } else {
@@ -1168,7 +1168,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                   const len = val.length;
                   try {
                     e.target.setSelectionRange(len, len);
-                  } catch (err) {}
+                  } catch (err) { }
                 }}
               />
             ) : (

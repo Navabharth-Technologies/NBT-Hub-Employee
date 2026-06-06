@@ -29,6 +29,21 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
 
   const fetchSprintStatus = useCallback(async (targetId, currentProjectName) => {
     const sid = sanitizeId(targetId);
+    
+    // First, try to load from localStorage cache to prevent layout shift or reversion
+    try {
+      const cached = localStorage.getItem(`sprint_progress_${sid}_${currentProjectName}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.status) {
+          setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: parsed.status }));
+        }
+        if (parsed.progress !== undefined && parsed.progress !== null) {
+          setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: parsed.progress }));
+        }
+      }
+    } catch (e) { }
+
     try {
       const token = localStorage.getItem('token');
       if (!token || token === 'undefined') return;
@@ -58,13 +73,29 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
           const newStatus = data.sprint_status || data.sprintStatus;
           const newProg = data.progress_percentage || data.progressPercentage || data.progress;
           
-          if (newStatus) setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: newStatus }));
-          if (newProg !== undefined && newProg !== null) {
-            setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: newProg }));
-            localStorage.setItem(`sprint_progress_${targetId}_${currentProjectName}`, JSON.stringify({ 
-              status: newStatus || 'Pending', 
-              progress: newProg 
-            }));
+          const currentCached = localStorage.getItem(`sprint_progress_${sid}_${currentProjectName}`);
+          let isLocallyCompleted = false;
+          try {
+            if (currentCached) {
+              const parsed = JSON.parse(currentCached);
+              if (parsed.status === 'Completed' || parsed.progress === 100) {
+                isLocallyCompleted = true;
+              }
+            }
+          } catch (e) {}
+
+          if (isLocallyCompleted) {
+            setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: 'Completed' }));
+            setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: 100 }));
+          } else {
+            if (newStatus) setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: newStatus }));
+            if (newProg !== undefined && newProg !== null) {
+              setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: newProg }));
+              localStorage.setItem(`sprint_progress_${sid}_${currentProjectName}`, JSON.stringify({ 
+                status: newStatus || 'Pending', 
+                progress: newProg 
+              }));
+            }
           }
         }
       }
@@ -255,17 +286,33 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       }
       
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
+      const suid = sanitizeId(uid);
       const leadId = user?.reportingManagerId || user?.managerId || user?.reporting_manager_id || user?.representative_tl || user?.team_leader || user?.reporting_manager || user?.manager || uid;
       const ownerId = activeView === 'INDIVIDUAL' ? uid : leadId;
       
       setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
       setSprintProgressMap(prev => ({ ...prev, [pName]: newProgress }));
 
+      // Save to localStorage immediately
+      try {
+        localStorage.setItem(`sprint_progress_${suid}_${pName}`, JSON.stringify({ 
+          status: st, 
+          progress: newProgress 
+        }));
+      } catch (e) {}
+
       const sid = sanitizeId(ownerId);
       try {
+        const token = localStorage.getItem('token');
+        const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
+        }
+
         await fetch(`${BASE_URL}/api/sprint-updates`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             projectName: pName,
             teamLeaderId: sid,
@@ -277,7 +324,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
         if (taskId) {
           await fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(taskId), {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({ 
                 status: st, 
                 overallStatus: st,
@@ -296,6 +343,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     const { pName, st, taskId } = pendingStatusData;
 
     const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
+    const suid = sanitizeId(uid);
     const leadId = user?.reportingManagerId || user?.managerId || user?.reporting_manager_id || user?.representative_tl || user?.team_leader || user?.reporting_manager || user?.manager || uid;
     const ownerId = activeView === 'INDIVIDUAL' ? uid : leadId;
     
@@ -316,12 +364,27 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     setNotificationFeedback(`Project "${pName}" updated to ${st}!`);
     setTimeout(() => setNotificationFeedback(null), 3000);
 
+    // Save to localStorage immediately
+    try {
+      localStorage.setItem(`sprint_progress_${suid}_${pName}`, JSON.stringify({ 
+        status: st, 
+        progress: progress 
+      }));
+    } catch (e) {}
+
     try {
       // 1. Log to Sprint History (Temporal)
       const sid = sanitizeId(ownerId);
+      const token = localStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
+
       await fetch(`${BASE_URL}/api/sprint-updates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           projectName: pName,
           teamLeaderId: sid,
@@ -334,7 +397,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       if (taskId) {
         await fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(taskId), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ 
               status: st, 
               overallStatus: st,
@@ -342,7 +405,9 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
             })
         });
       }
-    } catch { } finally {
+    } catch (e) {
+      console.error("[DEBUG] Error finalizing task status:", e);
+    } finally {
       setShowFinalizeModal(false);
       setPendingStatusData(null);
     }
@@ -351,7 +416,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const s = {
     container: { padding: window.innerWidth < 768 ? '20px 15px' : '30px 40px', maxWidth: '100%', margin: '0 auto', fontFamily: "'Inter', sans-serif" },
     header: { marginBottom: '40px' },
-    title: { fontSize: '22px', fontWeight: '900', color: '#0B1E3F', margin: 0 },
+    title: { fontSize: '28px', fontWeight: '900', color: '#0B1E3F', margin: 0 },
     subtitle: { fontSize: '12px', color: '#64748b', fontWeight: '600', marginTop: '4px' },
     toggleGrid: { 
       display: 'grid', 
@@ -363,8 +428,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       padding: winWidth < 768 ? '18px 22px' : '25px',
       borderRadius: '30px',
       backgroundColor: active ? '#3B5998' : 'white',
-      border: '1.5px solid',
-      borderColor: active ? '#3B5998' : '#eef2f6',
+      border: '1px solid',
+      borderColor: active ? '#3B5998' : '#0B1E3F',
       cursor: 'pointer',
       display: 'flex',
       flexDirection: 'row',
@@ -418,14 +483,14 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
             setStatusFilter('ALL');
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div style={{ backgroundColor: activeView === type ? 'rgba(255,255,255,0.2)' : '#f1f5f9', padding: '10px', borderRadius: '15px' }}>
-                {type === 'INDIVIDUAL' ? <User size={22} color={activeView === type ? 'white' : '#3B5998'} /> : <Users size={22} color={activeView === type ? 'white' : '#3B5998'} />}
+              <div style={{ backgroundColor: activeView === type ? 'rgba(255,255,255,0.2)' : '#f1f5f9', padding: '12px', borderRadius: '15px' }}>
+                {type === 'INDIVIDUAL' ? <User size={26} color={activeView === type ? 'white' : '#3B5998'} /> : <Users size={26} color={activeView === type ? 'white' : '#3B5998'} />}
               </div>
-              <div style={{ fontSize: winWidth < 768 ? '11px' : '13px', fontWeight: '900', color: activeView === type ? 'white' : '#64748b', letterSpacing: '0.3px' }}>
+              <div style={{ fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '900', color: activeView === type ? 'white' : '#0B1E3F', letterSpacing: '0.3px' }}>
                 {type === 'INDIVIDUAL' ? 'Individual' : 'Team'} projects
               </div>
             </div>
-            <div style={{ fontSize: winWidth < 768 ? '18px' : '24px', fontWeight: '900', color: activeView === type ? 'white' : '#0B1E3F' }}>
+            <div style={{ fontSize: winWidth < 768 ? '24px' : '36px', fontWeight: '900', color: activeView === type ? 'white' : '#0B1E3F' }}>
               {type === 'INDIVIDUAL' ? individualProjects.length : teamProjects.length}
             </div>
           </div>
@@ -670,7 +735,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                         // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert, UNLESS it was Rejected by manager.
                         const isTaskDone = pStatus === 'Completed' || pProg === 100;
                         const isTeamProject = activeView === 'TEAM';
-                        const isLocked = isTeamProject || isApproved || (isTaskDone && !isRejected && st !== 'Completed');
+                        const isLocked = isTeamProject || isApproved || (isTaskDone && st !== 'Completed');
                         
                         // Keep all buttons visible so they are never removed from the UI
 

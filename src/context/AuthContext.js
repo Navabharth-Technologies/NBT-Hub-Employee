@@ -341,7 +341,7 @@ export const AuthProvider = ({ children }) => {
             'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
-          [field]: value, 
+          ...(field === 'dob' || field === 'date_of_birth' ? { date_of_birth: value, dateOfBirth: value } : { [field]: value }),
           email: targetOptions?.email || user.email,
           userId: targetOptions?.id || targetOptions?.userId || targetOptions?.employee_id || user?.id || user?.employee_id || user?.empId,
           employee_id: targetOptions?.employee_id || targetOptions?.id || targetOptions?.userId || user?.employee_id || user?.empId || user?.id,

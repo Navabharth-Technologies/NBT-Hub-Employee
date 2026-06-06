@@ -4,8 +4,83 @@ import { Plane, ArrowLeft, Calendar, Info, Clock, CheckCircle, XCircle, X, Plus,
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
-import { API_ENDPOINTS } from '../config';
+import { API_ENDPOINTS, cleanId } from '../config';
 import BackButton from './BackButton';
+
+const formatHolidayDate = (dateStr) => {
+  if (!dateStr) return '---';
+  try {
+    const cleanDate = dateStr.split('T')[0];
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const day = parseInt(parts[2], 10);
+      const monthIndex = parseInt(parts[1], 10) - 1;
+      const year = parts[0];
+      if (monthIndex >= 0 && monthIndex < 12) {
+        return `${day} ${months[monthIndex]} ${year}`;
+      }
+    }
+    return cleanDate;
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+const checkLeaveOverlap = (newStart, newEnd, newIsHalf, newSlot, existingLeaves) => {
+  if (!newStart || !newEnd) return { overlap: false };
+
+  const newS = new Date(newStart);
+  const newE = new Date(newEnd);
+  newS.setHours(0, 0, 0, 0);
+  newE.setHours(23, 59, 59, 999);
+
+  const getSlotType = (slot) => {
+    const s = String(slot || '').toLowerCase();
+    if (s.includes('first')) return 'first';
+    if (s.includes('second')) return 'second';
+    return '';
+  };
+
+  const newSlotType = getSlotType(newSlot);
+
+  for (const req of existingLeaves) {
+    const reqStatus = String(req.rm_status || req.status || 'Pending').toUpperCase();
+    if (reqStatus === 'REJECTED') continue;
+
+    const existStartStr = req.start_date || req.startDate;
+    const existEndStr = req.end_date || req.endDate || existStartStr;
+    if (!existStartStr) continue;
+
+    const existS = new Date(existStartStr.split('T')[0]);
+    const existE = new Date(existEndStr.split('T')[0]);
+    existS.setHours(0, 0, 0, 0);
+    existE.setHours(23, 59, 59, 999);
+
+    if (newS <= existE && newE >= existS) {
+      const isNewSingleDay = newStart === newEnd;
+      const isExistSingleDay = existStartStr.split('T')[0] === existEndStr.split('T')[0];
+
+      const existIsHalf = req.is_half_day === true || String(req.is_half_day) === 'true' ||
+        req.isHalfDay === true || String(req.isHalfDay) === 'true' ||
+        Number(req.no_of_days) === 0.5 ||
+        req.half_day_slot || req.halfDaySlot || req.halfday_slot;
+
+      const existSlot = req.half_day_slot || req.halfDaySlot || req.halfday_slot;
+      const existSlotType = getSlotType(existSlot);
+
+      if (isNewSingleDay && isExistSingleDay && newIsHalf && existIsHalf && newSlotType && existSlotType && newSlotType !== existSlotType) {
+        continue;
+      }
+
+      return {
+        overlap: true,
+        message: `You already have a leave request (${req.leave_type || req.leaveType || 'Leave'}) on this date range (${existStartStr.split('T')[0]} to ${existEndStr.split('T')[0]}).`
+      };
+    }
+  }
+  return { overlap: false };
+};
 
 const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
   const { user } = useAuth();
@@ -92,22 +167,22 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       if (cleanToken) {
         headers['Authorization'] = `Bearer ${cleanToken}`;
       }
-      
+
       console.log(`[Leave] Fetching stats for UID: ${uid} from ${API_ENDPOINTS.LEAVE_STATS(uid)}`);
       const res = await fetch(API_ENDPOINTS.LEAVE_STATS(uid), { headers });
-      
+
       if (res.ok) {
         const rawData = await res.json();
         console.log("[Leave] Raw stats received:", rawData);
-        
+
         // Handle various backend response formats
         const data = Array.isArray(rawData) ? rawData : (rawData.data || rawData.value || []);
-        
+
         // Final sanity check on data
         if (data.length === 0) {
           console.warn("[Leave] Stats fetched successfully but array is empty.");
         }
-        
+
         setLeaveStats(data);
       } else {
         console.error(`[Leave] Stats fetch failed with status: ${res.status}`);
@@ -221,7 +296,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       } else {
         const rawData = await response.json().catch(() => []);
         const data = Array.isArray(rawData) ? rawData : (rawData.data || rawData.leaves || []);
-        
+
         // Debug logging for half-day detection as requested
         console.log("[Leave] Received leave records:", data);
 
@@ -289,8 +364,21 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             message: `Casual Leave can only be applied after 3 months of joining. Service days: ${diffDays}/90`,
             type: 'error'
           });
+          setIsSubmitting(false);
           return;
         }
+      }
+
+      // Check date overlap
+      const overlapCheck = checkLeaveOverlap(formData.start_date, formData.end_date, formData.isHalfDay, formData.halfDaySlot, myLeaves);
+      if (overlapCheck.overlap) {
+        setModalConfig({
+          show: true,
+          message: overlapCheck.message,
+          type: 'error'
+        });
+        setIsSubmitting(false);
+        return;
       }
 
       const days = calculateDays(formData.start_date, formData.end_date);
@@ -301,7 +389,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         userId: Number(uid),
         employee_id: Number(uid),
         emp_id: Number(uid),
-        
+
         name: user?.name || 'Employee',
         employee_name: user?.name || 'Employee',
         email: user?.email || '',
@@ -339,9 +427,9 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       console.log("[Leave] Submitting REDUNDANT payload:", payload);
 
       if (!cleanToken || cleanToken === 'undefined' || cleanToken === 'null') {
-         setModalConfig({ show: true, message: "Authentication Error: Please log out and log back in.", type: 'error' });
-         setIsSubmitting(false);
-         return;
+        setModalConfig({ show: true, message: "Authentication Error: Please log out and log back in.", type: 'error' });
+        setIsSubmitting(false);
+        return;
       }
 
       const res = await fetch(API_ENDPOINTS.LEAVE_REQUEST, {
@@ -384,10 +472,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       return status === 'APPROVED' && !type.includes('LOP');
     })
     .reduce((acc, curr) => {
-      const isHalf = curr.is_half_day === true || String(curr.is_half_day) === 'true' || 
-                    curr.isHalfDay === true || String(curr.isHalfDay) === 'true' ||
-                    Number(curr.no_of_days) === 0.5 || 
-                    curr.half_day_slot || curr.halfDaySlot || curr.halfday_slot;
+      const isHalf = curr.is_half_day === true || String(curr.is_half_day) === 'true' ||
+        curr.isHalfDay === true || String(curr.isHalfDay) === 'true' ||
+        Number(curr.no_of_days) === 0.5 ||
+        curr.half_day_slot || curr.halfDaySlot || curr.halfday_slot;
       return acc + (isHalf ? 0.5 : (Number(curr.no_of_days) || calculateDays(curr.start_date, curr.end_date)));
     }, 0);
 
@@ -418,10 +506,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     }
     return String(s.month) === String(monthFilter);
   });
-  
+
   const statsCasualTotal = filteredStats.reduce((acc, s) => acc + Number(s.leaves_taken ?? s.leavesTaken ?? s.taken ?? 0), 0);
   const statsLopTotal = filteredStats.reduce((acc, s) => acc + Number(s.LOP ?? s.lop ?? s.loss_of_pay ?? 0), 0);
-  
+
   const sortedStats = [...leaveStats].sort((a, b) => {
     const aVal = (Number(a.year) * 12) + Number(a.month);
     const bVal = (Number(b.year) * 12) + Number(b.month);
@@ -461,12 +549,12 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         stats[key].taken += (Number(l.no_of_days) || calculateDays(l.start_date, l.end_date));
       }
     });
-    
+
     const d = new Date();
     const currentMonth = d.toLocaleString('en-US', { month: 'long' });
     const currentYear = d.getFullYear();
     const currentKey = `${currentYear}-${d.getMonth()}`;
-    
+
     if (!stats[currentKey]) {
       stats[currentKey] = { month: currentMonth, year: currentYear, taken: 0 };
     }
@@ -504,7 +592,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', padding: '20px 30px', borderRadius: '25px', border: '1.5px solid #f1f5f9', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <button 
+            <button
               onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
               style={{ width: '40px', height: '40px', borderRadius: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0B1E3F' }}
             >
@@ -513,14 +601,14 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '20px' : '26px', fontWeight: '1000', color: '#0B1E3F' }}>
               {monthNames[month]} {year}
             </h2>
-            <button 
+            <button
               onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
               style={{ width: '40px', height: '40px', borderRadius: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0B1E3F' }}
             >
               <ChevronRight size={20} />
             </button>
           </div>
-          <button 
+          <button
             onClick={() => setCalendarDate(new Date())}
             style={{ padding: '10px 20px', borderRadius: '14px', backgroundColor: '#eff6ff', color: '#1e40af', border: 'none', fontWeight: '900', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.1)' }}
           >
@@ -541,16 +629,16 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             {cells.map((cell, idx) => {
               const dStr = `${cell.date.getFullYear()}-${String(cell.date.getMonth() + 1).padStart(2, '0')}-${String(cell.date.getDate()).padStart(2, '0')}`;
               const isToday = new Date().toDateString() === cell.date.toDateString();
-              
+
               const dayHols = holidays.filter(h => h.date === dStr);
               const dayLeaves = myLeaves.filter(l => {
                 if (!l.start_date) return false;
                 const start = new Date(l.start_date.split('T')[0]);
                 const end = new Date((l.end_date || l.start_date).split('T')[0]);
-                start.setHours(0,0,0,0);
-                end.setHours(23,59,59,999);
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
                 const cur = new Date(cell.date);
-                cur.setHours(12,0,0,0);
+                cur.setHours(12, 0, 0, 0);
                 return cur >= start && cur <= end;
               });
 
@@ -576,9 +664,9 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                   onMouseLeave={e => { e.currentTarget.style.backgroundColor = isToday ? '#fafafa' : 'white'; }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ 
-                      width: '26px', height: '26px', borderRadius: '50%', 
-                      backgroundColor: isToday ? '#0B1E3F' : 'transparent', 
+                    <div style={{
+                      width: '26px', height: '26px', borderRadius: '50%',
+                      backgroundColor: isToday ? '#0B1E3F' : 'transparent',
                       color: isToday ? 'white' : (cell.date.getDay() === 0 || cell.date.getDay() === 6 ? '#ef4444' : '#1e293b'),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '12px', fontWeight: '900'
@@ -649,16 +737,16 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Global Month Filter */}
             <div style={{ position: 'relative', display: winWidth < 600 ? 'none' : 'block' }}>
-              <select 
-                value={monthFilter} 
+              <select
+                value={monthFilter}
                 onChange={e => setMonthFilter(e.target.value)}
-                style={{ 
-                  padding: '10px 35px 10px 15px', 
-                  borderRadius: '12px', 
-                  border: '1.5px solid #e2e8f0', 
-                  background: 'white', 
-                  fontSize: '15px', 
-                  fontWeight: '1000', 
+                style={{
+                  padding: '10px 35px 10px 15px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #e2e8f0',
+                  background: 'white',
+                  fontSize: '15px',
+                  fontWeight: '1000',
                   color: '#0B1E3F',
                   appearance: 'none',
                   cursor: 'pointer',
@@ -667,7 +755,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                 }}
               >
                 <option value="ALL">Full Year</option>
-                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].slice(0, new Date().getMonth() + 1).map((m, i) => (
                   <option key={i} value={i + 1}>{m}</option>
                 ))}
               </select>
@@ -684,725 +772,742 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
         {/* Compact Premium Stats Dashboard */}
         <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? (winWidth < 768 ? '1fr 1fr' : 'repeat(2, 1fr)') : 'repeat(4, 1fr)', gap: winWidth < 768 ? '10px' : '15px', marginBottom: '20px' }}>
-        {/* Available Balance - Royal Neon */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          whileHover={{ scale: 1.02, rotate: 0.5 }}
-          style={{
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
-            backgroundSize: '100% 100%',
-            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
-            boxShadow: '0 20px 40px -12px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            minHeight: winWidth < 768 ? '120px' : '160px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            boxSizing: 'border-box'
-          }}
-        >
+          {/* Available Balance - Royal Neon */}
           <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            style={{ position: 'absolute', right: '-12px', top: '-12px', color: '#3b82f6', opacity: 0.2 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02, rotate: 0.5 }}
+            style={{
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+              backgroundSize: '100% 100%',
+              padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
+              boxShadow: '0 20px 40px -12px rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              minHeight: winWidth < 768 ? '120px' : '160px',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              boxSizing: 'border-box'
+            }}
           >
-            <CreditCard size={110} />
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              style={{ position: 'absolute', right: '-12px', top: '-12px', color: '#3b82f6', opacity: 0.2 }}
+            >
+              <CreditCard size={110} />
+            </motion.div>
+            <p style={{ opacity: 0.7, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Available leaves</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+              <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000', background: 'linear-gradient(to bottom, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{displayBalance}</h2>
+              <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Days</span>
+            </div>
+            <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', width: 'fit-content', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', color: '#60a5fa' }}>⚡ READY TO USE</div>
           </motion.div>
-          <p style={{ opacity: 0.7, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Available leaves</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000', background: 'linear-gradient(to bottom, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{displayBalance}</h2>
-            <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Days</span>
-          </div>
-          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', width: 'fit-content', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', color: '#60a5fa' }}>⚡ READY TO USE</div>
-        </motion.div>
 
-        {/* Casual Leave - Emerald Green */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          whileHover={{ scale: 1.02, rotate: -0.5 }}
-          style={{
-            background: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
-            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
-            boxShadow: '0 20px 40px -12px rgba(16, 185, 129, 0.25)',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}
-        >
-          <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Calendar size={120} /></div>
-          <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Casual Leave</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000' }}>{displayCasual}</h2>
-            <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Leaves</span>
-          </div>
-          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
-            <Activity size={winWidth < 768 ? 10 : 12} /> VERIFIED RECORDS
-          </div>
-        </motion.div>
+          {/* Casual Leave - Emerald Green */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            whileHover={{ scale: 1.02, rotate: -0.5 }}
+            style={{
+              background: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
+              padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
+              boxShadow: '0 20px 40px -12px rgba(16, 185, 129, 0.25)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
+          >
+            <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Calendar size={120} /></div>
+            <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Casual Leave</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+              <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000' }}>{displayCasual}</h2>
+              <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Leaves</span>
+            </div>
+            <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
+              <Activity size={winWidth < 768 ? 10 : 12} /> VERIFIED RECORDS
+            </div>
+          </motion.div>
 
-        {/* Loss of Pay - Purple Glow */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          whileHover={{ scale: 1.02, rotate: 0.5 }}
-          style={{
-            background: 'linear-gradient(135deg, #5b21b6 0%, #8b5cf6 100%)',
-            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
-            boxShadow: '0 20px 40px -12px rgba(139, 92, 246, 0.25)',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}
-        >
-          <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Info size={120} /></div>
-          <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Loss of Pay</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000' }}>{displayLop}</h2>
-            <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Days</span>
-          </div>
-          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
-            <Clock size={winWidth < 768 ? 10 : 12} /> LOP RECORDS
-          </div>
-        </motion.div>
+          {/* Loss of Pay - Purple Glow */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            whileHover={{ scale: 1.02, rotate: 0.5 }}
+            style={{
+              background: 'linear-gradient(135deg, #5b21b6 0%, #8b5cf6 100%)',
+              padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
+              boxShadow: '0 20px 40px -12px rgba(139, 92, 246, 0.25)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
+          >
+            <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Info size={120} /></div>
+            <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Loss of Pay</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
+              <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '28px' : '42px', fontWeight: '1000' }}>{displayLop}</h2>
+              <span style={{ opacity: 0.6, fontSize: winWidth < 768 ? '12px' : '15px', fontWeight: '800' }}>Days</span>
+            </div>
+            <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
+              <Clock size={winWidth < 768 ? 10 : 12} /> LOP RECORDS
+            </div>
+          </motion.div>
 
-        {/* Holiday Card - Deep Red */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          style={{
-            background: 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)',
-            padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
-            boxShadow: '0 20px 40px -12px rgba(239, 68, 68, 0.25)',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}
-        >
-          <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Umbrella size={120} /></div>
-          <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Next Holiday</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: winWidth < 768 ? '8px' : '15px' }}>
-            <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '16px' : '26px', fontWeight: '1000', lineHeight: '1.2' }}>{nextHoliday?.occasion || nextHoliday?.name || '---'}</h2>
-          </div>
-          <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
-            🌴 HOLIDAY
-          </div>
-        </motion.div>
-      </div>
+          {/* Holiday Card - Deep Red */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            style={{
+              background: 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)',
+              padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
+              boxShadow: '0 20px 40px -12px rgba(239, 68, 68, 0.25)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              minHeight: winWidth < 768 ? '120px' : '160px',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Umbrella size={120} /></div>
+            <p style={{ opacity: 0.8, margin: 0, fontSize: winWidth < 768 ? '9px' : '11px', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Next Holiday</p>
+            <div style={{ marginTop: winWidth < 768 ? '8px' : '15px' }}>
+              <h2 style={{ margin: 0, fontSize: winWidth < 768 ? '16px' : '26px', fontWeight: '1000', lineHeight: '1.2' }}>{nextHoliday ? (nextHoliday.occasion || nextHoliday.name || nextHoliday.holiday_name) : 'No Upcoming'}</h2>
+              <div style={{ marginTop: winWidth < 768 ? '4px' : '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={winWidth < 768 ? 10 : 12} style={{ opacity: 0.7 }} />
+                <p style={{ margin: 0, opacity: 0.9, fontSize: winWidth < 768 ? '10px' : '12px', fontWeight: '800' }}>{nextHoliday ? formatHolidayDate(nextHoliday.date) : '---'}</p>
+              </div>
+            </div>
+            <div style={{ marginTop: winWidth < 768 ? '8px' : '15px', padding: winWidth < 768 ? '4px 8px' : '6px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: winWidth < 768 ? '8px' : '10px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}>
+              HOLIDAY
+            </div>
+          </motion.div>
+        </div>
 
-      <div style={s.tabs}>
-        {isLeader && <div style={s.tab(activeTab === 'TEAM_REQUESTS')} onClick={() => setActiveTab('TEAM_REQUESTS')}>Team Requests</div>}
-        <div style={s.tab(activeTab === 'MY_HISTORY')} onClick={() => setActiveTab('MY_HISTORY')}>My History</div>
-        <div style={s.tab(activeTab === 'MONTHLY_STATS')} onClick={() => setActiveTab('MONTHLY_STATS')}>Monthly Stats</div>
-      </div>
+        <div style={s.tabs}>
+          {isLeader && <div style={s.tab(activeTab === 'TEAM_REQUESTS')} onClick={() => setActiveTab('TEAM_REQUESTS')}>Team Requests</div>}
+          <div style={s.tab(activeTab === 'MY_HISTORY')} onClick={() => setActiveTab('MY_HISTORY')}>My History</div>
+          <div style={s.tab(activeTab === 'MONTHLY_STATS')} onClick={() => setActiveTab('MONTHLY_STATS')}>Monthly Stats</div>
+        </div>
 
-      <div style={s.card}>
-        {activeTab === 'TEAM_REQUESTS' && (
-          <div>
-            {pendingRequests.length > 0 ? pendingRequests.map(req => (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                whileHover={{ y: -3, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
-                transition={{ duration: 0.2 }}
-                key={req.id}
-                style={{ ...s.pendingItem, cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
-                onClick={() => setSelectedLeave(req)}
-              >
-                <div style={{ display: 'flex', flexDirection: winWidth < 480 ? 'column' : 'row', gap: winWidth < 768 ? '15px' : '25px' }}>
-                  <div style={{ width: winWidth < 768 ? '45px' : '55px', height: winWidth < 768 ? '45px' : '55px', borderRadius: '18px', background: 'linear-gradient(135deg, #0B1E3F 0%, #1e3a8a 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: winWidth < 768 ? '16px' : '20px', fontWeight: '1000' }}>
-                    {(req.user_name || req.name || 'E').charAt(0)}
-                  </div>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>{req.user_name || req.name || 'Employee'}</h4>
-                    <p style={{ margin: '4px 0', fontSize: '14px', color: '#64748b', fontWeight: '700' }}>
-                      Requested {req.leave_type} for <span style={{ color: '#0B1E3F' }}>
-                        {req.is_half_day === true || String(req.is_half_day) === 'true' || Number(req.no_of_days) === 0.5 || req.half_day_slot 
-                          ? `Half Day (${req.half_day_slot || 'Slot N/A'})` 
-                          : `${req.no_of_days || calculateDays(req.start_date, req.end_date)} Days`}
-                      </span>
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        📅 {(req.start_date || '').split('T')[0]} { (req.is_half_day === true || String(req.is_half_day) === 'true' || Number(req.no_of_days) === 0.5 || req.half_day_slot) ? '' : `to ${(req.end_date || '').split('T')[0]}`}
-                      </span>
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>💬 {req.reason || req.remark}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                  <button onClick={(e) => { e.stopPropagation(); handleAction(req.id, 'Approved'); }} style={s.actionBtn('approve')}><CheckCircle size={20} /></button>
-                  <button onClick={(e) => { e.stopPropagation(); handleAction(req.id, 'Rejected'); }} style={s.actionBtn('reject')}><XCircle size={20} /></button>
-                </div>
-              </motion.div>
-            )) : <p style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>No pending requests found!</p>}
-          </div>
-        )}
-
-        {activeTab === 'MY_HISTORY' && (
-          <div>
-            {myLeaves.length > 0 ? myLeaves
-                .filter(l => {
-                  if (monthFilter === 'ALL') return true;
-                  const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
-                  return String(leaveMonth) === String(monthFilter);
-                })
-                .map(req => {
-              const isHalf = req.is_half_day === true || String(req.is_half_day) === 'true' || 
-                             req.isHalfDay === true || String(req.isHalfDay) === 'true' ||
-                             Number(req.no_of_days) === 0.5 || 
-                             req.half_day_slot || req.halfDaySlot || req.halfday_slot;
-              return (
+        <div style={s.card}>
+          {activeTab === 'TEAM_REQUESTS' && (
+            <div>
+              {pendingRequests.length > 0 ? pendingRequests.map(req => (
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   whileHover={{ y: -3, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
                   transition={{ duration: 0.2 }}
                   key={req.id}
-                  style={{ ...s.pendingItem, cursor: 'pointer', backgroundColor: 'white', transition: 'all 0.2s ease-in-out' }}
+                  style={{ ...s.pendingItem, cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
                   onClick={() => setSelectedLeave(req)}
                 >
                   <div style={{ display: 'flex', flexDirection: winWidth < 480 ? 'column' : 'row', gap: winWidth < 768 ? '15px' : '25px' }}>
-                    <div style={{
-                      width: winWidth < 768 ? '45px' : '55px',
-                      height: winWidth < 768 ? '45px' : '55px',
-                      borderRadius: '18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: winWidth < 768 ? '16px' : '18px',
-                      fontWeight: '1000',
-                      ...getIconContainerStyle(req.leave_type || req.leaveType)
-                    }}>
-                      <Calendar size={winWidth < 768 ? 20 : 24} />
+                    <div style={{ width: winWidth < 768 ? '45px' : '55px', height: winWidth < 768 ? '45px' : '55px', borderRadius: '18px', background: 'linear-gradient(135deg, #0B1E3F 0%, #1e3a8a 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: winWidth < 768 ? '16px' : '20px', fontWeight: '1000' }}>
+                      {(req.user_name || req.name || 'E').charAt(0)}
                     </div>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>{req.leave_type || req.leaveType}</h4>
+                      <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>{req.user_name || req.name || 'Employee'}</h4>
                       <p style={{ margin: '4px 0', fontSize: '14px', color: '#64748b', fontWeight: '700' }}>
-                        Duration: <span style={{ color: '#0B1E3F' }}>
-                          {isHalf ? `Half Day (${req.half_day_slot || req.halfDaySlot || 'Slot N/A'})` : `${req.no_of_days || calculateDays(req.start_date, req.end_date)} Days`}
+                        Requested {req.leave_type} for <span style={{ color: '#0B1E3F' }}>
+                          {req.is_half_day === true || String(req.is_half_day) === 'true' || Number(req.no_of_days) === 0.5 || req.half_day_slot
+                            ? `Half Day (${req.half_day_slot || 'Slot N/A'})`
+                            : `${req.no_of_days || calculateDays(req.start_date, req.end_date)} Days`}
                         </span>
                       </p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                          📅 {(req.start_date || '').split('T')[0]} { isHalf ? '' : `to ${(req.end_date || '').split('T')[0]}`}
-                        </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
+                            📅 {(req.start_date || '').split('T')[0]} {(req.is_half_day === true || String(req.is_half_day) === 'true' || Number(req.no_of_days) === 0.5 || req.half_day_slot) ? '' : `to ${(req.end_date || '').split('T')[0]}`}
+                          </span>
+                        </div>
                         {(req.reason || req.remark) && (
-                          <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>💬 {req.reason || req.remark}</span>
+                          <div style={{ display: 'flex' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'fit-content' }}>💬 {req.reason || req.remark}</span>
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div style={{
-                    padding: '8px 15px',
-                    borderRadius: '12px',
-                    backgroundColor: (req.rm_status || req.status) === 'Approved' ? '#f0fdf4' : (req.rm_status || req.status) === 'Rejected' ? '#fef2f2' : '#fffbeb',
-                    color: (req.rm_status || req.status) === 'Approved' ? '#22c55e' : (req.rm_status || req.status) === 'Rejected' ? '#ef4444' : '#f59e0b',
-                    fontSize: '12px',
-                    fontWeight: '900'
-                  }}>
-                    {String(req.rm_status && req.rm_status !== 'Pending' ? req.rm_status : (req.status || 'Pending')).toUpperCase()}
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                    <button onClick={(e) => { e.stopPropagation(); handleAction(req.id, 'Approved'); }} style={s.actionBtn('approve')}><CheckCircle size={20} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleAction(req.id, 'Rejected'); }} style={s.actionBtn('reject')}><XCircle size={20} /></button>
                   </div>
                 </motion.div>
-              );
-            }) : <p style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>You have no leave history yet.</p>}
-              
-              {myLeaves.length > 0 && myLeaves.filter(l => {
-                  if (monthFilter === 'ALL') return true;
-                  const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
-                  return String(leaveMonth) === String(monthFilter);
-                }).length === 0 && (
-                <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontWeight: '800' }}>
-                  No leave records found for the selected month.
-                </div>
-              )}
+              )) : <p style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>No pending requests found!</p>}
             </div>
           )}
 
-        {activeTab === 'HOLIDAYS' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-            {holidays.length > 0 ? holidays.map(h => (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -4, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
-                key={h.id}
-                style={{ padding: '25px', backgroundColor: 'white', borderRadius: '24px', border: '1.5px solid #e2e8f0', boxShadow: '0 8px 24px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '15px', transition: 'all 0.2s ease-in-out' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ width: '50px', height: '50px', borderRadius: '15px', backgroundColor: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                    <Umbrella size={24} />
-                  </div>
-                  <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#fff', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '900', color: '#64748b' }}>Public</span>
-                </div>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>{h.occasion || h.name || h.holiday_name}</h4>
-                  <p style={{ margin: '8px 0 0', fontSize: '14px', fontWeight: '800', color: '#22c55e' }}>{h.date}</p>
-                </div>
-              </motion.div>
-            )) : <p style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>No holidays listed.</p>}
-          </div>
-        )}
+          {activeTab === 'MY_HISTORY' && (
+            <div>
+              {myLeaves.length > 0 ? myLeaves
+                .filter(l => {
+                  if (monthFilter === 'ALL') return true;
+                  const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
+                  return String(leaveMonth) === String(monthFilter);
+                })
+                .map(req => {
+                  const isHalf = req.is_half_day === true || String(req.is_half_day) === 'true' ||
+                    req.isHalfDay === true || String(req.isHalfDay) === 'true' ||
+                    Number(req.no_of_days) === 0.5 ||
+                    req.half_day_slot || req.halfDaySlot || req.halfday_slot;
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      whileHover={{ y: -3, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
+                      transition={{ duration: 0.2 }}
+                      key={req.id}
+                      style={{ ...s.pendingItem, cursor: 'pointer', backgroundColor: 'white', transition: 'all 0.2s ease-in-out' }}
+                      onClick={() => setSelectedLeave(req)}
+                    >
+                      <div style={{ display: 'flex', flexDirection: winWidth < 480 ? 'column' : 'row', gap: winWidth < 768 ? '15px' : '25px' }}>
+                        <div style={{
+                          width: winWidth < 768 ? '45px' : '55px',
+                          height: winWidth < 768 ? '45px' : '55px',
+                          borderRadius: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: winWidth < 768 ? '16px' : '18px',
+                          fontWeight: '1000',
+                          ...getIconContainerStyle(req.leave_type || req.leaveType)
+                        }}>
+                          <Calendar size={winWidth < 768 ? 20 : 24} />
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>{req.leave_type || req.leaveType}</h4>
+                          <p style={{ margin: '4px 0', fontSize: '14px', color: '#64748b', fontWeight: '700' }}>
+                            Duration: <span style={{ color: '#0B1E3F' }}>
+                              {isHalf ? `Half Day (${req.half_day_slot || req.halfDaySlot || 'Slot N/A'})` : `${req.no_of_days || calculateDays(req.start_date, req.end_date)} Days`}
+                            </span>
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
+                                📅 {(req.start_date || '').split('T')[0]} {isHalf ? '' : `to ${(req.end_date || '').split('T')[0]}`}
+                              </span>
+                            </div>
+                            {(req.reason || req.remark) && (
+                              <div style={{ display: 'flex' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'fit-content' }}>💬 {req.reason || req.remark}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{
+                        padding: '8px 15px',
+                        borderRadius: '12px',
+                        backgroundColor: (req.rm_status || req.status) === 'Approved' ? '#f0fdf4' : (req.rm_status || req.status) === 'Rejected' ? '#fef2f2' : '#fffbeb',
+                        color: (req.rm_status || req.status) === 'Approved' ? '#22c55e' : (req.rm_status || req.status) === 'Rejected' ? '#ef4444' : '#f59e0b',
+                        fontSize: '12px',
+                        fontWeight: '900'
+                      }}>
+                        {String(req.rm_status && req.rm_status !== 'Pending' ? req.rm_status : (req.status || 'Pending')).toUpperCase()}
+                      </div>
+                    </motion.div>
+                  );
+                }) : <p style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>You have no leave history yet.</p>}
 
-        {activeTab === 'MONTHLY_STATS' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ overflowX: 'auto', backgroundColor: 'white', borderRadius: '25px', border: '1.5px solid #f1f5f9' }}>
-              <div style={{ minWidth: '700px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', padding: '20px 30px', borderBottom: '2px solid #f8fafc', backgroundColor: '#fcfdfe' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Reporting Month</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Year</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Leaves Taken</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Available</span>
-                  <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Loss of Pay</span>
-                </div>
-                
-                <div style={{ padding: '10px 0' }}>
-                  {(leaveStats.length > 0 ? leaveStats : getMonthlyStats())
-                    .filter(stat => monthFilter === 'ALL' || String(stat.month) === String(monthFilter))
-                    .map((stat, idx) => {
-                      const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                      const monthName = isNaN(stat.month) ? stat.month : monthNames[Number(stat.month)] || stat.month;
-                      const taken = stat.leaves_taken ?? stat.leavesTaken ?? stat.taken ?? 0;
-                      const lop = stat.LOP ?? stat.lop ?? stat.loss_of_pay ?? 0;
-                      const available = stat.leaves_available ?? stat.leavesAvailable ?? stat.balance ?? (leaveBalance - taken);
-                      
-                      return (
-                        <motion.div
-                          key={idx}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', padding: '18px 30px', borderBottom: '1px solid #f8fafc', alignItems: 'center' }}
-                        >
-                          <span style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>{monthName}</span>
-                          <span style={{ fontSize: '15px', fontWeight: '800', color: '#64748b' }}>{stat.year || '---'}</span>
-                          <span style={{ fontSize: '16px', fontWeight: '1000', color: '#ef4444', textAlign: 'center' }}>{taken}</span>
-                          <span style={{ fontSize: '16px', fontWeight: '1000', color: '#22c55e', textAlign: 'center' }}>{available}</span>
-                          <span style={{ fontSize: '16px', fontWeight: '1000', color: '#7c3aed', textAlign: 'center' }}>{lop}</span>
-                        </motion.div>
-                      );
-                    })}
-                  
-                  {(leaveStats.length > 0 ? leaveStats : getMonthlyStats()).filter(stat => monthFilter === 'ALL' || String(stat.month) === String(monthFilter)).length === 0 && (
-                    <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontWeight: '800' }}>No statistics available for selected month.</div>
-                  )}
+              {myLeaves.length > 0 && myLeaves.filter(l => {
+                if (monthFilter === 'ALL') return true;
+                const leaveMonth = new Date(l.start_date || l.startDate).getMonth() + 1;
+                return String(leaveMonth) === String(monthFilter);
+              }).length === 0 && (
+                  <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontWeight: '800' }}>
+                    No leave records found for the selected month.
+                  </div>
+                )}
+            </div>
+          )}
+
+          {activeTab === 'HOLIDAYS' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+              {holidays.length > 0 ? holidays.map(h => (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -4, border: '1.5px solid #0B1E3F', boxShadow: '0 15px 35px rgba(11,30,63,0.05)' }}
+                  key={h.id}
+                  style={{ padding: '25px', backgroundColor: 'white', borderRadius: '24px', border: '1.5px solid #e2e8f0', boxShadow: '0 8px 24px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '15px', transition: 'all 0.2s ease-in-out' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ width: '50px', height: '50px', borderRadius: '15px', backgroundColor: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                      <Umbrella size={24} />
+                    </div>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#fff', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '900', color: '#64748b' }}>Public</span>
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>{h.occasion || h.name || h.holiday_name}</h4>
+                    <p style={{ margin: '8px 0 0', fontSize: '14px', fontWeight: '800', color: '#22c55e' }}>{h.date}</p>
+                  </div>
+                </motion.div>
+              )) : <p style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: '800' }}>No holidays listed.</p>}
+            </div>
+          )}
+
+          {activeTab === 'MONTHLY_STATS' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ overflowX: 'auto', backgroundColor: 'white', borderRadius: '25px', border: '1.5px solid #f1f5f9' }}>
+                <div style={{ minWidth: '700px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', padding: '20px 30px', borderBottom: '2px solid #f8fafc', backgroundColor: '#fcfdfe' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Reporting Month</span>
+                    <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Year</span>
+                    <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Leaves Taken</span>
+                    <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Available</span>
+                    <span style={{ fontSize: '11px', fontWeight: '1000', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Loss of Pay</span>
+                  </div>
+
+                  <div style={{ padding: '10px 0' }}>
+                    {(leaveStats.length > 0 ? leaveStats : getMonthlyStats())
+                      .filter(stat => monthFilter === 'ALL' || String(stat.month) === String(monthFilter))
+                      .map((stat, idx) => {
+                        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                        const monthName = isNaN(stat.month) ? stat.month : monthNames[Number(stat.month)] || stat.month;
+                        const taken = stat.leaves_taken ?? stat.leavesTaken ?? stat.taken ?? 0;
+                        const lop = stat.LOP ?? stat.lop ?? stat.loss_of_pay ?? 0;
+                        const available = stat.leaves_available ?? stat.leavesAvailable ?? stat.balance ?? (leaveBalance - taken);
+
+                        return (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', padding: '18px 30px', borderBottom: '1px solid #f8fafc', alignItems: 'center' }}
+                          >
+                            <span style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>{monthName}</span>
+                            <span style={{ fontSize: '15px', fontWeight: '800', color: '#64748b' }}>{stat.year || '---'}</span>
+                            <span style={{ fontSize: '16px', fontWeight: '1000', color: '#ef4444', textAlign: 'center' }}>{taken}</span>
+                            <span style={{ fontSize: '16px', fontWeight: '1000', color: '#22c55e', textAlign: 'center' }}>{available}</span>
+                            <span style={{ fontSize: '16px', fontWeight: '1000', color: '#7c3aed', textAlign: 'center' }}>{lop}</span>
+                          </motion.div>
+                        );
+                      })}
+
+                    {(leaveStats.length > 0 ? leaveStats : getMonthlyStats()).filter(stat => monthFilter === 'ALL' || String(stat.month) === String(monthFilter)).length === 0 && (
+                      <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontWeight: '800' }}>No statistics available for selected month.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Selected Calendar Event Modal */}
-      <AnimatePresence>
-        {selectedCalEvent && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
-            onClick={() => setSelectedCalEvent(null)}
-          >
+        {/* Selected Calendar Event Modal */}
+        <AnimatePresence>
+          {selectedCalEvent && (
             <motion.div
-              initial={{ scale: 0.9, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              style={{ backgroundColor: 'white', width: '90%', maxWidth: '500px', borderRadius: '35px', padding: '40px', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}
-              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
+              onClick={() => setSelectedCalEvent(null)}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '1000', color: '#0B1E3F' }}>
-                    {selectedCalEvent.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                  </h3>
-                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '800' }}>Calendar Events</p>
-                </div>
-                <button onClick={() => setSelectedCalEvent(null)} style={{ background: '#f8fafc', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '400px', overflowY: 'auto' }}>
-                {selectedCalEvent.holidays.map((h, i) => (
-                  <div key={`h-${i}`} style={{ padding: '20px', borderRadius: '20px', background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ width: '45px', height: '45px', borderRadius: '15px', background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
-                      🌴
-                    </div>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#991b1b' }}>{h.occasion || h.name || h.holiday_name}</h4>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#dc2626', fontWeight: '800' }}>Official Public Holiday</p>
-                    </div>
+              <motion.div
+                initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.9, y: 20, opacity: 0 }}
+                style={{ backgroundColor: 'white', width: '90%', maxWidth: '500px', borderRadius: '35px', padding: '40px', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '1000', color: '#0B1E3F' }}>
+                      {selectedCalEvent.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    </h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '800' }}>Calendar Events</p>
                   </div>
-                ))}
-                {selectedCalEvent.leaves.map((l, i) => {
-                  const st = String(l.rm_status || l.status || '').toUpperCase();
-                  const isApp = st === 'APPROVED';
-                  const isRej = st === 'REJECTED';
-                  const bg = isApp ? '#f0fdf4' : (isRej ? '#fef2f2' : '#fffbeb');
-                  const border = isApp ? '#bbf7d0' : (isRej ? '#fecaca' : '#fef3c7');
-                  const textColor = isApp ? '#16a34a' : (isRej ? '#dc2626' : '#d97706');
-                  return (
-                    <div key={`l-${i}`} onClick={() => { setSelectedCalEvent(null); setSelectedLeave(l); }} style={{ padding: '20px', borderRadius: '20px', backgroundColor: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <div style={{ width: '45px', height: '45px', borderRadius: '15px', backgroundColor: textColor, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '900' }}>
-                          {isApp ? '✓' : (isRej ? '✕' : '⏳')}
+                  <button onClick={() => setSelectedCalEvent(null)} style={{ background: '#f8fafc', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '400px', overflowY: 'auto' }}>
+                  {selectedCalEvent.holidays.map((h, i) => (
+                    <div key={`h-${i}`} style={{ padding: '20px', borderRadius: '20px', background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ width: '45px', height: '45px', borderRadius: '15px', background: '#ef4444', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                        🌴
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#991b1b' }}>{h.occasion || h.name || h.holiday_name}</h4>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#dc2626', fontWeight: '800' }}>Official Public Holiday</p>
+                      </div>
+                    </div>
+                  ))}
+                  {selectedCalEvent.leaves.map((l, i) => {
+                    const st = String(l.rm_status || l.status || '').toUpperCase();
+                    const isApp = st === 'APPROVED';
+                    const isRej = st === 'REJECTED';
+                    const bg = isApp ? '#f0fdf4' : (isRej ? '#fef2f2' : '#fffbeb');
+                    const border = isApp ? '#bbf7d0' : (isRej ? '#fecaca' : '#fef3c7');
+                    const textColor = isApp ? '#16a34a' : (isRej ? '#dc2626' : '#d97706');
+                    return (
+                      <div key={`l-${i}`} onClick={() => { setSelectedCalEvent(null); setSelectedLeave(l); }} style={{ padding: '20px', borderRadius: '20px', backgroundColor: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <div style={{ width: '45px', height: '45px', borderRadius: '15px', backgroundColor: textColor, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '900' }}>
+                            {isApp ? '✓' : (isRej ? '✕' : '⏳')}
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: textColor }}>{l.leave_type || 'Leave Request'}</h4>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: textColor, fontWeight: '800', opacity: 0.8 }}>{l.reason || l.remark || 'Time off'}</p>
+                          </div>
+                        </div>
+                        <div style={{ padding: '6px 14px', borderRadius: '12px', backgroundColor: 'white', color: textColor, fontSize: '11px', fontWeight: '1000', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                          {st}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Request Modal */}
+        <AnimatePresence>
+          {showForm && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30000 }}
+              onClick={() => setShowForm(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                style={{ backgroundColor: 'white', width: '90%', maxWidth: '480px', maxHeight: '82vh', borderRadius: '30px', padding: winWidth < 768 ? '16px' : '24px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Geometric Brand Elements */}
+                <div style={{ position: 'absolute', top: 0, right: 0, width: '120px', height: '120px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1 }}></div>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, width: '80px', height: '80px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1 }}></div>
+
+                <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexShrink: 0 }}>
+                    <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '1000', color: '#000000' }}>Apply for Leave</h2>
+                    <X size={22} color="#94a3b8" onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }} />
+                  </div>
+                  <form onSubmit={handleSubmitRequest} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                    <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px', minHeight: 0, paddingBottom: '10px' }}>
+
+                      <div style={{ marginBottom: '14px' }}>
+                        <label style={{ fontSize: '15px', fontWeight: '900', color: '#000000', marginBottom: '5px', display: 'block' }}>Leave Type</label>
+                        <div style={{ position: 'relative' }}>
+                          <select
+                            value={formData.type}
+                            onChange={e => setFormData({ ...formData, type: e.target.value })}
+                            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', outline: 'none', fontSize: '15px', fontWeight: '700', appearance: 'none', backgroundColor: '#eff6ff', color: '#000000' }}
+                            required
+                          >
+                            <option value="" disabled hidden>Choose your leave</option>
+                            <option value="Earned Leaves">Earned Leaves</option>
+                            <option value="Casual Leave">Casual Leave</option>
+                            <option value="LOP">LOP</option>
+                          </select>
+                          <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                            <ArrowLeft size={16} color="#000000" style={{ transform: 'rotate(-90deg)' }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '14px' }}>
+                        <div>
+                          <label style={{ fontSize: '15px', fontWeight: '900', color: '#000000', marginBottom: '5px', display: 'block' }}>From date</label>
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type="date" value={formData.start_date || ''}
+                              onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+                              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', outline: 'none', fontSize: '15px', fontWeight: '800', color: '#000000', boxSizing: 'border-box' }} required
+                            />
+                          </div>
                         </div>
                         <div>
-                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: textColor }}>{l.leave_type || 'Leave Request'}</h4>
-                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: textColor, fontWeight: '800', opacity: 0.8 }}>{l.reason || l.remark || 'Time off'}</p>
+                          <label style={{ fontSize: '15px', fontWeight: '900', color: '#000000', marginBottom: '5px', display: 'block' }}>To date</label>
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type="date" value={formData.end_date || ''}
+                              onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+                              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', outline: 'none', fontSize: '15px', fontWeight: '800', color: '#000000', boxSizing: 'border-box' }} required
+                            />
+                          </div>
                         </div>
                       </div>
-                      <div style={{ padding: '6px 14px', borderRadius: '12px', backgroundColor: 'white', color: textColor, fontSize: '11px', fontWeight: '1000', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                        {st}
+
+                      {/* Half Day Selection */}
+                      <div style={{ marginBottom: '14px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={formData.isHalfDay}
+                            onChange={e => setFormData({ ...formData, isHalfDay: e.target.checked })}
+                            style={{ width: '18px', height: '18px' }}
+                          />
+                          <span style={{ fontSize: '16px', fontWeight: '1000', color: '#000000', textTransform: 'uppercase' }}>Half Day Request</span>
+                        </label>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Request Modal */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-            onClick={() => setShowForm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              style={{ backgroundColor: 'white', width: '90%', maxWidth: '480px', maxHeight: '85vh', borderRadius: '30px', padding: winWidth < 768 ? '20px' : '30px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Geometric Brand Elements */}
-              <div style={{ position: 'absolute', top: 0, right: 0, width: '120px', height: '120px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1 }}></div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '80px', height: '80px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1 }}></div>
-
-              <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexShrink: 0 }}>
-                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Apply for Leave</h2>
-                  <X size={22} color="#94a3b8" onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }} />
-                </div>
-
-                <form onSubmit={handleSubmitRequest} style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
-
-
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>Leave Type</label>
-                    <div style={{ position: 'relative' }}>
-                      <select
-                        value={formData.type}
-                        onChange={e => setFormData({ ...formData, type: e.target.value })}
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '700', appearance: 'none', backgroundColor: '#eff6ff', color: '#1e40af' }}
-                        required
-                      >
-                        <option value="" disabled hidden>Choose your leave</option>
-                        <option value="Earned Leaves">Earned Leaves</option>
-                        <option value="Casual Leave">Casual Leave</option>
-                        <option value="LOP">LOP</option>
-                      </select>
-                      <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                        <ArrowLeft size={16} color="#1e40af" style={{ transform: 'rotate(-90deg)' }} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                    <div>
-                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>From date</label>
-                      <div style={{ position: 'relative' }}>
-                        <input
-                          type="date" value={formData.start_date || ''}
-                          onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '12px', fontWeight: '800', boxSizing: 'border-box' }} required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>To date</label>
-                      <div style={{ position: 'relative' }}>
-                        <input
-                          type="date" value={formData.end_date || ''}
-                          onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '12px', fontWeight: '800', boxSizing: 'border-box' }} required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Half Day Selection */}
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={formData.isHalfDay}
-                        onChange={e => setFormData({ ...formData, isHalfDay: e.target.checked })}
-                        style={{ width: '18px', height: '18px' }}
-                      />
-                      <span style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F', textTransform: 'uppercase' }}>Half Day Request</span>
-                    </label>
-                  </div>
-
-                  {formData.isHalfDay && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }} 
-                      animate={{ opacity: 1, y: 0 }}
-                      style={{ marginBottom: '20px' }}
-                    >
-                      <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px', display: 'block' }}>Half Day Slot</label>
-                      <div style={{ position: 'relative' }}>
-                        <select
-                          value={formData.halfDaySlot}
-                          onChange={e => setFormData({ ...formData, halfDaySlot: e.target.value })}
-                          style={{ width: '100%', padding: '15px', borderRadius: '15px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '14px', fontWeight: '700', appearance: 'none', backgroundColor: '#fff', color: '#0B1E3F' }}
-                          required={formData.isHalfDay}
+                      {formData.isHalfDay && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          style={{ marginBottom: '14px' }}
                         >
-                          <option value="">Select Slot</option>
-                          <option value="First Half (9:30 - 2:30)">First Half (9:30 - 2:30)</option>
-                          <option value="Second Half (1:30 - 6:00 pm)">Second Half (1:30 - 6:00 pm)</option>
-                        </select>
-                        <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                          <ArrowLeft size={16} color="#0B1E3F" style={{ transform: 'rotate(-90deg)' }} />
+                          <label style={{ fontSize: '15px', fontWeight: '900', color: '#000000', marginBottom: '5px', display: 'block' }}>Half Day Slot</label>
+                          <div style={{ position: 'relative' }}>
+                            <select
+                              value={formData.halfDaySlot}
+                              onChange={e => setFormData({ ...formData, halfDaySlot: e.target.value })}
+                              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', outline: 'none', fontSize: '15px', fontWeight: '700', appearance: 'none', backgroundColor: '#fff', color: '#000000' }}
+                              required={formData.isHalfDay}
+                            >
+                              <option value="" disabled hidden>Select Slot</option>
+                              <option value="First Half (9:30 - 2:30)">First Half (9:30 - 2:30)</option>
+                              <option value="Second Half (1:30 - 6:00 pm)">Second Half (1:30 - 6:00 pm)</option>
+                            </select>
+                            <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                              <ArrowLeft size={16} color="#000000" style={{ transform: 'rotate(-90deg)' }} />
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '15px', fontWeight: '900', color: '#000000', marginBottom: '5px', display: 'block' }}>Reason for leave</label>
+                        <textarea
+                          value={formData.reason}
+                          onChange={e => setFormData({ ...formData, reason: e.target.value })}
+                          style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', outline: 'none', fontSize: '15px', fontWeight: '700', color: '#000000', height: '75px', resize: 'none', boxSizing: 'border-box' }}
+                          placeholder="Please provide a brief reason..." required
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '14px', flexShrink: 0, paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+                      <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1.5px solid #000000', background: 'white', fontWeight: '900', cursor: 'pointer', color: '#000000', fontSize: '16px' }}>Cancel</button>
+                      <button type="submit" disabled={isSubmitting} style={{ flex: 2, padding: '12px', borderRadius: '12px', border: 'none', background: isSubmitting ? '#94a3b8' : '#0B1E3F', color: 'white', fontWeight: '900', cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: isSubmitting ? 'none' : '0 10px 30px rgba(11, 30, 63, 0.2)', fontSize: '16px' }}>
+                        {isSubmitting ? 'Submitting...' : 'Submit official request'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Message Modal (Popup) */}
+        <AnimatePresence>
+          {modalConfig.show && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
+              onClick={() => setModalConfig({ ...modalConfig, show: false })}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.9, y: 20, opacity: 0 }}
+                style={{ backgroundColor: 'white', width: '90%', maxWidth: '400px', borderRadius: '30px', padding: '40px', textAlign: 'center', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: modalConfig.type === 'success' ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px' }}>
+                  {modalConfig.type === 'success' ? <CheckCircle size={30} color="#22c55e" /> : <Info size={30} color="#ef4444" />}
+                </div>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>{modalConfig.type === 'success' ? 'Submitted!' : 'Attention Needed'}</h3>
+                <p style={{ margin: 0, fontSize: '15px', color: '#64748b', fontWeight: '800', lineHeight: '1.6' }}>{modalConfig.message}</p>
+                <button
+                  onClick={() => setModalConfig({ ...modalConfig, show: false })}
+                  style={{ marginTop: '30px', width: '100%', padding: '16px', borderRadius: '15px', border: 'none', background: '#0B1E3F', color: 'white', fontWeight: '900', cursor: 'pointer', transition: 'transform 0.2s' }}
+                  onMouseEnter={e => e.target.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                >
+                  Dismiss
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Detailed Leave Preview Modal (Pattern from Image 2) */}
+        <AnimatePresence>
+          {selectedLeave && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}
+              onClick={() => setSelectedLeave(null)}
+            >
+              {(() => {
+                // Inject fetch to logger
+                fetch('http://localhost:9999', { method: 'POST', body: JSON.stringify(selectedLeave) }).catch(() => null);
+                return null;
+              })()}
+              <motion.div
+                initial={{ scale: 0.95, y: 30, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 30, opacity: 0 }}
+                style={{ backgroundColor: 'white', width: '95%', maxWidth: '750px', maxHeight: '85vh', borderRadius: '40px', padding: '40px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Geometric Brand Elements */}
+                <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1 }}></div>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, width: '150px', height: '150px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1 }}></div>
+
+                <button
+                  onClick={() => setSelectedLeave(null)}
+                  style={{ position: 'absolute', right: '30px', top: '30px', background: '#f8fafc', border: 'none', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', zIndex: 20 }}
+                >
+                  <X size={20} />
+                </button>
+
+                {/* Header: User Info & Request Status */}
+                <div style={{ overflowY: 'auto', paddingRight: '10px', flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '45px' }}>
+                    <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
+                      <div style={{ width: '70px', height: '70px', borderRadius: '25px', backgroundColor: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: '1000', boxShadow: '0 12px 25px rgba(11,30,63,0.2)' }}>
+                        {(selectedLeave.user_name || selectedLeave.name || user?.name || 'U').charAt(0)}
+                      </div>
+                      <div>
+                        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '1000', color: '#111f37ff', letterSpacing: '-0.3px' }}>{selectedLeave.user_name || selectedLeave.name || user?.name}</h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#000000', fontWeight: '1000', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '6px', width: 'fit-content' }}>ID: {cleanId(selectedLeave.employee_id || selectedLeave.user_id || user?.employee_id || user?.id || '---')}</p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', paddingRight: '50px' }}>
+                      <p style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '1000', color: '#1b2e49ff', letterSpacing: '0.5px' }}>Request Status</p>
+                      <div style={{ padding: '10px 22px', borderRadius: '12px', background: String(selectedLeave.rm_status || selectedLeave.status || '').toUpperCase() === 'APPROVED' ? '#eff6ff' : '#fffbeb', color: String(selectedLeave.rm_status || selectedLeave.status || '').toUpperCase() === 'APPROVED' ? '#2563eb' : '#d97706', fontSize: '11px', fontWeight: '1000', display: 'inline-block' }}>
+                        {String(selectedLeave.rm_status && selectedLeave.rm_status !== 'Pending' ? selectedLeave.rm_status : (selectedLeave.status || 'Pending'))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grid: Leave Details & Official Verification */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', marginBottom: '40px' }}>
+                    {/* Left Card: Leave Details */}
+                    <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
+                      <p style={{ margin: '0 0 20px 0', fontSize: '15px', fontWeight: '800', color: '#222e40ff', letterSpacing: '0.5px' }}>Leave details</p>
+                      <div style={{ marginBottom: '20px' }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{selectedLeave.leave_type}</h4>
+                        <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Category</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '40px' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{String(selectedLeave.applied_on || selectedLeave.created_at || '---').split('T')[0]}</h4>
+                          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Applied on</p>
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>
+                            {selectedLeave.is_half_day === true || String(selectedLeave.is_half_day) === 'true' || Number(selectedLeave.no_of_days) === 0.5 || selectedLeave.half_day_slot
+                              ? `0.5 Day`
+                              : `${selectedLeave.no_of_days || calculateDays(selectedLeave.start_date, selectedLeave.end_date)} Days`}
+                          </h4>
+                          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Total duration</p>
                         </div>
                       </div>
-                    </motion.div>
-                  )}
+                    </div>
 
-                  <div style={{ marginBottom: '18px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px', display: 'block' }}>Reason for leave</label>
-                    <textarea
-                      value={formData.reason}
-                      onChange={e => setFormData({ ...formData, reason: e.target.value })}
-                      style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1.5px solid #f1f5f9', outline: 'none', fontSize: '13px', fontWeight: '700', height: '75px', resize: 'none', boxSizing: 'border-box' }}
-                      placeholder="Please provide a brief reason..." required
-                    />
+                    {/* Right Card: Verification */}
+                    <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
+                      <p style={{ margin: '0 0 20px 0', fontSize: '15px', fontWeight: '800', color: '#141e2cff', letterSpacing: '0.5px' }}>Official verification</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F' }}>HR approval</span>
+                          <div style={getStatusStyle(selectedLeave.hr_status)}>{selectedLeave.hr_status || 'Pending'}</div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F' }}>PM approval</span>
+                          <div style={getStatusStyle(selectedLeave.pm_status)}>{selectedLeave.pm_status || 'Pending'}</div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F' }}>TL approval</span>
+                          <div style={getStatusStyle(selectedLeave.rm_status)}>{selectedLeave.rm_status || 'Pending'}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '12px', flexShrink: 0, paddingTop: '8px' }}>
-                    <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: '1.5px solid #f1f5f9', background: 'white', fontWeight: '900', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>Cancel</button>
-                    <button type="submit" disabled={isSubmitting} style={{ flex: 2, padding: '14px', borderRadius: '14px', border: 'none', background: isSubmitting ? '#94a3b8' : '#0B1E3F', color: 'white', fontWeight: '900', cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: isSubmitting ? 'none' : '0 10px 30px rgba(11, 30, 63, 0.2)', fontSize: '13px' }}>
-                      {isSubmitting ? 'Submitting...' : 'Submit official request'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Message Modal (Popup) */}
-      <AnimatePresence>
-        {modalConfig.show && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
-            onClick={() => setModalConfig({ ...modalConfig, show: false })}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              style={{ backgroundColor: 'white', width: '90%', maxWidth: '400px', borderRadius: '30px', padding: '40px', textAlign: 'center', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div style={{ width: '60px', height: '60px', borderRadius: '20px', backgroundColor: modalConfig.type === 'success' ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px' }}>
-                {modalConfig.type === 'success' ? <CheckCircle size={30} color="#22c55e" /> : <Info size={30} color="#ef4444" />}
-              </div>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>{modalConfig.type === 'success' ? 'Submitted!' : 'Attention Needed'}</h3>
-              <p style={{ margin: 0, fontSize: '15px', color: '#64748b', fontWeight: '800', lineHeight: '1.6' }}>{modalConfig.message}</p>
-              <button
-                onClick={() => setModalConfig({ ...modalConfig, show: false })}
-                style={{ marginTop: '30px', width: '100%', padding: '16px', borderRadius: '15px', border: 'none', background: '#0B1E3F', color: 'white', fontWeight: '900', cursor: 'pointer', transition: 'transform 0.2s' }}
-                onMouseEnter={e => e.target.style.transform = 'scale(1.02)'}
-                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-              >
-                Dismiss
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Detailed Leave Preview Modal (Pattern from Image 2) */}
-      <AnimatePresence>
-        {selectedLeave && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}
-            onClick={() => setSelectedLeave(null)}
-          >
-            {(() => {
-              // Inject fetch to logger
-              fetch('http://localhost:9999', { method: 'POST', body: JSON.stringify(selectedLeave) }).catch(()=>null);
-              return null;
-            })()}
-            <motion.div
-              initial={{ scale: 0.95, y: 30, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.95, y: 30, opacity: 0 }}
-              style={{ backgroundColor: 'white', width: '95%', maxWidth: '750px', maxHeight: '85vh', borderRadius: '40px', padding: '40px', position: 'relative', boxShadow: '0 30px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Geometric Brand Elements */}
-              <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', opacity: 0.1 }}></div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '150px', height: '150px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', opacity: 0.1 }}></div>
-
-              <button
-                onClick={() => setSelectedLeave(null)}
-                style={{ position: 'absolute', right: '30px', top: '30px', background: '#f8fafc', border: 'none', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', zIndex: 20 }}
-              >
-                <X size={20} />
-              </button>
-
-              {/* Header: User Info & Request Status */}
-              <div style={{ overflowY: 'auto', paddingRight: '10px', flex: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '45px' }}>
-                <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
-                  <div style={{ width: '70px', height: '70px', borderRadius: '25px', backgroundColor: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: '1000', boxShadow: '0 12px 25px rgba(11,30,63,0.2)' }}>
-                    {(selectedLeave.user_name || selectedLeave.name || user?.name || 'U').charAt(0)}
-                  </div>
+                  {/* Bottom Section: Reason */}
                   <div>
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>{selectedLeave.user_name || selectedLeave.name || user?.name}</h2>
-                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#64748b', fontWeight: '800' }}>Subordinate member</p>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', paddingRight: '50px' }}>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '10px', fontWeight: '1000', color: '#94a3b8', letterSpacing: '0.5px' }}>Request status</p>
-                  <div style={{ padding: '10px 22px', borderRadius: '12px', background: String(selectedLeave.rm_status || selectedLeave.status || '').toUpperCase() === 'APPROVED' ? '#eff6ff' : '#fffbeb', color: String(selectedLeave.rm_status || selectedLeave.status || '').toUpperCase() === 'APPROVED' ? '#2563eb' : '#d97706', fontSize: '11px', fontWeight: '1000', display: 'inline-block' }}>
-                    {String(selectedLeave.rm_status && selectedLeave.rm_status !== 'Pending' ? selectedLeave.rm_status : (selectedLeave.status || 'Pending'))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Grid: Leave Details & Official Verification */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', marginBottom: '40px' }}>
-                {/* Left Card: Leave Details */}
-                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
-                  <p style={{ margin: '0 0 20px 0', fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>Leave details</p>
-                  <div style={{ marginBottom: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{selectedLeave.leave_type}</h4>
-                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Category</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '40px' }}>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{String(selectedLeave.applied_on || selectedLeave.created_at || '---').split('T')[0]}</h4>
-                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Applied on</p>
-                    </div>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>
-                        {selectedLeave.is_half_day === true || String(selectedLeave.is_half_day) === 'true' || Number(selectedLeave.no_of_days) === 0.5 || selectedLeave.half_day_slot 
-                          ? `0.5 Day` 
-                          : `${selectedLeave.no_of_days || calculateDays(selectedLeave.start_date, selectedLeave.end_date)} Days`}
-                      </h4>
-                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Total duration</p>
+                    <p style={{ margin: '0 0 15px 0', fontSize: '15px', fontWeight: '1000', color: '#182230ff', letterSpacing: '0.5px' }}>Reason for leave</p>
+                    <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
+                      <p style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b', lineHeight: '1.6' }}>
+                        {selectedLeave.reason || selectedLeave.remark || 'No specific reason provided.'}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Right Card: Verification */}
-                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
-                  <p style={{ margin: '0 0 20px 0', fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>Official verification</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F' }}>HR approval</span>
-                      <div style={getStatusStyle(selectedLeave.hr_status)}>{selectedLeave.hr_status || 'Pending'}</div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F' }}>PM approval</span>
-                      <div style={getStatusStyle(selectedLeave.pm_status)}>{selectedLeave.pm_status || 'Pending'}</div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '800', color: '#0B1E3F' }}>TL approval</span>
-                      <div style={getStatusStyle(selectedLeave.rm_status)}>{selectedLeave.rm_status || 'Pending'}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-
-
-              {/* Bottom Section: Reason */}
-              <div>
-                <p style={{ margin: '0 0 15px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px' }}>Reason for leave</p>
-                <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
-                  <p style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b', lineHeight: '1.6' }}>
-                    {selectedLeave.reason || selectedLeave.remark || 'No specific reason provided.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Review Section */}
-              <div style={{ marginTop: '25px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {(() => {
-                  const findRemark = (rolePrefixes) => {
-                      for (const key of Object.keys(selectedLeave)) {
+                  {/* Review Section */}
+                  <div style={{ marginTop: '25px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(() => {
+                      const findRemark = (rolePrefixes) => {
+                        for (const key of Object.keys(selectedLeave)) {
                           const lowerKey = key.toLowerCase();
                           // Exclude the employee's own generic reason/remark keys
                           if (lowerKey === 'remark' || lowerKey === 'reason') continue;
-                          
+
                           const suffixes = ['remark', 'comment', 'msg', 'message', 'note', 'reason', 'remarks', 'comments'];
                           const isMatch = rolePrefixes.some(p => {
-                              return suffixes.some(s => lowerKey === `${p}_${s}` || lowerKey === `${p}${s}`);
+                            return suffixes.some(s => lowerKey === `${p}_${s}` || lowerKey === `${p}${s}`);
                           });
-                          
+
                           if (isMatch && selectedLeave[key] && String(selectedLeave[key]).trim() !== '') {
-                              return selectedLeave[key];
+                            return selectedLeave[key];
                           }
-                      }
-                      return null;
-                  };
-                  
-                  const finalPmRemark = findRemark(['pm', 'projectmanager', 'project_manager']) || selectedLeave.pm_comment || selectedLeave.pmComment || selectedLeave.pm_remark || selectedLeave.pmRemark || selectedLeave.pm_remarks || selectedLeave.pmRemarks;
-                  const finalTlRemark = findRemark(['tl', 'rm', 'teamlead', 'team_leader', 'manager', 'reporting']) || selectedLeave.tl_comment || selectedLeave.tlComment || selectedLeave.rm_comment || selectedLeave.rmComment || selectedLeave.tl_remark || selectedLeave.tlRemark || selectedLeave.rm_remark || selectedLeave.rmRemark || selectedLeave.tl_remarks || selectedLeave.rm_remarks;
-                  const finalHrRemark = findRemark(['hr', 'humanresource']) || selectedLeave.hr_comment || selectedLeave.hrComment || selectedLeave.hr_remark || selectedLeave.hrRemark || selectedLeave.hr_remarks || selectedLeave.hrRemarks;
+                        }
+                        return null;
+                      };
 
-                  return (
-                    <>
-                      <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
-                        <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>PM Remark</p>
-                        <p style={{ margin: 0, fontSize: '14px', color: finalPmRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalPmRemark ? 'normal' : 'italic' }}>
-                          {finalPmRemark || 'No remark yet.'}
-                        </p>
-                      </div>
+                      const finalPmRemark = findRemark(['pm', 'projectmanager', 'project_manager']) || selectedLeave.pm_comment || selectedLeave.pmComment || selectedLeave.pm_remark || selectedLeave.pmRemark || selectedLeave.pm_remarks || selectedLeave.pmRemarks;
+                      const finalTlRemark = findRemark(['tl', 'rm', 'teamlead', 'team_leader', 'manager', 'reporting']) || selectedLeave.tl_comment || selectedLeave.tlComment || selectedLeave.rm_comment || selectedLeave.rmComment || selectedLeave.tl_remark || selectedLeave.tlRemark || selectedLeave.rm_remark || selectedLeave.rmRemark || selectedLeave.tl_remarks || selectedLeave.rm_remarks;
+                      const finalHrRemark = findRemark(['hr', 'humanresource']) || selectedLeave.hr_comment || selectedLeave.hrComment || selectedLeave.hr_remark || selectedLeave.hrRemark || selectedLeave.hr_remarks || selectedLeave.hrRemarks;
 
-                      <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
-                        <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>TL Remark</p>
-                        <p style={{ margin: 0, fontSize: '14px', color: finalTlRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalTlRemark ? 'normal' : 'italic' }}>
-                          {finalTlRemark || 'No remark yet.'}
-                        </p>
-                      </div>
+                      return (
+                        <>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                            <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>PM Remark</p>
+                            <p style={{ margin: 0, fontSize: '14px', color: finalPmRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalPmRemark ? 'normal' : 'italic' }}>
+                              {finalPmRemark || 'No remark yet.'}
+                            </p>
+                          </div>
 
-                      <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
-                        <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>HR Remark</p>
-                        <p style={{ margin: 0, fontSize: '14px', color: finalHrRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalHrRemark ? 'normal' : 'italic' }}>
-                          {finalHrRemark || 'No remark yet.'}
-                        </p>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                            <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>TL Remark</p>
+                            <p style={{ margin: 0, fontSize: '14px', color: finalTlRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalTlRemark ? 'normal' : 'italic' }}>
+                              {finalTlRemark || 'No remark yet.'}
+                            </p>
+                          </div>
 
-              {/* Review Actions for Team Leader */}
-              {isLeader && selectedLeave.status === 'PENDING' && (
-                <div style={{ display: 'flex', gap: '20px', marginTop: '40px' }}>
-                  <button
-                    onClick={() => { handleAction(selectedLeave.id, 'Approved'); setSelectedLeave(null); }}
-                    style={{ flex: 1, padding: '18px', borderRadius: '15px', border: 'none', background: '#22c55e', color: 'white', fontWeight: '1000', cursor: 'pointer', boxShadow: '0 8px 20px rgba(34,197,94,0.2)' }}
-                  >
-                    Approve request
-                  </button>
-                  <button
-                    onClick={() => { handleAction(selectedLeave.id, 'Rejected'); setSelectedLeave(null); }}
-                    style={{ flex: 1, padding: '18px', borderRadius: '15px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '1000', cursor: 'pointer', boxShadow: '0 8px 20px rgba(239,68,68,0.2)' }}
-                  >
-                    Reject request
-                  </button>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                            <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>HR Remark</p>
+                            <p style={{ margin: 0, fontSize: '14px', color: finalHrRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalHrRemark ? 'normal' : 'italic' }}>
+                              {finalHrRemark || 'No remark yet.'}
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Review Actions for Team Leader */}
+                  {isLeader && selectedLeave.status === 'PENDING' && (
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '40px' }}>
+                      <button
+                        onClick={() => { handleAction(selectedLeave.id, 'Approved'); setSelectedLeave(null); }}
+                        style={{ flex: 1, padding: '18px', borderRadius: '15px', border: 'none', background: '#22c55e', color: 'white', fontWeight: '1000', cursor: 'pointer', boxShadow: '0 8px 20px rgba(34,197,94,0.2)' }}
+                      >
+                        Approve request
+                      </button>
+                      <button
+                        onClick={() => { handleAction(selectedLeave.id, 'Rejected'); setSelectedLeave(null); }}
+                        style={{ flex: 1, padding: '18px', borderRadius: '15px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '1000', cursor: 'pointer', boxShadow: '0 8px 20px rgba(239,68,68,0.2)' }}
+                      >
+                        Reject request
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

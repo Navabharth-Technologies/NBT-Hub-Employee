@@ -53,7 +53,19 @@ const LeaderboardAvatar = ({ entry, employees, isMe }) => {
 
 const AwardsScreen = ({ onBack }) => {
     const { user } = useAuth();
-    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
+    const formatDate = (d) => {
+        if (!d) return '--';
+        try {
+            const dateObj = new Date(d);
+            if (isNaN(dateObj.getTime())) return String(d);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            return `${day}/${month}/${year}`;
+        } catch (e) {
+            return String(d);
+        }
+    };
     const [rewardData, setRewardData] = useState(null);
     const [quizUserPoints, setQuizUserPoints] = useState(0);
     const [leaderboard, setLeaderboard] = useState([]);
@@ -62,6 +74,12 @@ const AwardsScreen = ({ onBack }) => {
     const [grantLoading, setGrantLoading] = useState(false);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
+    const [leadStartDate, setLeadStartDate] = useState('2026-06-01');
+    const [leadEndDate, setLeadEndDate] = useState('2026-06-30');
+    const leadStartDateRef = useRef(null);
+    const leadEndDateRef = useRef(null);
+    const [filteredLeaderboard, setFilteredLeaderboard] = useState([]);
+    const [leadLoading, setLeadLoading] = useState(false);
 
     // Grant options fetched from backend (replaces the old hardcoded GRANT_OPTIONS)
     const [grantOptions, setGrantOptions] = useState({ TL: [], PM: [], HR: [] });
@@ -477,6 +495,181 @@ const AwardsScreen = ({ onBack }) => {
         fetchRewards();
     }, [user]);
 
+    useEffect(() => {
+        const fetchFilteredLeaderboard = async () => {
+            setLeadLoading(true);
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 'Accept': 'application/json' };
+                if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
+
+                const cleanIdLocal = (id) => String(id || '').split(':')[0].trim().toLowerCase();
+                const cleanNum = (val) => {
+                    if (val === undefined || val === null || val === '') return 0;
+                    const cleanStr = String(val).replace(/,/g, '').trim();
+                    const num = Number(cleanStr);
+                    return isNaN(num) ? 0 : num;
+                };
+
+                const parseDateLocal = (dateInput) => {
+                    if (!dateInput) return 0;
+                    let dObj;
+                    if (dateInput instanceof Date) {
+                        dObj = dateInput;
+                    } else {
+                        const str = String(dateInput).trim();
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                            dObj = new Date(str.replace(/-/g, '/'));
+                        } else if (str.includes('T')) {
+                            dObj = new Date(str);
+                        } else {
+                            dObj = new Date(str.replace(/-/g, '/'));
+                        }
+                    }
+                    return isNaN(dObj.getTime()) ? 0 : dObj.getTime();
+                };
+
+                const getQuizPointsForPeriod = (qList, start, end) => {
+                    if (!qList || !Array.isArray(qList)) return 0;
+                    const startTime = parseDateLocal(start);
+                    const endTime = parseDateLocal(end);
+                    
+                    return qList
+                        .map(q => {
+                            const rawDate = q.created_at || q.completion_date || q.date || q.timestamp || q.createdAt || q.updatedAt;
+                            let pts = 0;
+                            if (q.is_correct !== undefined && q.is_correct !== null) {
+                                const isCorrect = q.is_correct === 1 || q.is_correct === true || String(q.is_correct) === '1' || String(q.is_correct).toLowerCase() === 'true';
+                                pts = isCorrect ? Number(q.points || q.earned_points || q.points_reward || 0) : 0;
+                            } else {
+                                pts = Number(q.points || q.score || q.total_score || q.total_points || q.quiz_score || 0);
+                            }
+                            return {
+                                ...q,
+                                points: pts,
+                                rawDateParsed: parseDateLocal(rawDate)
+                            };
+                        })
+                        .filter(q => {
+                            const d = q.rawDateParsed;
+                            if (start && d < startTime) return false;
+                            if (end && d > endTime + 86400000) return false;
+                            return true;
+                        })
+                        .reduce((sum, q) => sum + q.points, 0);
+                };
+
+                // Ensure we have a list of employees/users to resolve names properly
+                let currentEmployees = employees;
+                if (!currentEmployees || currentEmployees.length === 0) {
+                    const empRes = await fetch(API_ENDPOINTS.USERS, { headers }).catch(() => null);
+                    if (empRes && empRes.ok) {
+                        const el = await empRes.json();
+                        currentEmployees = Array.isArray(el) ? el : (el.data || []);
+                    }
+                }
+
+                const allEmployeesList = [];
+                const masterEmployeeMap = {};
+                currentEmployees.forEach(e => {
+                    const rawId = String(e.employee_id || e.id || e.userId || '').trim();
+                    const cleanId = cleanIdLocal(rawId);
+                    if (cleanId && rawId) {
+                        masterEmployeeMap[cleanId] = e.employee_name || e.name || e.emp_name;
+                        allEmployeesList.push({ cleanId, rawId });
+                    }
+                });
+
+                // Fetch quiz histories in parallel for all employees using raw database IDs
+                const allQuizHistories = {};
+                if (allEmployeesList.length > 0) {
+                    await Promise.all(allEmployeesList.map(async (emp) => {
+                        try {
+                            const qRes = await fetch(`${BASE_URL}/api/quizzes/history?userId=${emp.rawId}`, { headers });
+                            if (qRes.ok) {
+                                const qData = await qRes.json();
+                                const qList = Array.isArray(qData) ? qData : (qData.data || qData.history || qData.attempts || qData.completions || []);
+                                allQuizHistories[emp.cleanId] = qList;
+                            }
+                        } catch (err) {
+                            console.warn(`Failed fetching quiz history for employee ${emp.rawId}:`, err);
+                        }
+                    }));
+                }
+
+                // Fetch rewards logs
+                const rRes = await fetch(`${BASE_URL}/api/rewards`, { headers }).catch(() => null);
+                const rData = rRes && rRes.ok ? await rRes.json() : [];
+                const rList = Array.isArray(rData) ? rData : (rData?.data || rData?.rewards || []);
+
+                const mergedMap = new Map();
+
+                // 1. Populate map with employees and their quiz points in period
+                allEmployeesList.forEach(emp => {
+                    const quizPts = getQuizPointsForPeriod(allQuizHistories[emp.cleanId], leadStartDate, leadEndDate);
+                    mergedMap.set(emp.cleanId, {
+                        id: emp.rawId,
+                        name: masterEmployeeMap[emp.cleanId] || `Employee ${emp.rawId}`,
+                        quiz_points: quizPts,
+                        reward_points: 0,
+                        score: quizPts
+                    });
+                });
+
+                // 2. Accumulate reward points from rewards logs in period
+                rList.forEach(r => {
+                    const recipientId = cleanIdLocal(r.employee_id || r.userId || r.id);
+                    if (!recipientId) return;
+
+                    // Exclude quizzes from the rewards feed since they are already fetched from the quiz leaderboard
+                    const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
+                    const cat = String(r.category || '').toUpperCase();
+                    const isNotQuiz = !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
+                    if (!isNotQuiz) return;
+
+                    const rDate = parseDateLocal(r.created_at || r.date);
+                    if (leadStartDate && rDate < parseDateLocal(leadStartDate)) return;
+                    if (leadEndDate && rDate > parseDateLocal(leadEndDate) + 86400000) return;
+
+                    if (!mergedMap.has(recipientId)) {
+                        const name = r.employee_name || masterEmployeeMap[recipientId] || 'Team Member';
+                        mergedMap.set(recipientId, {
+                            id: recipientId,
+                            name: name,
+                            quiz_points: getQuizPointsForPeriod(allQuizHistories[recipientId], leadStartDate, leadEndDate),
+                            reward_points: 0,
+                            score: 0
+                        });
+                    }
+
+                    const entry = mergedMap.get(recipientId);
+                    entry.reward_points += cleanNum(r.points || r.rep || 0);
+                });
+
+                // 3. Final calculations, filter out entries with 0 points, and sort
+                const finalLeaderboard = Array.from(mergedMap.values())
+                    .map(item => ({
+                        ...item,
+                        score: item.quiz_points + item.reward_points
+                    }))
+                    .filter(item => item.score > 0)
+                    .sort((a, b) => b.score - a.score)
+                    .map((item, index) => ({
+                        ...item,
+                        rank: index + 1
+                    }));
+
+                setFilteredLeaderboard(finalLeaderboard);
+            } catch (err) {
+                console.error('[Leaderboard Filter] Error:', err);
+            } finally {
+                setLeadLoading(false);
+            }
+        };
+
+        fetchFilteredLeaderboard();
+    }, [leadStartDate, leadEndDate, employees, showLeaderboard]);
+
 
     const getRankSuffix = (rank) => {
         if (!rank || rank === 'N/A' || rank === 0) return '';
@@ -781,6 +974,7 @@ const AwardsScreen = ({ onBack }) => {
                 });
             }
 
+            combinedHistory.sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
             setMemberRewards(combinedHistory);
 
             // Calculate recognition total
@@ -938,20 +1132,20 @@ const AwardsScreen = ({ onBack }) => {
         return isWithinDateRange(r.created_at || r.date);
     });
 
-    const pmList = filteredAllRewards.filter(r => getGrantorCategory(r) === 'PM');
-    const tlList = filteredAllRewards.filter(r => getGrantorCategory(r) === 'TL');
+    const pmList = filteredAllRewards
+        .filter(r => getGrantorCategory(r) === 'PM')
+        .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+
+    const tlList = filteredAllRewards
+        .filter(r => getGrantorCategory(r) === 'TL')
+        .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
 
     const quizItemsForHR = dedupedQuizHistory.filter(q => {
         return isWithinDateRange(q.created_at || q.date);
     });
 
-    const hrList = [...filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR'), ...quizItemsForHR].sort((a, b) => {
-        const isAQuiz = String(a.reward_name || '').toUpperCase().includes('QUIZ');
-        const isBQuiz = String(b.reward_name || '').toUpperCase().includes('QUIZ');
-        if (isAQuiz && !isBQuiz) return -1;
-        if (!isAQuiz && isBQuiz) return 1;
-        return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
-    });
+    const hrList = [...filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR'), ...quizItemsForHR]
+        .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
 
     const history = {
         tl: tlList,
@@ -994,13 +1188,353 @@ const AwardsScreen = ({ onBack }) => {
                     <div style={{ fontSize: '14px', fontWeight: '1000', color: '#0B1E3F' }}>
                         {item.reward_name || item.rewardName || item.title || 'Reward'}
                     </div>
-                    <div style={{ fontSize: isQuiz ? '14px' : '12px', fontWeight: '1000', color: theme.text }}>
+                    <div style={{
+                        fontSize: '12px',
+                        fontWeight: '1000',
+                        color: theme.text,
+                        backgroundColor: theme.text + '12',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        width: 'fit-content',
+                        marginTop: '4px',
+                        border: `1.5px solid ${theme.text}30`
+                    }}>
                         +{item.points || item.rep} REP POINTS
                     </div>
                 </div>
             </motion.div>
         );
     };
+
+    if (showLeaderboard) {
+        const cleanIdLocal = (id) => String(id || '').split(':')[0].trim().toLowerCase();
+        const myFilteredEntry = filteredLeaderboard.find(e => {
+            const cleanEId = cleanIdLocal(e.id);
+            const possibleUserKeys = [
+                user?.employee_id,
+                user?.uid,
+                user?.id,
+                user?.userId,
+                user?.email
+            ];
+            return possibleUserKeys.some(key => {
+                const cleanKey = cleanIdLocal(key);
+                return cleanKey && cleanEId === cleanKey;
+            });
+        });
+
+        const myFilteredRank = myFilteredEntry ? myFilteredEntry.rank : 0;
+        const myFilteredPoints = myFilteredEntry ? myFilteredEntry.score : 0;
+
+        return (
+            <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                style={{ padding: winWidth < 768 ? '15px' : '40px', width: '100%', boxSizing: 'border-box', backgroundColor: '#F8F9FA', minHeight: '100vh', position: 'relative' }}
+            >
+                <style>{`
+                    .shiny-gold-btn {
+                        animation: goldShine 3s linear infinite;
+                    }
+                    @keyframes goldShine {
+                        0% { background-position: 0% center; }
+                        100% { background-position: 200% center; }
+                    }
+                    @keyframes floatCup {
+                        0%, 100% { transform: translateY(0) rotate(0deg); }
+                        50% { transform: translateY(-3px) rotate(2deg); }
+                    }
+                    .float-gold {
+                        animation: floatCup 2s ease-in-out infinite;
+                    }
+                    .float-silver {
+                        animation: floatCup 2.5s ease-in-out infinite;
+                    }
+                    .float-bronze {
+                        animation: floatCup 2.8s ease-in-out infinite;
+                    }
+                    @keyframes goldPulse {
+                        0%, 100% { box-shadow: 0 4px 15px rgba(245, 199, 26, 0.1); border-color: #F5C71A; }
+                        50% { box-shadow: 0 8px 25px rgba(245, 199, 26, 0.35); border-color: #FBBC05; }
+                    }
+                    .pulse-gold-row {
+                        animation: goldPulse 2s infinite ease-in-out;
+                    }
+                `}</style>
+
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <BackButton onClick={() => setShowLeaderboard(false)} />
+                        <div>
+                            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>Global Leaderboard</h1>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Top performers across all departments</p>
+                        </div>
+                    </div>
+                    
+                    {/* Date filter inputs for Leaderboard */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { leadStartDateRef.current?.showPicker(); } catch(e) { leadStartDateRef.current?.focus(); leadStartDateRef.current?.click(); } }}>
+                            <Calendar size={14} color="#3B5998" />
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: leadStartDate ? '#1e293b' : '#94a3b8' }}>
+                                {formatDisplayDate(leadStartDate)}
+                            </span>
+                            <input
+                                ref={leadStartDateRef}
+                                type="date"
+                                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+                                value={leadStartDate}
+                                onChange={(e) => setLeadStartDate(e.target.value)}
+                            />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: '900', color: '#cbd5e1' }}>TO</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { leadEndDateRef.current?.showPicker(); } catch(e) { leadEndDateRef.current?.focus(); leadEndDateRef.current?.click(); } }}>
+                            <Calendar size={14} color="#3B5998" />
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: leadEndDate ? '#1e293b' : '#94a3b8' }}>
+                                {formatDisplayDate(leadEndDate)}
+                            </span>
+                            <input
+                                ref={leadEndDateRef}
+                                type="date"
+                                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+                                value={leadEndDate}
+                                onChange={(e) => setLeadEndDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Leaderboard content container */}
+                <div style={{ backgroundColor: 'white', borderRadius: '35px', padding: winWidth < 768 ? '20px' : '40px', boxShadow: '0 10px 40px rgba(11,30,63,0.05)', maxWidth: '800px', margin: '0 auto' }}>
+                    {!leadLoading && filteredLeaderboard.length > 0 && (
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: '#0B1E3F',
+                            color: 'white',
+                            padding: '16px 24px',
+                            borderRadius: '20px',
+                            marginBottom: '25px',
+                            boxShadow: '0 8px 20px rgba(11,30,63,0.15)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <Trophy size={18} color="#FBBC05" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '9px', opacity: 0.7, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Filtered Ranking</div>
+                                    <div style={{ fontSize: '14px', fontWeight: '1000', marginTop: '2px', color: '#FBBC05' }}>
+                                        {myFilteredRank > 0 ? `${myFilteredRank}${getRankSuffix(myFilteredRank)} Position` : 'Unranked'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '9px', opacity: 0.7, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Points in Period</div>
+                                <div style={{ fontSize: '14px', fontWeight: '1000', color: 'white', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                    {myFilteredPoints} <Star size={14} fill="#FBBC05" color="#FBBC05" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {leadLoading ? (
+                        <div style={{ textAlign: 'center', padding: '60px', color: '#64748b', fontWeight: '800' }}>
+                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} style={{ display: 'inline-block', marginBottom: '15px' }}>
+                                <Trophy size={40} color="#FBBC05" />
+                            </motion.div>
+                            <div>Calculating scores...</div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {filteredLeaderboard.map((entry, idx) => {
+                                const isMe = String(entry.id).split(':')[0].trim().toLowerCase() === String(myId).split(':')[0].trim().toLowerCase();
+                                const rank = entry.rank || (idx + 1);
+                                return (
+                                    <motion.div
+                                        key={idx}
+                                        onClick={() => openMemberProfile(entry)}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: idx * 0.03 }}
+                                        className={rank === 1 ? 'pulse-gold-row' : ''}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            padding: '18px 24px',
+                                            cursor: 'pointer',
+                                            background: rank === 1 ? 'linear-gradient(135deg, #FFFDF5 0%, #FFF9D6 100%)' :
+                                                rank === 2 ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' :
+                                                    rank === 3 ? 'linear-gradient(135deg, #FFFBF9 0%, #FFF5ED 100%)' :
+                                                        isMe ? '#F0F9FF' : '#F8FAFC',
+                                            borderRadius: '24px',
+                                            border: rank === 1 ? '1.5px solid #F5C71A' :
+                                                rank === 2 ? '1.5px solid #CBD5E1' :
+                                                    rank === 3 ? '1.5px solid #FDBA74' :
+                                                        isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
+                                            boxShadow: rank === 1 ? '0 4px 15px rgba(245, 199, 26, 0.15)' : 'none',
+                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                                        }}
+                                        whileHover={{ scale: 1.015, y: -2, boxShadow: '0 8px 25px rgba(11,30,63,0.06)' }}
+                                    >
+                                        <div style={{ width: '55px', display: 'flex', justifyContent: 'center', marginRight: '15px', flexShrink: 0 }}>
+                                            {rank === 1 ? (
+                                                <svg width="48" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-gold" style={{ filter: 'drop-shadow(0px 3px 6px rgba(245, 199, 26, 0.45))' }}>
+                                                    <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
+                                                    <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
+                                                    <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
+                                                    <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
+                                                    <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
+                                                    <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
+                                                    <path d="M8 2L10 4L12 2L14 4L16 2L15 5H9L8 2Z" fill="#FBBF24" stroke="#D97706" strokeWidth="0.8" strokeLinejoin="round" />
+                                                    <path d="M5 7H3C2 7 2 10 3.5 11C4.5 11.5 5 11.5 5 11.5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M19 7H21C22 7 22 10 20.5 11C19.5 11.5 19 11.5 19 11.5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M5 5H19V12C19 15.5 16.5 17.5 12 17.5C7.5 17.5 5 15.5 5 12V5Z" fill="url(#goldGradientCup)" stroke="#D97706" strokeWidth="1.5" strokeLinejoin="round" />
+                                                    <path d="M12 17.5V21" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
+                                                    <path d="M8 21H16" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" />
+                                                    <text x="12" y="12.5" fill="#5C4D00" fontSize="8" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">1</text>
+                                                    <defs>
+                                                        <linearGradient id="goldGradientCup" x1="12" y1="5" x2="12" y2="17.5" gradientUnits="userSpaceOnUse">
+                                                            <stop offset="0%" stopColor="#FFE885" />
+                                                            <stop offset="100%" stopColor="#F5C71A" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                </svg>
+                                            ) : rank === 2 ? (
+                                                <svg width="45" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-silver" style={{ filter: 'drop-shadow(0px 3px 6px rgba(148, 163, 184, 0.35))' }}>
+                                                    <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#475569" strokeWidth="1" fill="#F8FAFC" strokeLinecap="round" />
+                                                    <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#475569" strokeWidth="0.8" fill="#E2E8F0" strokeLinecap="round" />
+                                                    <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#475569" strokeWidth="0.6" fill="#CBD5E1" strokeLinecap="round" />
+                                                    <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#475569" strokeWidth="1" fill="#F8FAFC" strokeLinecap="round" />
+                                                    <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#475569" strokeWidth="0.8" fill="#E2E8F0" strokeLinecap="round" />
+                                                    <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#475569" strokeWidth="0.6" fill="#CBD5E1" strokeLinecap="round" />
+                                                    <path d="M5 6H3C2 6 2 9 3.5 10C4.5 10.5 5 10.5 5 10.5" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M19 6H21C22 6 22 9 20.5 10C19.5 10.5 19 10.5 19 10.5" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M5 4H19V11C19 14.5 16.5 16.5 12 16.5C7.5 16.5 5 14.5 5 11V4Z" fill="url(#silverGradientCup)" stroke="#475569" strokeWidth="1.5" strokeLinejoin="round" />
+                                                    <path d="M12 16.5V20" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+                                                    <path d="M8 20H16" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
+                                                    <text x="12" y="11.5" fill="#1E293B" fontSize="8.5" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">2</text>
+                                                    <defs>
+                                                        <linearGradient id="silverGradientCup" x1="12" y1="4" x2="12" y2="16.5" gradientUnits="userSpaceOnUse">
+                                                            <stop offset="0%" stopColor="#F8FAFC" />
+                                                            <stop offset="100%" stopColor="#94A3B8" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                </svg>
+                                            ) : rank === 3 ? (
+                                                <svg width="45" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-bronze" style={{ filter: 'drop-shadow(0px 3px 6px rgba(217, 119, 6, 0.35))' }}>
+                                                    <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#9A3412" strokeWidth="1" fill="#FFF5ED" strokeLinecap="round" />
+                                                    <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#9A3412" strokeWidth="0.8" fill="#FFEDD5" strokeLinecap="round" />
+                                                    <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#9A3412" strokeWidth="0.6" fill="#FED7AA" strokeLinecap="round" />
+                                                    <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#9A3412" strokeWidth="1" fill="#FFF5ED" strokeLinecap="round" />
+                                                    <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#9A3412" strokeWidth="0.8" fill="#FFEDD5" strokeLinecap="round" />
+                                                    <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#9A3412" strokeWidth="0.6" fill="#FED7AA" strokeLinecap="round" />
+                                                    <path d="M5 6H3C2 6 2 9 3.5 10C4.5 10.5 5 10.5 5 10.5" stroke="#9A3412" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M19 6H21C22 6 22 9 20.5 10C19.5 10.5 19 10.5 19 10.5" stroke="#9A3412" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M5 4H19V11C19 14.5 16.5 16.5 12 16.5C7.5 16.5 5 14.5 5 11V4Z" fill="url(#bronzeGradientCup)" stroke="#9A3412" strokeWidth="1.5" strokeLinejoin="round" />
+                                                    <path d="M12 16.5V20" stroke="#9A3412" strokeWidth="2" strokeLinecap="round" />
+                                                    <path d="M8 20H16" stroke="#9A3412" strokeWidth="2.5" strokeLinecap="round" />
+                                                    <text x="12" y="11.5" fill="#431407" fontSize="8.5" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">3</text>
+                                                    <defs>
+                                                        <linearGradient id="bronzeGradientCup" x1="12" y1="4" x2="12" y2="16.5" gradientUnits="userSpaceOnUse">
+                                                            <stop offset="0%" stopColor="#FFE5D4" />
+                                                            <stop offset="100%" stopColor="#D97706" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                </svg>
+                                            ) : (
+                                                <div style={{ fontSize: '14px', fontWeight: '1000', color: '#94A3B8' }}>
+                                                    #{rank}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <LeaderboardAvatar entry={entry} employees={employees} isMe={isMe} />
+
+                                        <div style={{ flex: 1 }}>
+                                             <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
+                                                 {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
+                                             </div>
+                                             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px', fontWeight: '800' }}>Rank #{rank}</div>
+                                         </div>
+                                         <div style={{ textAlign: 'right' }}>
+                                             <div style={{ fontSize: '18px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                                                 {entry.score} <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '2px', fontWeight: '800' }}>REP</span>
+                                             </div>
+                                             <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                 <span>Quiz: {entry.quiz_points} | Awards: {entry.reward_points}</span>
+                                             </div>
+                                         </div>
+                                    </motion.div>
+                                );
+                            })}
+                            {filteredLeaderboard.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '14px' }}>
+                                    No leaderboard data available for the selected range.
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Team member public profile modal container */}
+                <AnimatePresence>
+                    {selectedMember && (
+                        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '500px', overflow: 'hidden' }}>
+                                <div style={{ padding: '40px', background: '#0B1E3F', color: 'white', textAlign: 'center' }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '25px', border: '4px solid rgba(255,255,255,0.1)', margin: '0 auto 15px', overflow: 'hidden' }}>
+                                        <img src={`https://ui-avatars.com/api/?name=${selectedMember.name}&background=fff&color=0B1E3F&size=128`} style={{ width: '100%', height: '100%' }} />
+                                    </div>
+                                    <h2 style={{ margin: 0 }}>{selectedMember.name}</h2>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginTop: '8px' }}>
+                                        <p style={{ margin: 0, opacity: 0.7, fontSize: '13px' }}>Global Rank: #{filteredLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
+                                        <div style={{ padding: '4px 12px', borderRadius: '10px', backgroundColor: '#FBBC05', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000' }}>
+                                            {memberPoints} REP
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ padding: '30px' }}>
+                                    <h4 style={{ fontSize: '14px', color: '#0B1E3F', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '15px' }}>Achievement Timeline</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                        {memberLoading ? <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div> :
+                                            memberRewards.map((r, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px', alignItems: 'center' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '13px', fontWeight: '800' }}>{r.reward_name || r.title}</div>
+                                                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>{formatDate(r.created_at || r.date)}</div>
+                                                    </div>
+                                                    <div style={{
+                                                        fontWeight: '1000',
+                                                        color: '#16a34a',
+                                                        backgroundColor: '#16a34a12',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '8px',
+                                                        border: '1.5px solid #16a34a30',
+                                                        height: 'fit-content',
+                                                        alignSelf: 'center'
+                                                    }}>+{r.points || r.rep} REP</div>
+                                                </div>
+                                            ))
+                                        }
+                                        {!memberLoading && memberRewards.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>No history found.</div>}
+                                    </div>
+                                    <button onClick={() => setSelectedMember(null)} style={{ width: '100%', marginTop: '20px', padding: '15px', borderRadius: '15px', border: 'none', backgroundColor: '#f1f5f9', color: '#0B1E3F', fontWeight: '1000', cursor: 'pointer' }}>Close Profile</button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+            </motion.div>
+        );
+    }
 
     return (
         <motion.div
@@ -1279,11 +1813,21 @@ const AwardsScreen = ({ onBack }) => {
                                                 <div style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b' }}>{displayTitle}</div>
 
                                             </div>
-                                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#94a3b8', flexShrink: 0 }}>
-                                                {aw.created_at || aw.date ? new Date(aw.created_at || aw.date).toLocaleDateString() : 'Recent'}
+                                            <div style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', flexShrink: 0 }}>
+                                                {aw.created_at || aw.date ? formatDate(aw.created_at || aw.date) : 'Recent'}
                                             </div>
                                         </div>
-                                        <div style={{ fontSize: '11px', fontWeight: '1000', color: isQuiz ? '#d97706' : '#15803d', marginTop: '8px' }}>
+                                        <div style={{
+                                            fontSize: '12px',
+                                            fontWeight: '1000',
+                                            color: isQuiz ? '#d97706' : '#15803d',
+                                            backgroundColor: isQuiz ? '#d9770612' : '#15803d12',
+                                            padding: '4px 10px',
+                                            borderRadius: '8px',
+                                            width: 'fit-content',
+                                            marginTop: '8px',
+                                            border: `1.5px solid ${isQuiz ? '#d9770630' : '#15803d30'}`
+                                        }}>
                                             +{aw.rep || aw.points} REP POINTS
                                         </div>
                                     </motion.div>
@@ -1294,177 +1838,6 @@ const AwardsScreen = ({ onBack }) => {
                 </motion.div>
             </div>            {/* Modals... */}
             <AnimatePresence>
-                {showLeaderboard && (
-                    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '550px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: '30px' }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Trophy size={20} color="#D97706" />
-                                    </div>
-                                    <div>
-                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Global Leaderboard</h3>
-                                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: '700' }}>Top performers across all departments</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setShowLeaderboard(false)}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '50%', backgroundColor: '#F1F5F9' }}
-                                >
-                                    <X size={18} />
-                                </button>
-                            </div>
-                            <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {sortedLeaderboard.map((entry, idx) => {
-                                        const isMe = String(entry.id).split(':')[0] === myId;
-                                        const rank = entry.rank || (idx + 1);
-                                        return (
-                                            <motion.div
-                                                key={idx}
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: idx * 0.03 }}
-                                                className={rank === 1 ? 'pulse-gold-row' : ''}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    padding: '15px 20px',
-                                                    background: rank === 1 ? 'linear-gradient(135deg, #FFFDF5 0%, #FFF9D6 100%)' :
-                                                        rank === 2 ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' :
-                                                            rank === 3 ? 'linear-gradient(135deg, #FFFBF9 0%, #FFF5ED 100%)' :
-                                                                isMe ? '#F0F9FF' : '#F8FAFC',
-                                                    borderRadius: '20px',
-                                                    border: rank === 1 ? '1.5px solid #F5C71A' :
-                                                        rank === 2 ? '1.5px solid #CBD5E1' :
-                                                            rank === 3 ? '1.5px solid #FDBA74' :
-                                                                isMe ? '1.5px solid #BAE6FD' : '1.5px solid transparent',
-                                                    boxShadow: rank === 1 ? '0 4px 15px rgba(245, 199, 26, 0.15)' : 'none'
-                                                }}
-                                            >
-                                                <div style={{ width: '55px', display: 'flex', justifyContent: 'center', marginRight: '15px' }}>
-                                                    {rank === 1 ? (
-                                                        <svg width="48" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-gold" style={{ filter: 'drop-shadow(0px 3px 6px rgba(245, 199, 26, 0.45))' }}>
-                                                            {/* Left Majestic Wing */}
-                                                            <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
-                                                            <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
-                                                            <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
-
-                                                            {/* Right Majestic Wing */}
-                                                            <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#D97706" strokeWidth="1" fill="#FEF3C7" strokeLinecap="round" />
-                                                            <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#D97706" strokeWidth="0.8" fill="#FDE68A" strokeLinecap="round" />
-                                                            <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#D97706" strokeWidth="0.6" fill="#FCD34D" strokeLinecap="round" />
-
-                                                            {/* Cup bowl & base */}
-                                                            <path d="M8 2L10 4L12 2L14 4L16 2L15 5H9L8 2Z" fill="#FBBF24" stroke="#D97706" strokeWidth="0.8" strokeLinejoin="round" />
-                                                            <path d="M5 7H3C2 7 2 10 3.5 11C4.5 11.5 5 11.5 5 11.5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                            <path d="M19 7H21C22 7 22 10 20.5 11C19.5 11.5 19 11.5 19 11.5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                            <path d="M5 5H19V12C19 15.5 16.5 17.5 12 17.5C7.5 17.5 5 15.5 5 12V5Z" fill="url(#goldGradientCup)" stroke="#D97706" strokeWidth="1.5" strokeLinejoin="round" />
-                                                            <path d="M12 17.5V21" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
-                                                            <path d="M8 21H16" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" />
-                                                            <text x="12" y="12.5" fill="#5C4D00" fontSize="8" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">1</text>
-                                                            <defs>
-                                                                <linearGradient id="goldGradientCup" x1="12" y1="5" x2="12" y2="17.5" gradientUnits="userSpaceOnUse">
-                                                                    <stop offset="0%" stopColor="#FFE885" />
-                                                                    <stop offset="100%" stopColor="#F5C71A" />
-                                                                </linearGradient>
-                                                            </defs>
-                                                        </svg>
-                                                    ) : rank === 2 ? (
-                                                        <svg width="45" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-silver" style={{ filter: 'drop-shadow(0px 3px 6px rgba(148, 163, 184, 0.35))' }}>
-                                                            {/* Left Majestic Wing */}
-                                                            <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#475569" strokeWidth="1" fill="#F8FAFC" strokeLinecap="round" />
-                                                            <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#475569" strokeWidth="0.8" fill="#E2E8F0" strokeLinecap="round" />
-                                                            <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#475569" strokeWidth="0.6" fill="#CBD5E1" strokeLinecap="round" />
-
-                                                            {/* Right Majestic Wing */}
-                                                            <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#475569" strokeWidth="1" fill="#F8FAFC" strokeLinecap="round" />
-                                                            <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#475569" strokeWidth="0.8" fill="#E2E8F0" strokeLinecap="round" />
-                                                            <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#475569" strokeWidth="0.6" fill="#CBD5E1" strokeLinecap="round" />
-
-                                                            {/* Cup elements */}
-                                                            <path d="M5 6H3C2 6 2 9 3.5 10C4.5 10.5 5 10.5 5 10.5" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                            <path d="M19 6H21C22 6 22 9 20.5 10C19.5 10.5 19 10.5 19 10.5" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                            <path d="M5 4H19V11C19 14.5 16.5 16.5 12 16.5C7.5 16.5 5 14.5 5 11V4Z" fill="url(#silverGradientCup)" stroke="#475569" strokeWidth="1.5" strokeLinejoin="round" />
-                                                            <path d="M12 16.5V20" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
-                                                            <path d="M8 20H16" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
-                                                            <text x="12" y="11.5" fill="#1E293B" fontSize="8.5" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">2</text>
-                                                            <defs>
-                                                                <linearGradient id="silverGradientCup" x1="12" y1="4" x2="12" y2="16.5" gradientUnits="userSpaceOnUse">
-                                                                    <stop offset="0%" stopColor="#F8FAFC" />
-                                                                    <stop offset="100%" stopColor="#94A3B8" />
-                                                                </linearGradient>
-                                                            </defs>
-                                                        </svg>
-                                                    ) : rank === 3 ? (
-                                                        <svg width="45" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="float-bronze" style={{ filter: 'drop-shadow(0px 3px 6px rgba(217, 119, 6, 0.35))' }}>
-                                                            {/* Left Majestic Wing */}
-                                                            <path d="M5 6C2 4.5 0 6.5 0.5 10.5C0.8 12 2.5 13 4 13.5C4.8 13.8 5 13.8 5 13.8" stroke="#9A3412" strokeWidth="1" fill="#FFF5ED" strokeLinecap="round" />
-                                                            <path d="M5 8C3 7 1.5 8.5 2 11.5C2.2 12.2 3.5 12.8 5 13" stroke="#9A3412" strokeWidth="0.8" fill="#FFEDD5" strokeLinecap="round" />
-                                                            <path d="M5 10C3.8 9.5 3 10.5 3.5 12C3.8 12.5 4.5 12.8 5 12.9" stroke="#9A3412" strokeWidth="0.6" fill="#FED7AA" strokeLinecap="round" />
-
-                                                            {/* Right Majestic Wing */}
-                                                            <path d="M19 6C22 4.5 24 6.5 23.5 10.5C23.2 12 21.5 13 20 13.5C19.2 13.8 19 13.8 19 13.8" stroke="#9A3412" strokeWidth="1" fill="#FFF5ED" strokeLinecap="round" />
-                                                            <path d="M19 8C21 7 22.5 8.5 22 11.5C21.8 12.2 20.5 12.8 19 13" stroke="#9A3412" strokeWidth="0.8" fill="#FFEDD5" strokeLinecap="round" />
-                                                            <path d="M19 10C20.2 9.5 21 10.5 20.5 12C20.2 12.5 19.5 12.8 19 12.9" stroke="#9A3412" strokeWidth="0.6" fill="#FED7AA" strokeLinecap="round" />
-
-                                                            {/* Cup elements */}
-                                                            <path d="M5 6H3C2 6 2 9 3.5 10C4.5 10.5 5 10.5 5 10.5" stroke="#9A3412" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                            <path d="M19 6H21C22 6 22 9 20.5 10C19.5 10.5 19 10.5 19 10.5" stroke="#9A3412" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                            <path d="M5 4H19V11C19 14.5 16.5 16.5 12 16.5C7.5 16.5 5 14.5 5 11V4Z" fill="url(#bronzeGradientCup)" stroke="#9A3412" strokeWidth="1.5" strokeLinejoin="round" />
-                                                            <path d="M12 16.5V20" stroke="#9A3412" strokeWidth="2" strokeLinecap="round" />
-                                                            <path d="M8 20H16" stroke="#9A3412" strokeWidth="2.5" strokeLinecap="round" />
-                                                            <text x="12" y="11.5" fill="#431407" fontSize="8.5" fontWeight="1000" textAnchor="middle" fontFamily="Outfit, Inter, sans-serif">3</text>
-                                                            <defs>
-                                                                <linearGradient id="bronzeGradientCup" x1="12" y1="4" x2="12" y2="16.5" gradientUnits="userSpaceOnUse">
-                                                                    <stop offset="0%" stopColor="#FFE5D4" />
-                                                                    <stop offset="100%" stopColor="#D97706" />
-                                                                </linearGradient>
-                                                            </defs>
-                                                        </svg>
-                                                    ) : (
-                                                        <div style={{ fontSize: '13px', fontWeight: '1000', color: '#94A3B8' }}>
-                                                            #{rank}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '14px', fontWeight: '1000', color: '#0B1E3F' }}>
-                                                        {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
-                                                    </div>
-                                                </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontSize: '16px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px' }}>
-                                                        {entry.score}
-                                                    </div>
-                                                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                                        <span style={{ color: '#16A34A' }}>{entry.quiz_points} QUIZ</span>
-                                                        {entry.reward_points > 0 && (
-                                                            <>
-                                                                <span style={{ color: '#CBD5E1' }}>|</span>
-                                                                <span style={{ color: '#16A34A' }}>{entry.reward_points} REWARDS</span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        );
-                                    })}
-                                    {sortedLeaderboard.length === 0 && (
-                                        <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontSize: '14px' }}>
-                                            No leaderboard data available.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
                 {showGrantModal && (
                     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '450px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -1529,12 +1902,21 @@ const AwardsScreen = ({ onBack }) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                                     {memberLoading ? <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div> :
                                         memberRewards.map((r, i) => (
-                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
+                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px', alignItems: 'center' }}>
                                                 <div>
                                                     <div style={{ fontSize: '13px', fontWeight: '800' }}>{r.reward_name || r.title}</div>
                                                     <div style={{ fontSize: '10px', color: '#94a3b8' }}>{formatDate(r.created_at || r.date)}</div>
                                                 </div>
-                                                <div style={{ fontWeight: '1000', color: '#22c55e' }}>+{r.points || r.rep} REP</div>
+                                                <div style={{
+                                                    fontWeight: '1000',
+                                                    color: '#16a34a',
+                                                    backgroundColor: '#16a34a12',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '8px',
+                                                    border: '1.5px solid #16a34a30',
+                                                    height: 'fit-content',
+                                                    alignSelf: 'center'
+                                                }}>+{r.points || r.rep} REP</div>
                                             </div>
                                         ))
                                     }

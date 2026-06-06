@@ -22,22 +22,6 @@ const LOCKED_FIELDS = [
   'has_mobile', 'has_camera', 'has_headphone', 'has_tablet'
 ];
 
-const REQUIRED_FIELDS = [
-  // Primary Profile
-  'emp_name', 'gender', 'dob', 'age', 'religion', 'blood_group', 'marital_status', 'nationality', 'father_husband_name', 'category', 'pan_number', 'pancard_photo', 'aadhar_number', 'adharcard_photo',
-  // Organizational Hierarchy
-  'designation', 'department', 'process', 'supervisor_l1', 'supervisor_l2', 'doj', 'ft_pt', 'status', 'place', 'moved', 'official_email_id',
-  // Contact & Geography
-  'contact_no', 'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
-  // Academic & Career
-  'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 'sslc_percentage', 'puc_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_percentage', 'ug_pg_markscard', 'source',
-  // Banking & Finance
-  'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'gross_salary_a', 'salary', 'pt', 'passbook_photo',
-  // Compliance & Docs
-  'bgv_status', 'appointment_letter', 'approved_by_ceo', 'onboarding_doc_completed', 'id_card', 'onboarding_link'
-];
-
-
 const SECTIONS = [
   {
     id: 'primary',
@@ -47,21 +31,15 @@ const SECTIONS = [
     fields: [
       { key: 'emp_name', label: 'Employee Name', placeholder: 'Full Name', type: 'text' },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'dob', label: 'Date of Birth', type: 'date', placeholder: 'DD/MM/YYYY' },
+      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'age', label: 'Age', type: 'text', placeholder: 'Years' },
-      { key: 'religion', label: 'Religion', type: 'text' },
-      { key: 'blood_group', label: 'Blood Group', type: 'text' },
-      { key: 'marital_status', label: 'Marital Status', type: 'select', options: ['Single', 'Married', 'Divorced', 'Widowed'] },
-      { key: 'nationality', label: 'Nationality', type: 'text', placeholder: 'e.g. Indian' },
-      { key: 'father_husband_name', label: "Father/Husband's Name", type: 'text' },
-      { key: 'category', label: 'Category', type: 'select', options: ['General', 'OBC', 'SC', 'ST', 'Other'] },
+      { key: 'marital_status', label: 'Marital Status', type: 'select', options: ['Single', 'Married'] },
+      { key: 'father_husband_name', label: "Father's Name", type: 'text' },
       { key: 'pan_number', label: 'PAN Number', type: 'text', placeholder: 'ABCDE1234F' },
       { key: 'pancard_photo', label: 'PAN Card Proof', type: 'file' },
       { key: 'aadhar_number', label: 'Aadhar Number', type: 'text', placeholder: '1234 5678 9012' },
       { key: 'adharcard_photo', label: 'Aadhar Card Proof', type: 'file' },
-      { key: 'voter_id', label: 'Voter ID Number', type: 'text' },
-      { key: 'voter_id_photo', label: 'Voter ID Proof', type: 'file' },
-      { key: 'passport_photo', label: 'Passport Photo', type: 'file' },
+      { key: 'blood_group', label: 'Blood Group', type: 'text' },
     ]
   },
   {
@@ -121,7 +99,7 @@ const SECTIONS = [
       { key: 'sslc_markscard', label: 'SSLC Marks Card', type: 'file' },
       { key: 'puc_markscard', label: '12th or equivalent Marks Card', type: 'file' },
 
-      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'e.g. 9.0 for CGPA or 85 for %' },
+      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'Enter Graduation Percentage / CGPA' },
       { key: 'ug_pg_markscard', label: 'Graduation Certificate', type: 'file' },
       { key: 'source', label: 'Source (How you found us)', type: 'text' },
     ]
@@ -235,7 +213,7 @@ export default function DocumentsScreen({ onBack }) {
   });
   const changeSection = (id) => {
     setActiveSection(id);
-    try { localStorage.setItem('nbt_profile_section', id); } catch {}
+    try { localStorage.setItem('nbt_profile_section', id); } catch { }
   };
   const [isEditing, setIsEditing] = useState(false);
   const [viewImage, setViewImage] = useState(null);
@@ -400,7 +378,7 @@ export default function DocumentsScreen({ onBack }) {
           if (cached.dob) cached.dob = formatDOB(cached.dob);
           setForm(prev => ({ ...prev, ...cached }));
         }
-      } catch (_) {}
+      } catch (_) { }
 
       const res = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -441,12 +419,10 @@ export default function DocumentsScreen({ onBack }) {
             cleanData.dob = formatDOB(dobVal);
           }
 
-          // Gender: Don't auto-fill from backend — let user explicitly choose
-          // Always show 'Choose your gender' as default placeholder
-          cleanData.gender = '';
-          
-          // Category: Don't auto-fill from backend — let user explicitly choose
-          cleanData.category = '';
+          // Gender placeholder default if not set in database
+          if (!cleanData.gender) {
+            cleanData.gender = '';
+          }
 
           // Marital Status normalization
           if (cleanData.marital_status) {
@@ -564,7 +540,17 @@ export default function DocumentsScreen({ onBack }) {
     };
 
     // REQUIRED FIELDS CHECK
-    if (REQUIRED_FIELDS.includes(key) && (!value || String(value).trim() === '')) {
+    const required = [
+      'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
+      // Contact & Geography
+      'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
+      // Academic & Career
+      'qualification', 'edu_completion_year', 'college', 'university', 'languages_known',
+      'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
+      // Banking & Finance
+      'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
+    ];
+    if (required.includes(key) && (!value || String(value).trim() === '')) {
       return `${key.replace(/_/g, ' ').toUpperCase()} is required`;
     }
 
@@ -585,11 +571,6 @@ export default function DocumentsScreen({ onBack }) {
           const d = new Date(year, month - 1, day);
           if (isNaN(d.getTime()) || d.getDate() !== day || d.getMonth() + 1 !== month || d.getFullYear() !== year) {
             error = 'Invalid Date';
-          } else {
-            const today = new Date();
-            if (d > today) {
-              error = 'Date of Birth cannot be in the future';
-            }
           }
         }
       }
@@ -629,44 +610,14 @@ export default function DocumentsScreen({ onBack }) {
     } else if (key === 'bank_account_no') {
       if (/\D/.test(value)) error = 'Numbers only';
     } else if (key === 'edu_completion_year') {
-      if (value) {
-        if (value.length !== 4) {
-          error = 'Year must be exactly 4 digits';
-        } else {
-          const numYear = parseInt(value, 10);
-          const currentYear = new Date().getFullYear();
-          if (isNaN(numYear) || numYear < 1900 || numYear > currentYear) {
-            error = `Year must be between 1900 and ${currentYear}`;
-          }
-        }
-      }
+      if (value && value.length !== 4) error = 'Year must be exactly 4 digits';
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      if (/[^0-9.]/.test(value)) {
-        error = 'Only numbers and a single decimal point are allowed';
-      } else if ((value.match(/\./g) || []).length > 1) {
-        error = 'Only a single decimal point is allowed';
-      } else if (value.includes('-') || parseFloat(value) < 0) {
-        error = 'Negative numbers are not allowed';
-      } else {
-        const num = parseFloat(value);
-        if (isNaN(num)) {
-          error = 'Enter a valid percentage';
-        } else if (num > 100) {
-          error = 'Percentage cannot exceed 100%';
-        } else if (key === 'ug_pg_percentage') {
-          if (num > 10 && num < 35) {
-            error = 'CGPA cannot exceed 10. If this is a percentage, it must be between 35% and 100%';
-          } else if (!value.includes('.') && num <= 10) {
-            error = 'Please enter CGPA with a decimal (e.g., 9.0) or enter a valid Percentage (e.g., 90)';
-          }
-        }
-        
-        if (!error) {
-          const parts = String(value).split('.');
-          if (parts[1] && parts[1].length > 2) {
-            error = 'Maximum 2 decimal places allowed';
-          }
-        }
+      const num = parseFloat(value);
+      if (isNaN(num)) error = 'Enter a valid percentage';
+      else if (num > 100) error = 'Maximum 100% allowed';
+      else {
+        const parts = String(value).split('.');
+        if (parts[1] && parts[1].length > 2) error = 'Maximum 2 decimal places allowed';
       }
     } else if (key === 'bank_branch') {
       if (/^[0-9]+$/.test(value.trim())) error = 'Branch name cannot be numeric only';
@@ -703,25 +654,19 @@ export default function DocumentsScreen({ onBack }) {
   };
 
   const handleChange = (key, value) => {
-    // If the value is selected from calendar (YYYY-MM-DD format), convert to DD/MM/YYYY
-    if (['dob', 'doj', 'lwd', 'separation'].includes(key) && value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const parts = value.split('-');
-      value = `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
     // Immediate cleaning for specific fields
     let cleanValue = value;
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
     } else if (['dob', 'doj', 'lwd', 'separation'].includes(key)) {
-      // Auto-format dates as DD/MM/YYYY
-      let raw = value.replace(/[^0-9]/g, '');
-      if (raw.length > 2 && raw.length <= 4) {
-        cleanValue = `${raw.slice(0, 2)}/${raw.slice(2)}`;
-      } else if (raw.length > 4) {
-        cleanValue = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)}`;
-      } else {
-        cleanValue = raw;
+      // Allow only digits and slashes
+      cleanValue = value.replace(/[^0-9/]/g, '');
+      // Auto-insert slashes when typing forward (prevents collapse/scramble during backspace/middle edit)
+      const prevVal = form[key] || '';
+      if (cleanValue.length > prevVal.length) {
+        if (cleanValue.length === 2 || cleanValue.length === 5) {
+          cleanValue += '/';
+        }
       }
     } else if (key === 'department') {
       cleanValue = value.replace(/[^a-zA-Z\s\&\-\/\.]/g, ''); // Block numbers, allow basic special chars
@@ -739,7 +684,10 @@ export default function DocumentsScreen({ onBack }) {
     } else if (['aadhar_number', 'bank_account_no', 'age', 'edu_completion_year'].includes(key)) {
       cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
     } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      cleanValue = value;
+      cleanValue = value.replace(/[^0-9.]/g, ''); // Block characters, allow dots for decimals
+      const parts = cleanValue.split('.');
+      if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join(''); // Prevent multiple dots
+      if (parts[1] && parts[1].length > 2) cleanValue = parts[0] + '.' + parts[1].slice(0, 2); // Max 2 decimal places
     } else if (key === 'bank_branch') {
       cleanValue = value.replace(/[^a-zA-Z0-9\s\-\/\.,&()]/g, ''); // Allow standard branch name characters, block invalid ones
     } else if (['pan_number', 'voter_id', 'ifsc_code'].includes(key)) {
@@ -844,7 +792,7 @@ export default function DocumentsScreen({ onBack }) {
           try {
             const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
             localStorage.setItem('user', JSON.stringify({ ...storedUser, [key]: base64 }));
-          } catch (_) {}
+          } catch (_) { }
         } else {
           // Keep the local preview even if server rejects
           setToast({ type: 'info', msg: 'Document saved locally. Server sync pending.' });
@@ -890,6 +838,10 @@ export default function DocumentsScreen({ onBack }) {
       if (currentSectionConfig && currentSectionConfig.fields) {
         currentSectionConfig.fields.forEach(field => {
           if (field.key) {
+            // Skip file columns to prevent "request entity too large" error (handled via handleFileUpload)
+            if (field.type === 'file') {
+              return;
+            }
             let val = form[field.key];
             if (typeof val === 'string') {
               val = val.trim();
@@ -965,7 +917,7 @@ export default function DocumentsScreen({ onBack }) {
           const cacheKey = `nbt_profile_cache_${uid}`;
           const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
           localStorage.setItem(cacheKey, JSON.stringify({ ...existing, ...sanitizedForm }));
-        } catch (_) {}
+        } catch (_) { }
         await loadDocs();
       } else {
         const err = await res.json();
@@ -1315,7 +1267,15 @@ export default function DocumentsScreen({ onBack }) {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
                       <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                        {field.label} {REQUIRED_FIELDS.includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
+                        {field.key === 'father_husband_name' 
+                          ? (form.marital_status === 'Married' ? 'Spouse Name' : "Father's Name") 
+                          : field.label} {[
+                          'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
+                          'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
+                          'qualification', 'edu_completion_year', 'college', 'university', 'languages_known',
+                          'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
+                          'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
+                        ].includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
                       </label>
                       {isLockedForRole && <Shield size={10} color="#000000" />}
                     </div>
@@ -1333,12 +1293,7 @@ export default function DocumentsScreen({ onBack }) {
                             transition: 'all 0.2s', opacity: isDisabled ? 0.8 : 1
                           }}
                         >
-                          {field.key === 'gender' && (
-                            <option value="" disabled hidden>Choose your gender</option>
-                          )}
-                          {field.key === 'category' && (
-                            <option value="" disabled hidden>Choose your category</option>
-                          )}
+                          {field.key === 'gender' && <option value="" disabled hidden>Choose Gender</option>}
                           {field.options.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                         <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabled ? '#cbd5e1' : '#315A9E' }}>
@@ -1564,7 +1519,6 @@ export default function DocumentsScreen({ onBack }) {
                       <div style={{ position: 'relative', width: '100%' }}>
                         <input
                           type={field.type === 'date' ? 'date' : 'text'}
-                          max={field.key === 'dob' ? new Date().toISOString().split('T')[0] : undefined}
                           value={(() => {
                             let val = form[field.key] || '';
                             if (typeof val === 'string' && val.includes('T') && val.length > 15) {
@@ -1582,39 +1536,22 @@ export default function DocumentsScreen({ onBack }) {
                             }
                             return val;
                           })()}
-                          readOnly={isDisabled || field.key === 'age'}
+                          readOnly={isDisabled}
                           onChange={e => handleChange(field.key, e.target.value)}
                           onKeyDown={e => {
-                            if (field.key === 'dob') {
-                              e.preventDefault();
-                            }
                             // Block numeric keys for department field
                             if (field.key === 'department' && /^[0-9]$/.test(e.key)) {
                               e.preventDefault();
                             }
                           }}
-                          onPaste={e => {
-                            if (field.key === 'dob') {
-                              e.preventDefault();
-                            }
-                          }}
-                          onClick={e => {
-                            if (field.type === 'date' && !isDisabled) {
-                              try {
-                                e.target.showPicker?.();
-                              } catch (err) {
-                                console.error("showPicker failed:", err);
-                              }
-                            }
-                          }}
-                          placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
+                          placeholder={isEditing ? (field.placeholder || `Enter ${field.key === 'father_husband_name' ? (form.marital_status === 'Married' ? 'Spouse Name' : "Father's Name") : field.label}`) : 'Not Provided'}
                           style={{
                             width: '100%', padding: isMobile ? '12px' : '16px 20px',
                             borderRadius: isMobile ? '10px' : '16px', fontSize: isMobile ? '13px' : '16px',
-                            fontWeight: '800', color: '#000000', backgroundColor: (isDisabled || field.key === 'age') ? '#f1f5f9' : '#f8fafc',
+                            fontWeight: '800', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
                             border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
                             outline: 'none', boxSizing: 'border-box',
-                            transition: 'all 0.2s', cursor: (isDisabled || field.key === 'age') ? 'default' : 'text'
+                            transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text'
                           }}
                         />
                       </div>

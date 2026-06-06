@@ -577,7 +577,7 @@ const FunQuizScreen = ({ onBack }) => {
         borderBottom: '2px solid #f1f5f9',
         fontSize: '10px',
         fontWeight: '900',
-        color: '#94a3b8',
+        color: '#334155',
         textTransform: 'uppercase',
         letterSpacing: '0.5px'
       }}>
@@ -658,7 +658,7 @@ const FunQuizScreen = ({ onBack }) => {
           fontSize: '11px', fontWeight: '1000', cursor: 'pointer'
         }}
       >
-        {showFullList ? 'VIEW LESS' : 'VIEW FULL HALL OF FAME'}
+        {showFullList ? 'VIEW LESS' : 'VIEW ALL'}
       </button>
     </div>
   );
@@ -694,7 +694,7 @@ const FunQuizScreen = ({ onBack }) => {
             {/* LEFT COLUMN: HERO + PAST QUIZZES */}
           <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '25px' }}>
             {/* HERO SECTION */}
-            <div style={{ ...s.hero, flex: 'none' }}>
+            <div style={{ ...s.hero, flex: 1 }}>
               <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start' }}>
                 <h2 style={s.heroTitle}>Get Ready for<br />a Fun Quiz!</h2>
                 <p style={s.heroDesc}>Train your brain with smart, scientifically backed games that enhance various cognitive functions.</p>

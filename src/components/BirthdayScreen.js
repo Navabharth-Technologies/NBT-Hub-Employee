@@ -296,9 +296,6 @@ const BirthdayScreen = ({ onBack }) => {
         <div style={{ position: 'absolute', top: winWidth < 768 ? '15px' : '25px', left: winWidth < 768 ? '15px' : '25px' }}>
           <BackButton onClick={onBack} />
         </div>
-        <div style={s.cakeIcon}>
-          <Cake size={32} strokeWidth={1.5} />
-        </div>
         <h1 style={s.title}>NBT Birthdays 🎂</h1>
         <div style={s.subtitle}>Passed & Upcoming Celebrations</div>
 

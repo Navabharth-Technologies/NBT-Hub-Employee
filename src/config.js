@@ -1,6 +1,35 @@
 export const BASE_URL = 'http://192.168.1.15:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
+export const cleanId = (id) => {
+  if (!id) return '';
+  let s = String(id).trim();
+
+  // Handle comma-separated IDs (take the first one)
+  if (s.includes(',')) {
+    s = s.split(',')[0].trim();
+  }
+
+  // Handle triple repetition bug (e.g. 202516202516202516)
+  if (s.length >= 9 && s.length % 3 === 0) {
+    const partLen = s.length / 3;
+    const p1 = s.substring(0, partLen);
+    const p2 = s.substring(partLen, partLen * 2);
+    const p3 = s.substring(partLen * 2);
+    if (p1 === p2 && p1 === p3) return p1;
+  }
+
+  // Handle double repetition bug (e.g. 202512202512)
+  if (s.length >= 6 && s.length % 2 === 0) {
+    const partLen = s.length / 2;
+    const p1 = s.substring(0, partLen);
+    const p2 = s.substring(partLen);
+    if (p1 === p2) return p1;
+  }
+
+  return s;
+};
+
 // ✅ Company branding constants — single source of truth
 export const COMPANY_INFO = {
   name: 'Navabharath Technologies',
@@ -104,7 +133,7 @@ export const API_ENDPOINTS = {
   // Rewards System
   REWARDS_LEADERBOARD: `${BASE_URL}/api/public/employees/leaderboard/all?key=1abeb9c7e1c705b449384bbd8caf8328e538ff496c969024a7aaefb64edd17de`,
   REWARDS_MY: `${BASE_URL}/api/rewards/my`,
-  REWARDS_ALL: `${BASE_URL}/api/employees/leaderboard/all`,
+  REWARDS_ALL: `${BASE_URL}/api/rewards`,
   REWARDS_USER: (userId) => `${BASE_URL}/api/rewards/user/${String(userId || '').split(':')[0]}`,
 
 
@@ -116,6 +145,9 @@ export const API_ENDPOINTS = {
   // Service Certificate System
   SERVICE_CERT_SUBMIT: `${BASE_URL}/api/service-certificates`,
   SERVICE_CERT_MY: `${BASE_URL}/api/service-certificates/my`,
+  SERVICE_CERTIFICATES: (id) => `${BASE_URL}/api/service-certificates${id ? `/${String(id || '').split(':')[0]}` : ''}`,
+  SERVICE_CERTIFICATES_MY: `${BASE_URL}/api/service-certificates/my`,
+  SERVICE_CERTIFICATES_USER: (id) => `${BASE_URL}/api/service-certificates?userId=${String(id || '').split(':')[0]}`,
 
   // Quiz System
   QUIZ_ANSWER: (quizId) => `${BASE_URL}/api/quizzes/${quizId}/answer`,
