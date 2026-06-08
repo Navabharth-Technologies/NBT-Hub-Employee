@@ -468,7 +468,10 @@ export default function ThreadScreen() {
                                             onChange={(e) => setEditContent(e.target.value)}
                                         />
 
-
+                                        <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
+                                        <div style={{ ...styles.mediaBtn, width: 'fit-content', marginTop: '12px', marginBottom: '12px' }} onClick={() => editFileInputRef.current?.click()}>
+                                            <ImageIcon size={18} color="#10b981" /> Photo/Video
+                                        </div>
 
                                         {(editMediaPreview && !editRemoveMedia) && (
                                             <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
@@ -510,7 +513,11 @@ export default function ThreadScreen() {
                                                         setEditingPostId(null);
                                                         setEditMediaFile(null);
                                                         setEditMediaPreview(null);
+                                                        setEditMediaType(null);
                                                         setEditRemoveMedia(false);
+                                                        if (editFileInputRef.current) editFileInputRef.current.value = '';
+                                                    } else {
+                                                        showError('Failed to save changes. Please try again.');
                                                     }
                                                 }}
                                                 style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
@@ -522,7 +529,9 @@ export default function ThreadScreen() {
                                                     setEditingPostId(null);
                                                     setEditMediaFile(null);
                                                     setEditMediaPreview(null);
+                                                    setEditMediaType(null);
                                                     setEditRemoveMedia(false);
+                                                    if (editFileInputRef.current) editFileInputRef.current.value = '';
                                                 }}
                                                 style={{ background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
                                             >

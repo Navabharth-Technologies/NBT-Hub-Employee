@@ -597,10 +597,22 @@ export const ThreadProvider = ({ children }) => {
         
         if (payload.file) {
            body.media = mediaData;
+           body.file = mediaData;
+           body.image = mediaData;
+           body.media_url = mediaData;
+           body.mediaUrl = mediaData;
            body.mediaType = payload.mediaType;
+           body.media_type = payload.mediaType;
+           body.type = payload.mediaType;
         } else if (payload.removeMedia) {
            body.media = '';
+           body.file = '';
+           body.image = '';
+           body.media_url = '';
+           body.mediaUrl = '';
            body.mediaType = '';
+           body.media_type = '';
+           body.type = '';
         }
 
         const token = localStorage.getItem('token');
