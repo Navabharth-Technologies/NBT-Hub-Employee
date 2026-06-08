@@ -938,7 +938,23 @@ const AwardsScreen = ({ onBack }) => {
     const activeLeaderboard = (startDate || endDate) ? filteredLeaderboard : sortedLeaderboard;
     
     let activeUserRank = 0;
-    const activeUserEntryIndex = activeLeaderboard.findIndex(e => String(e.id || '').split(':')[0].trim().toLowerCase() === String(myId).split(':')[0].trim().toLowerCase());
+    const activeUserEntryIndex = activeLeaderboard.findIndex(e => {
+        const cleanEId = String(e.id || '').split(':')[0].trim().toLowerCase();
+        const cleanEName = String(e.name || '').split(':')[0].trim().toLowerCase();
+        const possibleUserKeys = [
+            user?.employee_id,
+            user?.uid,
+            user?.id,
+            user?.userId,
+            user?.email,
+            user?.name,
+            user?.employee_name
+        ];
+        return possibleUserKeys.some(key => {
+            const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+            return cleanKey && (cleanEId === cleanKey || cleanEName === cleanKey);
+        });
+    });
     
     if (activeUserEntryIndex >= 0) {
         activeUserRank = activeLeaderboard[activeUserEntryIndex].rank || (activeUserEntryIndex + 1);
@@ -946,12 +962,29 @@ const AwardsScreen = ({ onBack }) => {
         // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
         activeLeaderboard.push({ id: myId, name: userName, score: finalQuizPoints, rank: activeLeaderboard.length + 1 });
         activeLeaderboard.sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.score - a.score);
-        const dynamicIndex = activeLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
+        const dynamicIndex = activeLeaderboard.findIndex(e => {
+            const cleanEId = String(e.id || '').split(':')[0].trim().toLowerCase();
+            const cleanEName = String(e.name || '').split(':')[0].trim().toLowerCase();
+            const possibleUserKeys = [
+                user?.employee_id,
+                user?.uid,
+                user?.id,
+                user?.userId,
+                user?.email,
+                user?.name,
+                user?.employee_name
+            ];
+            return possibleUserKeys.some(key => {
+                const cleanKey = String(key || '').split(':')[0].trim().toLowerCase();
+                return cleanKey && (cleanEId === cleanKey || cleanEName === cleanKey);
+            });
+        });
         activeUserRank = dynamicIndex >= 0 ? (activeLeaderboard[dynamicIndex].rank || dynamicIndex + 1) : 0;
     }
 
-    // Prefer the explicitly fetched backend rewards rank if no date filter is active
-    const finalRank = (startDate || endDate) ? activeUserRank : (rewardsBackendRank && rewardsBackendRank > 0 ? rewardsBackendRank : activeUserRank);
+    // Prefer the explicitly fetched backend rewards rank if no date filter is active, or fallback to all-time if period rank is unranked
+    const allTimeRank = (rewardsBackendRank && rewardsBackendRank > 0) ? rewardsBackendRank : userRank;
+    const finalRank = (startDate || endDate) ? (activeUserRank > 0 ? activeUserRank : allTimeRank) : allTimeRank;
     // Calculate total endorsements accurately by counting all rewards (PM, TL, HR) and quiz completions
     const finalEndorsements = (startDate || endDate)
         ? filteredUniqueHistory.length
@@ -1608,7 +1641,7 @@ const AwardsScreen = ({ onBack }) => {
                     <BackButton onClick={onBack} />
                     <div>
                         <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>Awards & recognition</h1>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Excellence recognized at NBT HUB</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Excellence Recognised At NBT HUB</p>
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

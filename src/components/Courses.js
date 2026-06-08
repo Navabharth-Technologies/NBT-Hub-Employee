@@ -11,6 +11,28 @@ import petal from '../assets/image.png';
 
 import certificateImg from '../assets/certificate_final.png';
 
+const getDefaultCourseImage = (title, index) => {
+    const lowerTitle = String(title || '').toLowerCase();
+    if (lowerTitle.includes('python')) {
+        return 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&q=80&w=800'; // Python editor screenshot
+    }
+    if (lowerTitle.includes('java')) {
+        return 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800'; // Coding workspace code
+    }
+    if (lowerTitle.includes('react') || lowerTitle.includes('js') || lowerTitle.includes('javascript') || lowerTitle.includes('web')) {
+        return 'https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=800'; // Modern UI/UX web work
+    }
+    
+    // Pool of premium unique developer workspace/desktop images
+    const defaultPool = [
+        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&q=80&w=800', // Desk with laptop, glasses
+        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800', // Workspace with charts/code
+        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=800', // Digital dashboard/learning
+        'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=800'  // Development planning/UI
+    ];
+    return defaultPool[index % defaultPool.length];
+};
+
 export default function CourseScreen({ resumeCourseId, clearState }) {
     const { user } = useAuth();
 
@@ -325,17 +347,20 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                 const list = Array.isArray(backendData) ? backendData : (backendData.value || backendData.data || []);
 
                 // Map backend data to UI fields
-                const finalCourses = list.map(c => ({
-                    ...c,
-                    id: c.id || c.course_id || c.courseId,
-                    title: c.title || c.course_title || c.courseName || 'Untitled Course',
-                    level: c.level || c.course_level || 'Beginner',
-                    duration: c.duration || c.course_duration || 'Self-paced',
-                    rating: c.rating || c.course_rating || '4.5',
-                    image: c.image || c.image_url || c.thumbnail || c.course_image || c.image_path || c.pic || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800',
-                    video: c.video || c.video_url || c.video_link || c.link || c.video_path,
-                    pdf: c.pdf || c.pdf_url || c.file || c.document || c.pdf_path
-                }));
+                const finalCourses = list.map((c, index) => {
+                    const fallbackImg = getDefaultCourseImage(c.title || c.course_title || c.courseName, index);
+                    return {
+                        ...c,
+                        id: c.id || c.course_id || c.courseId,
+                        title: c.title || c.course_title || c.courseName || 'Untitled Course',
+                        level: c.level || c.course_level || 'Beginner',
+                        duration: c.duration || c.course_duration || 'Self-paced',
+                        rating: c.rating || c.course_rating || '4.5',
+                        image: c.image || c.image_url || c.thumbnail || c.course_image || c.image_path || c.pic || fallbackImg,
+                        video: c.video || c.video_url || c.video_link || c.link || c.video_path,
+                        pdf: c.pdf || c.pdf_url || c.file || c.document || c.pdf_path
+                    };
+                });
 
                 setCourses(finalCourses);
 
@@ -911,12 +936,12 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
                         return (
                             <motion.div key={course.id} style={s.courseCard} onClick={() => setSelectedCourse(course)} whileHover={{ y: -8, boxShadow: '0 20px 50px rgba(0,0,0,0.08)' }}>
                                 <div style={{ ...s.courseImage, backgroundColor: '#f1f5f9', position: 'relative' }}>
-                                    {imageUrl ? (
-                                        <img src={imageUrl} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.src = ''; e.target.style.display = 'none'; }} />
-                                    ) : videoLink && !videoLink.includes('youtube') && !videoLink.includes('vimeo') ? (
+                                    {videoLink && !videoLink.includes('youtube') && !videoLink.includes('vimeo') ? (
                                         <video style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata">
                                             <source src={videoLink} type="video/mp4" />
                                         </video>
+                                    ) : imageUrl ? (
+                                        <img src={imageUrl} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.src = ''; e.target.style.display = 'none'; }} />
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#cbd5e1' }}>
                                             <BookOpen size={40} />
