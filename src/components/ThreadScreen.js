@@ -19,6 +19,7 @@ export default function ThreadScreen() {
     const { user } = useAuth();
     const currentUserId = user?.id || user?.userId || user?.empId || user?.employee_id;
 
+    const [tagline, setTagline] = useState('');
     const [newPost, setNewPost] = useState('');
     const [mediaFile, setMediaFile] = useState(null);
     const [mediaType, setMediaType] = useState(null);
@@ -34,17 +35,19 @@ export default function ThreadScreen() {
     const [loadingComments, setLoadingComments] = useState({});
     const [editingPostId, setEditingPostId] = useState(null);
     const [editContent, setEditContent] = useState('');
+    const [editTagline, setEditTagline] = useState('');
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editCommentContent, setEditCommentContent] = useState('');
-    const [deletingPostId, setDeletingPostId] = useState(null);
-    const [deletingCommentId, setDeletingCommentId] = useState(null);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
     const isMobile = winWidth < 768;
     const isTablet = winWidth < 1024;
-    const [reactorModal, setReactorModal] = useState(null); // { postId, emoji, users, count }
+    const [reactorModal, setReactorModal] = useState(null);
     const [loadingReactors, setLoadingReactors] = useState(false);
-    const [fullscreenMedia, setFullscreenMedia] = useState(null); // { src, type }
-    const [errorNotif, setErrorNotif] = useState(null); // { message }
+    const [fullscreenMedia, setFullscreenMedia] = useState(null);
+    const [errorNotif, setErrorNotif] = useState(null);
+    const [showRemoveFirstModal, setShowRemoveFirstModal] = useState(false);
+    const [showEditRemoveFirstModal, setShowEditRemoveFirstModal] = useState(false);
+    const [pendingEditPost, setPendingEditPost] = useState(null);
 
     const [editMediaFile, setEditMediaFile] = useState(null);
     const [editMediaType, setEditMediaType] = useState(null);
@@ -52,10 +55,26 @@ export default function ThreadScreen() {
     const [editRemoveMedia, setEditRemoveMedia] = useState(false);
     const editFileInputRef = useRef(null);
 
+    // Track optimistic media overrides per post so edits reflect immediately
+    const [postMediaOverrides, setPostMediaOverrides] = useState({});
+
     const showError = (message) => {
         setErrorNotif({ message });
         setTimeout(() => setErrorNotif(null), 4000);
     };
+
+    // Auto-close "Remove First" modals after 5 seconds
+    useEffect(() => {
+        if (!showRemoveFirstModal) return;
+        const t = setTimeout(() => setShowRemoveFirstModal(false), 5000);
+        return () => clearTimeout(t);
+    }, [showRemoveFirstModal]);
+
+    useEffect(() => {
+        if (!showEditRemoveFirstModal) return;
+        const t = setTimeout(() => setShowEditRemoveFirstModal(false), 5000);
+        return () => clearTimeout(t);
+    }, [showEditRemoveFirstModal]);
 
     useEffect(() => {
         fetchProfiles();
@@ -89,6 +108,12 @@ export default function ThreadScreen() {
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        // Block adding new media if one is already attached
+        if (mediaPreview) {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            setShowRemoveFirstModal(true);
+            return;
+        }
         setMediaFile(file);
         setMediaType(file.type.startsWith('video') ? 'video' : 'image');
         setMediaPreview(URL.createObjectURL(file));
@@ -104,6 +129,12 @@ export default function ThreadScreen() {
     const handleEditFileSelect = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        // Block adding new media if edit already has media attached
+        if (editMediaPreview) {
+            if (editFileInputRef.current) editFileInputRef.current.value = '';
+            setShowEditRemoveFirstModal(true);
+            return;
+        }
         setEditMediaFile(file);
         setEditMediaType(file.type.startsWith('video') ? 'video' : 'image');
         setEditMediaPreview(URL.createObjectURL(file));
@@ -118,11 +149,13 @@ export default function ThreadScreen() {
                 userId: currentUserId,
                 user: user?.name || 'User',
                 role: user?.role?.toUpperCase() || 'EMPLOYEE',
+                tagline: tagline,
                 content: newPost,
                 file: mediaFile,
                 mediaType: mediaType
             });
             setNewPost('');
+            setTagline('');
             clearMedia();
         } catch (err) {
             console.error("Post Error:", err);
@@ -158,16 +191,12 @@ export default function ThreadScreen() {
         const y = e.clientY;
         setFlyingEmoji({ emoji, x, y, postId: id });
         setActiveEmojiPicker(null);
-
-        // Emotional Reaction - Distinct from the footer 'Like' action
         onToggleLike(id, emoji);
-
         setTimeout(() => setFlyingEmoji(null), 3500);
     };
 
     const formatTime = (ts) => {
         if (!ts) return '';
-        // Use YYYY/MM/DD format to force local time interpretation across all browsers
         const d = new Date(typeof ts === 'string' ? ts.replace(/-/g, '/').replace('T', ' ').split('.')[0] : ts);
         if (isNaN(d.getTime())) return '...';
 
@@ -189,7 +218,6 @@ export default function ThreadScreen() {
             : (post.reactions?.[emoji] || 0);
         const dynamicCount = cachedData.length > 0 ? cachedData.length : fallbackCount;
 
-        // Open modal immediately with cached/count data
         setReactorModal({
             postId: post.id,
             emoji: emoji === 'like' ? '❤️' : emoji,
@@ -197,16 +225,12 @@ export default function ThreadScreen() {
             count: dynamicCount
         });
 
-        // Fetch live reactor list from API
         setLoadingReactors(true);
         try {
             let liveUsers = await fetchReactors(post.id, emoji);
-
-            // If 'like' returns empty, the backend may store likes as '❤️' — retry
             if ((!liveUsers || liveUsers.length === 0) && emoji === 'like') {
                 liveUsers = await fetchReactors(post.id, '❤️');
             }
-
             if (liveUsers && liveUsers.length > 0) {
                 setReactorModal(prev => prev ? { ...prev, users: liveUsers, count: liveUsers.length } : null);
             }
@@ -333,13 +357,27 @@ export default function ThreadScreen() {
         <div style={styles.container}>
             {/* CREATE THREAD */}
             <div style={{ ...styles.card, borderTop: '5px solid #FDB913' }}>
+                <input
+                    id="thread-tagline-input"
+                    type="text"
+                    style={styles.tagInput}
+                    placeholder="ENTER POST TAGLINE (OPTIONAL) - e.g. ANNOUNCEMENT, SUCCESS STORY"
+                    value={tagline}
+                    onChange={e => setTagline(e.target.value)}
+                />
                 <textarea id="thread-content-input" style={styles.mainInput} placeholder="Share an update with the team..." value={newPost} onChange={e => setNewPost(e.target.value)} />
 
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} hidden accept="image/*,video/*" />
 
                 <div style={{ display: 'flex', gap: '15px', marginTop: '15px', alignItems: 'center' }}>
-                    <div style={styles.mediaBtn} onClick={() => fileInputRef.current?.click()}><ImageIcon size={18} color="#10b981" /> Photo</div>
-                    <div style={styles.mediaBtn} onClick={() => fileInputRef.current?.click()}><Film size={18} color="#ef4444" /> Video</div>
+                    <div style={styles.mediaBtn} onClick={() => {
+                        if (mediaPreview) { setShowRemoveFirstModal(true); return; }
+                        fileInputRef.current?.click();
+                    }}><ImageIcon size={18} color="#10b981" /> Photo</div>
+                    <div style={styles.mediaBtn} onClick={() => {
+                        if (mediaPreview) { setShowRemoveFirstModal(true); return; }
+                        fileInputRef.current?.click();
+                    }}><Film size={18} color="#ef4444" /> Video</div>
                     <div style={{ flex: 1 }} />
                     <button style={styles.postBtn} onClick={handlePost} disabled={uploading}>
                         {uploading ? 'Publishing...' : 'Publish Thread'}
@@ -372,6 +410,7 @@ export default function ThreadScreen() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
             {threads.map(post => {
                 const authorId = user?.id || user?.empId || user?.userId || user?.employee_id;
                 const uid = post.userId || post.user_id;
@@ -392,6 +431,7 @@ export default function ThreadScreen() {
                 return (
                     <div key={post.id} style={styles.threadCard}>
                         {post.tagline && <div style={styles.taglineBadge}>{post.tagline}</div>}
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div style={{ display: 'flex', gap: '15px' }}>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '15px', backgroundColor: '#0B1E3F', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(11, 30, 63, 0.15)' }}>
@@ -421,145 +461,175 @@ export default function ThreadScreen() {
                                         onClick={() => {
                                             setEditingPostId(post.id);
                                             setEditContent(post.content);
+                                            setEditTagline(post.tagline || '');
                                             setEditMediaFile(null);
                                             setEditMediaPreview(null);
                                             setEditRemoveMedia(false);
-                                            setDeletingPostId(null);
                                         }}
                                         style={{ border: 'none', background: '#f8fafc', color: '#315A9E', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Edit post"
                                     >
                                         <Edit3 size={16} />
                                     </button>
-                                    
-                                    {deletingPostId === post.id ? (
-                                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center', background: '#fef2f2', padding: '5px 10px', borderRadius: '12px' }}>
-                                            <span style={{fontSize: '11px', color: '#ef4444', fontWeight: '900'}}>Delete?</span>
-                                            <button onClick={() => deletePost(post.id)} style={{ border: 'none', background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}>Yes</button>
-                                            <button onClick={() => setDeletingPostId(null)} style={{ border: '1.5px solid #ef4444', background: 'white', color: '#ef4444', padding: '3px 8px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}>No</button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setDeletingPostId(post.id)}
-                                            style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            title="Delete post"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => deletePost(post.id)}
+                                        style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        title="Delete post"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             )}
                         </div>
 
-                        {(isEditing || (post.content && post.content.trim() !== '')) && (
-                            <div style={{ marginTop: '14px', fontSize: isMobile ? '13px' : '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
-                                {isEditing ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <textarea
-                                            id={`thread-edit-content-input-${post.id}`}
-                                            autoFocus
-                                            onFocus={(e) => {
-                                                const val = e.target.value;
-                                                e.target.value = '';
-                                                e.target.value = val;
-                                            }}
-                                            style={{ ...styles.mainInput, minHeight: '80px', padding: '15px' }}
-                                            value={editContent}
-                                            onChange={(e) => setEditContent(e.target.value)}
-                                        />
+                        <div style={{ marginTop: '14px', fontSize: isMobile ? '13px' : '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
+                            {isEditing ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <input
+                                        id={`thread-edit-tagline-input-${post.id}`}
+                                        type="text"
+                                        style={styles.tagInput}
+                                        placeholder="ENTER POST TAGLINE (OPTIONAL) - e.g. ANNOUNCEMENT, SUCCESS STORY"
+                                        value={editTagline}
+                                        onChange={(e) => setEditTagline(e.target.value)}
+                                    />
+                                    <textarea
+                                        id={`thread-edit-content-input-${post.id}`}
+                                        autoFocus
+                                        onFocus={(e) => {
+                                            const val = e.target.value;
+                                            e.target.value = '';
+                                            e.target.value = val;
+                                        }}
+                                        style={{ ...styles.mainInput, minHeight: '80px', padding: '15px' }}
+                                        value={editContent}
+                                        onChange={(e) => setEditContent(e.target.value)}
+                                    />
 
-                                        <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
-                                        <div style={{ ...styles.mediaBtn, width: 'fit-content', marginTop: '12px', marginBottom: '12px' }} onClick={() => editFileInputRef.current?.click()}>
+                                    <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <div style={styles.mediaBtn} onClick={() => {
+                                            const hasExisting = (editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia;
+                                            if (hasExisting) {
+                                                setPendingEditPost(post);
+                                                setShowEditRemoveFirstModal(true);
+                                                return;
+                                            }
+                                            editFileInputRef.current?.click();
+                                        }}>
                                             <ImageIcon size={18} color="#10b981" /> Photo/Video
                                         </div>
-
-                                        {(editMediaPreview && !editRemoveMedia) && (
-                                            <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
-                                                <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
-                                                {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
+                                        {(editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia && (
+                                            <div style={{ ...styles.mediaBtn, color: '#ef4444' }} onClick={() => { setEditRemoveMedia(true); setEditMediaFile(null); setEditMediaPreview(null); }}>
+                                                <Trash2 size={18} color="#ef4444" /> Remove Media
                                             </div>
                                         )}
+                                    </div>
 
-                                        {(!editMediaPreview && !editRemoveMedia) && (() => {
-                                            const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
-                                            if (!mediaPath || typeof mediaPath !== 'string') return null;
-                                            const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
-                                            let src = mediaPath;
-                                            if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
-                                                const separator = mediaPath.startsWith('/') ? '' : '/';
-                                                src = `${BASE_URL}${separator}${mediaPath}`;
-                                            }
-                                            const manualBuster = window.__threadImgBusters?.[post.id];
-                                            const busterTs = manualBuster || new Date(post.updated_at || post.updatedAt || post.createdAt || Date.now()).getTime();
-                                            const cacheBuster = `?t=${busterTs}`;
-                                            src = src.includes('?') ? `${src}&t=${cacheBuster.substring(3)}` : `${src}${cacheBuster}`;
-                                            return (
-                                                <div style={{ marginTop: '10px', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px', opacity: 0.5 }}>
-                                                    {isVideo ? (<video src={src} controls style={{ width: '100%', display: 'block' }} />) : (<img src={src} style={{ width: '100%', display: 'block' }} alt="" />)}
-                                                </div>
-                                            );
-                                        })()}
+                                    {(editMediaPreview && !editRemoveMedia) && (
+                                        <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
+                                            <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
+                                            {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
+                                        </div>
+                                    )}
 
-                                        <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                                            <button
-                                                onClick={async () => {
-                                                    const success = await updatePost(post.id, {
-                                                        content: editContent,
-                                                        file: editMediaFile,
-                                                        mediaType: editMediaType,
-                                                        removeMedia: editRemoveMedia
-                                                    });
-                                                    if (success) {
-                                                        setEditingPostId(null);
-                                                        setEditMediaFile(null);
-                                                        setEditMediaPreview(null);
-                                                        setEditMediaType(null);
-                                                        setEditRemoveMedia(false);
-                                                        if (editFileInputRef.current) editFileInputRef.current.value = '';
-                                                    } else {
-                                                        showError('Failed to save changes. Please try again.');
+                                    {(!editMediaPreview && !editRemoveMedia) && (() => {
+                                        const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
+                                        if (!mediaPath || typeof mediaPath !== 'string') return null;
+                                        const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
+                                        let src = mediaPath;
+                                        if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
+                                            const separator = mediaPath.startsWith('/') ? '' : '/';
+                                            src = `${BASE_URL}${separator}${mediaPath}`;
+                                        }
+                                        return (
+                                            <div style={{ marginTop: '10px', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px', opacity: 0.5 }}>
+                                                {isVideo ? (<video src={src} controls style={{ width: '100%', display: 'block' }} />) : (<img src={src} style={{ width: '100%', display: 'block' }} alt="" />)}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                                        <button
+                                            onClick={async () => {
+                                                const success = await updatePost(post.id, {
+                                                    content: editContent,
+                                                    tagline: editTagline,
+                                                    file: editMediaFile,
+                                                    mediaType: editMediaType,
+                                                    removeMedia: editRemoveMedia
+                                                });
+                                                if (success) {
+                                                    // Optimistically update media display immediately after save
+                                                    if (editRemoveMedia) {
+                                                        // User removed media — set override to null to hide it
+                                                        setPostMediaOverrides(prev => ({ ...prev, [post.id]: null }));
+                                                    } else if (editMediaPreview) {
+                                                        // User replaced media — show the new blob preview right away
+                                                        setPostMediaOverrides(prev => ({
+                                                            ...prev,
+                                                            [post.id]: { src: editMediaPreview, type: editMediaType }
+                                                        }));
                                                     }
-                                                }}
-                                                style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
-                                            >
-                                                SAVE
-                                            </button>
-                                            <button
-                                                onClick={() => {
                                                     setEditingPostId(null);
+                                                    setEditTagline('');
                                                     setEditMediaFile(null);
                                                     setEditMediaPreview(null);
-                                                    setEditMediaType(null);
                                                     setEditRemoveMedia(false);
-                                                    if (editFileInputRef.current) editFileInputRef.current.value = '';
-                                                }}
-                                                style={{ background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
-                                            >
-                                                CANCEL
-                                            </button>
-                                        </div>
+                                                } else {
+                                                    showError('Failed to save changes. Please try again.');
+                                                }
+                                            }}
+                                            style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+                                        >
+                                            SAVE
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setEditingPostId(null);
+                                                setEditTagline('');
+                                                setEditMediaFile(null);
+                                                setEditMediaPreview(null);
+                                                setEditRemoveMedia(false);
+                                            }}
+                                            style={{ background: 'none', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
+                                        >
+                                            CANCEL
+                                        </button>
                                     </div>
-                                ) : (
-                                    post.content
-                                )}
-                            </div>
-                        )}
+                                </div>
+                            ) : (
+                                post.content
+                            )}
+                        </div>
 
-                        {/* Support multiple field names and direct base64/relative URLs with type safety */}
+                        {/* Media rendering checks postMediaOverrides first for instant post-edit reflection */}
                         {!isEditing && (() => {
-                            const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
+                            const override = postMediaOverrides[post.id];
+
+                            // override === null means user explicitly removed media
+                            if (override === null) return null;
+
+                            // override has a value means user just uploaded new media — use it immediately
+                            const mediaPath = override?.src
+                                || post.media_url || post.mediaUrl || post.media
+                                || post.image || post.media_path || post.file_path;
+
                             if (!mediaPath || typeof mediaPath !== 'string') return null;
-                            const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
+
+                            const isVideo = override?.type === 'video'
+                                || post.media_type === 'video'
+                                || post.mediaType === 'video'
+                                || mediaPath.toLowerCase().includes('video')
+                                || mediaPath.toLowerCase().endsWith('.mp4');
 
                             let src = mediaPath;
-                            if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:')) {
+                            // blob: URLs are already absolute — don't prepend BASE_URL
+                            if (!mediaPath.startsWith('http') && !mediaPath.startsWith('data:') && !mediaPath.startsWith('blob:')) {
                                 const separator = mediaPath.startsWith('/') ? '' : '/';
                                 src = `${BASE_URL}${separator}${mediaPath}`;
                             }
-                            const manualBuster = window.__threadImgBusters?.[post.id];
-                            const busterTs = manualBuster || new Date(post.updated_at || post.updatedAt || post.createdAt || Date.now()).getTime();
-                            const cacheBuster = `?t=${busterTs}`;
-                            src = src.includes('?') ? `${src}&t=${cacheBuster.substring(3)}` : `${src}${cacheBuster}`;
+
                             return (
                                 <div style={styles.postMedia}>
                                     {isVideo ? (
@@ -576,11 +646,8 @@ export default function ThreadScreen() {
                             );
                         })()}
 
-
-
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
                             {post.reactions && Object.entries(post.reactions).map(([emoji, count]) => {
-                                // Only render actual emoji reactions — skip metadata keys like 'like', 'badge', 'total', 'count'
                                 if (!EMOJI_LIST.includes(emoji)) return null;
                                 if (!count || count <= 0) return null;
                                 const hasReacted = post.userReactions?.[emoji] === true;
@@ -694,24 +761,15 @@ export default function ThreadScreen() {
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                                                                 <span style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F' }}>{cUser}</span>
                                                                 {isMyComment && (
-                                                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); setDeletingCommentId(null); }} style={{ border: 'none', background: 'none', color: '#334155', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}><Edit3 size={16} /></button>
-                                                                        
-                                                                        {deletingCommentId === c.id ? (
-                                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#fef2f2', padding: '4px 10px', borderRadius: '10px', border: '1px solid #fee2e2' }}>
-                                                                                <span style={{fontSize: '11px', color: '#ef4444', fontWeight: '900'}}>Sure?</span>
-                                                                                <button onClick={async () => {
-                                                                                    const success = await deleteComment(post.id, c.id);
-                                                                                    if (success) {
-                                                                                        const comments = await fetchComments(post.id);
-                                                                                        setPostComments(prev => ({ ...prev, [post.id]: comments }));
-                                                                                    }
-                                                                                }} style={{ border: 'none', background: '#ef4444', color: 'white', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '10px', fontWeight: '900' }}>Yes</button>
-                                                                                <button onClick={() => setDeletingCommentId(null)} style={{ border: '1px solid #ef4444', background: 'white', color: '#ef4444', padding: '2px 7px', borderRadius: '6px', cursor: 'pointer', fontSize: '10px', fontWeight: '900' }}>No</button>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <button onClick={() => setDeletingCommentId(c.id)} style={{ border: 'none', background: 'none', color: '#e11d48', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}><Trash2 size={16} /></button>
-                                                                        )}
+                                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
+                                                                        <button onClick={async () => {
+                                                                            const success = await deleteComment(post.id, c.id);
+                                                                            if (success) {
+                                                                                const comments = await fetchComments(post.id);
+                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                            }
+                                                                        }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -723,26 +781,31 @@ export default function ThreadScreen() {
                                                                         value={editCommentContent}
                                                                         onChange={e => setEditCommentContent(e.target.value)}
                                                                         autoFocus
-                                                                        onFocus={(e) => {
-                                                                            const val = e.target.value;
-                                                                            e.target.value = '';
-                                                                            e.target.value = val;
-                                                                        }}
                                                                     />
-                                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={async () => {
-                                                                            const success = await updateComment(post.id, c.id, editCommentContent);
-                                                                            if (success) {
-                                                                                const comments = await fetchComments(post.id);
-                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
-                                                                                setEditingCommentId(null);
-                                                                            }
-                                                                        }} style={{ fontSize: '11px', fontWeight: '900', color: 'white', background: '#315A9E', border: 'none', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>UPDATE</button>
-                                                                        <button onClick={() => setEditingCommentId(null)} style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', background: 'none', border: '1.5px solid #e2e8f0', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>CANCEL</button>
+                                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                const success = await updateComment(post.id, c.id, editCommentContent);
+                                                                                if (success) {
+                                                                                    setEditingCommentId(null);
+                                                                                    const comments = await fetchComments(post.id);
+                                                                                    setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                                }
+                                                                            }}
+                                                                            style={{ border: 'none', background: '#315A9E', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}
+                                                                        >
+                                                                            Save
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setEditingCommentId(null)}
+                                                                            style={{ border: '1.5px solid #e2e8f0', background: 'white', color: '#64748b', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <div style={{ fontSize: '13px', color: '#475569', fontWeight: '600', lineHeight: '1.5' }}>{cText}</div>
+                                                                <span style={{ fontSize: '13px', color: '#334155', fontWeight: '500' }}>{cText}</span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -750,9 +813,7 @@ export default function ThreadScreen() {
                                             })}
                                         </>
                                     ) : (
-                                        <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8', fontSize: '12px', fontWeight: '800', border: '1.5px dashed #eef2f6', borderRadius: '20px' }}>
-                                            No comments yet. Start the conversation!
-                                        </div>
+                                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', padding: '10px' }}>No conversations yet. Start one!</div>
                                     )}
                                 </div>
                             </div>
@@ -761,151 +822,70 @@ export default function ThreadScreen() {
                 );
             })}
 
-            {/* ERROR NOTIFICATION POPUP */}
-            <AnimatePresence>
-                {errorNotif && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.85, y: 30 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.85, y: 30 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                        style={{
-                            position: 'fixed',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            zIndex: 99999,
-                            backgroundColor: 'white',
-                            borderRadius: '24px',
-                            padding: '28px 36px',
-                            boxShadow: '0 20px 60px rgba(239,68,68,0.2), 0 4px 20px rgba(0,0,0,0.12)',
-                            border: '1.5px solid #fecaca',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '12px',
-                            maxWidth: '340px',
-                            width: '90%',
-                            textAlign: 'center'
-                        }}
-                    >
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '22px' }}>⚠️</span>
-                        </div>
-                        <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Connection Error</div>
-                        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>{errorNotif.message}</div>
+            {/* FULLSCREEN ZOOM PORTAL */}
+            {fullscreenMedia && (
+                <div style={styles.modalOverlay} onClick={() => setFullscreenMedia(null)}>
+                    <div style={{ position: 'relative', width: '90%', height: '90%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <X size={28} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer' }} onClick={() => setFullscreenMedia(null)} />
+                        {fullscreenMedia.type === 'image' && (
+                            <img src={fullscreenMedia.src} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '15px' }} alt="" />
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ERROR NOTIFICATION OVERLAY */}
+            {errorNotif && (
+                <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#ef4444', color: 'white', padding: '12px 24px', borderRadius: '15px', boxShadow: '0 10px 30px rgba(239, 68, 68, 0.3)', zIndex: 9999, fontWeight: '800', fontSize: '13px' }}>
+                    {errorNotif.message}
+                </div>
+            )}
+
+            {/* REMOVE FIRST WARNING OVERLAY (CREATE THREAD) */}
+            {showRemoveFirstModal && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Media Already Attached</h3>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>
+                            You cannot attach multiple photos or videos to a post. Please remove your current attached file first.
+                        </p>
                         <button
-                            onClick={() => setErrorNotif(null)}
-                            style={{ marginTop: '4px', padding: '8px 24px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '900', fontSize: '12px', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                            onClick={() => setShowRemoveFirstModal(false)}
+                            style={{ width: '100%', backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '12px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}
                         >
-                            Dismiss
+                            Got it
                         </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-            <AnimatePresence>
-                {flyingEmoji && (
-                    <motion.div initial={{ left: flyingEmoji.x, top: flyingEmoji.y, opacity: 0 }} animate={{ y: [0, -100, -200], x: [0, 50, -50], opacity: [0, 1, 0], scale: [1, 2, 1] }} transition={{ duration: 2 }} style={{ position: 'fixed', fontSize: '50px', zIndex: 999 }}>{flyingEmoji.emoji}</motion.div>
-                )}
+                    </div>
+                </div>
+            )}
 
-                {reactorModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        style={styles.modalOverlay}
-                        onClick={() => setReactorModal(null)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, y: 20 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.9, y: 20 }}
-                            style={styles.modalContent}
-                            onClick={e => e.stopPropagation()}
+            {/* REMOVE FIRST WARNING OVERLAY (EDIT THREAD) */}
+            {showEditRemoveFirstModal && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Existing Media Present</h3>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>
+                            To upload new photo or video files, you must click <span style={{ color: '#ef4444', fontWeight: '800' }}>Remove Media</span> first to clear the existing media.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setShowEditRemoveFirstModal(false);
+                                setPendingEditPost(null);
+                            }}
+                            style={{ width: '100%', backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '12px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <div style={{ fontSize: '18px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '24px' }}>{reactorModal.emoji}</span>
-                                    <span style={{ background: '#f0f9ff', color: '#315A9E', borderRadius: '8px', padding: '2px 10px', fontSize: '14px' }}>
-                                        {reactorModal.users.length > 0 ? reactorModal.users.length : reactorModal.count}
-                                    </span>
-                                </div>
-                                <X size={24} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setReactorModal(null)} />
-                            </div>
+                            Got it
+                        </button>
+                    </div>
+                </div>
+            )}
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
-                                {loadingReactors ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {[1, 2, 3].map(i => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
-                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#e2e8f0', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                                                <div style={{ height: '14px', width: '120px', backgroundColor: '#e2e8f0', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : reactorModal.users && reactorModal.users.length > 0 ? reactorModal.users.map((reactor, idx) => {
-                                    const name = typeof reactor === 'string' ? reactor
-                                        : (reactor?.name || reactor?.userName || reactor?.user_name
-                                            || reactor?.username || reactor?.fullName || reactor?.full_name
-                                            || reactor?.displayName || reactor?.display_name
-                                            || reactor?.emp_name || reactor?.employee_name || 'Unknown');
-                                    const role = typeof reactor === 'object'
-                                        ? (reactor?.role || reactor?.designation || reactor?.userRole || '') : '';
-                                    return (
-                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#315A9E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '13px', flexShrink: 0 }}>
-                                                {name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: '14px', fontWeight: '700', color: '#0B1E3F' }}>{name}</div>
-                                                {role && <div style={{ fontSize: '11px', color: '#315A9E', fontWeight: '700', textTransform: 'uppercase' }}>{role}</div>}
-                                            </div>
-                                        </div>
-                                    );
-                                }) : (
-                                    <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8', fontSize: '13px' }}>
-                                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>{reactorModal.emoji}</div>
-                                        <div style={{ fontWeight: '700', color: '#64748b' }}>{reactorModal.count} {reactorModal.count === 1 ? 'person' : 'people'} reacted</div>
-                                        <div style={{ marginTop: '4px', fontSize: '12px' }}>Detailed list not available from server</div>
-                                    </div>
-                                )}
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-
-                {fullscreenMedia && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setFullscreenMedia(null)}
-                        style={{
-                            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)',
-                            zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'zoom-out', padding: '20px'
-                        }}
-                    >
-                        <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setFullscreenMedia(null)}
-                            style={{ position: 'absolute', top: '30px', right: '30px', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}
-                        >
-                            <X size={24} />
-                        </motion.button>
-
-                        <motion.img
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            src={fullscreenMedia.src}
-                            alt="Fullscreen"
-                            style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: '12px', boxShadow: '0 30px 100px rgba(0,0,0,0.5)', objectFit: 'contain' }}
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* FLYING EMOJI PORTAL */}
+            {flyingEmoji && (
+                <div style={{ position: 'fixed', left: flyingEmoji.x, top: flyingEmoji.y, pointerEvents: 'none', zIndex: 9999, fontSize: '40px', animation: 'flyUp 3.5s forwards' }}>
+                    {flyingEmoji.emoji}
+                </div>
+            )}
         </div>
     );
 }
