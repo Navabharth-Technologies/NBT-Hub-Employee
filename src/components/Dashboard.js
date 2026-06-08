@@ -15,22 +15,10 @@ const parseSafe = (d) => {
   return new Date(d);
 };
 
-const getNextOccurrence = (d) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let bDate = parseSafe(d);
-  let occurrence = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
-  if (occurrence < today) {
-    occurrence.setFullYear(today.getFullYear() + 1);
-  }
-  return occurrence;
-};
-
 const Dashboard = ({ setActiveTab }) => {
   const { user } = useAuth();
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const [loading, setLoading] = useState(true);
-  const [hoveredCard, setHoveredCard] = useState(null);
 
   // Real Data State
   const [yesterdayTasks, setYesterdayTasks] = useState([]);
@@ -87,50 +75,21 @@ const Dashboard = ({ setActiveTab }) => {
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
 
-      const headers = {
+      const headers = { 
         'Accept': 'application/json',
         'Authorization': `Bearer ${cleanToken}`
       };
       const res = await fetch(`${BASE_URL}/api/sprint-updates/${sid}`, { headers });
       if (res.ok) {
-        const raw = await res.json();
-        const dataArr = Array.isArray(raw) ? raw : (raw.value && Array.isArray(raw.value) ? raw.value : [raw]);
-
-        // Find the latest update for this specific project by searching in reverse
-        const data = [...dataArr].reverse().find(d => {
-          if (!d) return false;
-          const respName = d.project_name || d.projectName;
-          return respName === currentProjectName;
-        });
-
-        if (data) {
-          const newStatus = data.sprint_status || data.sprintStatus;
-          const newProg = data.progress_percentage || data.progressPercentage || data.progress;
-
-          const currentCached = localStorage.getItem(`sprint_progress_${sid}_${currentProjectName}`);
-          let isLocallyCompleted = false;
-          try {
-            if (currentCached) {
-              const parsed = JSON.parse(currentCached);
-              if (parsed.status === 'Completed' || parsed.progress === 100) {
-                isLocallyCompleted = true;
-              }
-            }
-          } catch (e) { }
-
-          if (isLocallyCompleted) {
-            setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: 'Completed' }));
-            setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: 100 }));
-          } else {
-            if (newStatus) setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: newStatus }));
-            if (newProg !== undefined && newProg !== null) {
-              setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: newProg }));
-              localStorage.setItem(`sprint_progress_${sid}_${currentProjectName}`, JSON.stringify({
-                status: newStatus || 'Pending',
-                progress: newProg
-              }));
-            }
-          }
+        const data = await res.json();
+        const respName = data.project_name || data.projectName;
+        if (!respName || respName === currentProjectName) {
+          setSprintStatusMap(prev => ({ ...prev, [currentProjectName]: data.sprint_status || data.sprintStatus || 'Pending' }));
+          setSprintProgressMap(prev => ({ ...prev, [currentProjectName]: data.progress_percentage || data.progressPercentage || data.progress || 0 }));
+          localStorage.setItem(`sprint_progress_${targetId}_${currentProjectName}`, JSON.stringify({ 
+            status: data.sprint_status || data.sprintStatus || 'Pending', 
+            progress: data.progress_percentage || data.progressPercentage || data.progress || 0 
+          }));
         }
       }
     } catch (e) { }
@@ -145,7 +104,7 @@ const Dashboard = ({ setActiveTab }) => {
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
 
-      const headers = {
+      const headers = { 
         'Accept': 'application/json',
         'Authorization': `Bearer ${cleanToken}`
       };
@@ -154,28 +113,20 @@ const Dashboard = ({ setActiveTab }) => {
         const data = await res.json();
         setTaskDetailMap(prev => ({ ...prev, [tid]: data }));
       }
-    } catch { }
+    } catch {}
   };
 
   const syncSprintToBackend = async (projName, st, prog, taskId = null) => {
     try {
       const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
-      const suid = sanitizeId(uid);
-      localStorage.setItem(`sprint_progress_${suid}_${projName}`, JSON.stringify({ status: st, progress: prog }));
-
-      const token = localStorage.getItem('token');
-      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
-
-      const headers = { 'Content-Type': 'application/json' };
-      if (cleanToken) {
-        headers['Authorization'] = `Bearer ${cleanToken}`;
-      }
-
+      localStorage.setItem(`sprint_progress_${uid}_${projName}`, JSON.stringify({ status: st, progress: prog }));
+      
       // Dual-action sync: Attempt both specific task update and global sprint log
+      const suid = sanitizeId(uid);
       const payloads = [
         fetch(`${BASE_URL}/api/sprint-updates`, {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             projectName: projName,
             teamLeaderId: suid, // for backward compat/tracking
@@ -191,7 +142,7 @@ const Dashboard = ({ setActiveTab }) => {
         const sid = sanitizeId(taskId);
         payloads.push(fetch(API_ENDPOINTS.UPDATE_TASK_STATUS(sid), {
           method: 'PUT',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: st, progress: prog })
         }));
       }
@@ -199,7 +150,7 @@ const Dashboard = ({ setActiveTab }) => {
       // Also mirror to Daily TASK_UPDATES so it shows in the report log
       payloads.push(fetch(API_ENDPOINTS.TASK_UPDATES, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: uid,
           userName: user?.name,
@@ -237,7 +188,7 @@ const Dashboard = ({ setActiveTab }) => {
         newProgress = Math.min(95, curProg + 5);
         if (newProgress < 5) newProgress = 5;
       }
-
+      
       setSprintStatusMap(prev => ({ ...prev, [projName]: st }));
       setSprintProgressMap(prev => ({ ...prev, [projName]: newProgress }));
       syncSprintToBackend(projName, st, newProgress, taskId);
@@ -247,7 +198,7 @@ const Dashboard = ({ setActiveTab }) => {
   const confirmStatusChange = () => {
     if (!pendingStatusData) return;
     const { projName, st, taskId } = pendingStatusData;
-
+    
     let newProgress = sprintProgressMap[projName] || 0;
     if (st === 'Pending') {
       newProgress = 5;
@@ -267,7 +218,7 @@ const Dashboard = ({ setActiveTab }) => {
       setNotificationFeedback(`Success: ${projName} marked as Completed!`);
       setTimeout(() => setNotificationFeedback(null), 3000);
     }
-
+    
     setShowFinalizeModal(false);
     setPendingStatusData(null);
   };
@@ -282,7 +233,7 @@ const Dashboard = ({ setActiveTab }) => {
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
-
+    
     if (user) {
       // Fast Hydration: Try to load from cache immediately
       try {
@@ -295,7 +246,7 @@ const Dashboard = ({ setActiveTab }) => {
         if (cachedReviews) setTaskReviews(JSON.parse(cachedReviews));
         // Optimistic hydration: load exactly what is in cache, or 0 if missing.
         setYesterdayCompletion(cachedCompletion !== null ? Number(cachedCompletion) : 0);
-      } catch (e) { }
+      } catch (e) {}
 
       fetchTaskHistory();
       fetchSecondaryData();
@@ -339,7 +290,7 @@ const Dashboard = ({ setActiveTab }) => {
               }
             });
           }
-        } catch (e) { }
+        } catch (e) {}
       }
 
       // Ensure the current user is always included with their latest profile DOB
@@ -366,10 +317,10 @@ const Dashboard = ({ setActiveTab }) => {
         const getNextOccurrence = (d) => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-
+          
           let bDate = parseSafe(d);
           let occurrence = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
-
+          
           if (occurrence < today) {
             occurrence.setFullYear(today.getFullYear() + 1);
           }
@@ -400,7 +351,7 @@ const Dashboard = ({ setActiveTab }) => {
         const response = await fetch(API_ENDPOINTS.SUGGESTIONS, {
           headers: { 'Authorization': `Bearer ${cleanToken}` }
         });
-
+        
         if (response.ok) {
           const sData = await response.json();
           setSuggestions(Array.isArray(sData) ? sData : (sData.data || []));
@@ -408,10 +359,10 @@ const Dashboard = ({ setActiveTab }) => {
       } catch (error) {
         console.error("Failed to fetch suggestions:", error);
       }
-
-    } catch (err) {
+      
+    } catch (err) { 
       // This catch is only for catastrophic failures in the promise setup
-      console.warn("Secondary optional data fetch reduced:", err);
+      console.warn("Secondary optional data fetch reduced:", err); 
     }
   };
 
@@ -454,7 +405,7 @@ const Dashboard = ({ setActiveTab }) => {
     if (!uid) return;
 
     let sortedLogs = []; // Initialize early to avoid scope errors
-    let backendYestRec = null;
+    let backendYestRec = null; 
     let finalTodayTasks = []; // Declare early for merge logic
     let finalYestTasks = [];  // Declare early for merge logic
     const todayDate = new Date();
@@ -475,7 +426,7 @@ const Dashboard = ({ setActiveTab }) => {
       const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
       if (!cleanToken) return;
 
-      const headers = {
+      const headers = { 
         'Accept': 'application/json',
         'Authorization': `Bearer ${cleanToken}`
       };
@@ -498,7 +449,7 @@ const Dashboard = ({ setActiveTab }) => {
         const list = await assignedResp.json();
         const tasksData = (Array.isArray(list) ? list : (list.value || list.data || []));
         const validTasksData = tasksData.filter(p => !!(p && (p.projectName || p.project_name || p.project || p.task_name || p.taskName || p.title || p.taskTitle)));
-
+        
         setIndividualProjects(validTasksData);
         setAssignedTasksList(validTasksData);
         safeSetItem(`ind_projects_${user.id}`, JSON.stringify(validTasksData));
@@ -527,13 +478,13 @@ const Dashboard = ({ setActiveTab }) => {
       // 2. Process Manager / Team Projects
       // We need the TL's ID to fetch projects assigned TO them by the PM
       let mId = user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || user?.tl_id || user?.team_leader_id || user?.teamLeaderId || user?.representative_tl || user?.manager_email || user?.manager;
-
+      
       if (profileResp && profileResp.ok) {
         try {
           // Use clone() to allow multiple reads if necessary
           const mData = await profileResp.clone().json();
           mId = mData?.reporting_manager_id || mData?.reportingManagerId || mData?.manager_id || mData?.managerId || mData?.tl_id || mData?.team_leader_id || mData?.id || mId;
-        } catch { }
+        } catch {}
       }
 
       if (mId) {
@@ -574,9 +525,9 @@ const Dashboard = ({ setActiveTab }) => {
         console.log('[Dashboard] task-updates from backend:', list.length, 'records', list);
 
         sortedLogs = list.sort((a, b) => new Date(getLogDate(b)) - new Date(getLogDate(a)));
-
+        
         const todayLogs = sortedLogs.filter(r => isSameDay(todayDate, getLogDate(r)));
-        const yestLogs = sortedLogs.filter(r => isSameDay(yesterdayDate, getLogDate(r)));
+        const yestLogs  = sortedLogs.filter(r => isSameDay(yesterdayDate, getLogDate(r)));
 
         // Merge all tasks from all records for the day to avoid missing data
         const mergeTasks = (logs) => {
@@ -591,7 +542,7 @@ const Dashboard = ({ setActiveTab }) => {
         };
 
         finalTodayTasks = mergeTasks(todayLogs);
-        finalYestTasks = mergeTasks(yestLogs);
+        finalYestTasks  = mergeTasks(yestLogs);
 
         setTodayTasks(finalTodayTasks);
         setYesterdayTasks(finalYestTasks);
@@ -629,9 +580,9 @@ const Dashboard = ({ setActiveTab }) => {
       // ── Merge backend records with localStorage cache ──
       // localStorage is ALWAYS written on save, so it works even when backend fails.
       const lsTodayRaw = localStorage.getItem(lsKey(uid, todayDate));
-      const lsYestRaw = localStorage.getItem(lsKey(uid, yesterdayDate));
+      const lsYestRaw  = localStorage.getItem(lsKey(uid, yesterdayDate));
       const lsTodayRec = lsTodayRaw ? JSON.parse(lsTodayRaw) : null;
-      const lsYestRec = lsYestRaw ? JSON.parse(lsYestRaw) : null;
+      const lsYestRec  = lsYestRaw  ? JSON.parse(lsYestRaw)  : null;
 
       // Define finalYestRec for legacy performance calculations below
       let backendYestMatch = null;
@@ -662,15 +613,17 @@ const Dashboard = ({ setActiveTab }) => {
       if (finalYestRec) {
         const yestTasks = parseTasks(finalYestRec.tasks || finalYestRec.task_list || finalYestRec.content);
         setYesterdayTasks(yestTasks);
-
+        
         const yStatus = finalYestRec.overallStatus || finalYestRec.status || 'Pending';
         setYesterdayStatus(yStatus);
-
+        
         let percentage = 0;
-        if (yStatus === 'Completed') {
+        if (yStatus === 'Completed' || yStatus === 'Verified' || yStatus === 'Approved') {
           percentage = 100;
         } else if (yStatus === 'In Progress') {
           percentage = 50;
+        } else if (yStatus === 'Rejected') {
+          percentage = 70;
         } else {
           percentage = 0;
         }
@@ -698,6 +651,12 @@ const Dashboard = ({ setActiveTab }) => {
       return;
     }
 
+    const hasEmpty = editBuffer.some(t => !t.text || t.text.trim() === '');
+    if (hasEmpty) {
+      alert('Task description cannot be empty. Please fill or remove the empty task before saving.');
+      return;
+    }
+
     const now = Date.now();
     const cleanTasks = editBuffer
       .filter(t => t.text && t.text.trim() !== '')
@@ -706,6 +665,11 @@ const Dashboard = ({ setActiveTab }) => {
         // This solves the issue of edited tasks keeping old timestamps.
         return { ...t, id: now + idx };
       });
+
+    if (cleanTasks.length === 0) {
+      alert('Please enter at least one task detail before saving.');
+      return;
+    }
 
     const payload = {
       userId: Number(uid),
@@ -814,34 +778,34 @@ const Dashboard = ({ setActiveTab }) => {
   };
 
   const s = {
-    page: {
-      paddingTop: winWidth < 768 ? '10px' : '20px',
+    page: { 
+      paddingTop: winWidth < 768 ? '10px' : '20px', 
       paddingLeft: winWidth < 768 ? '15px' : '40px',
       paddingRight: winWidth < 768 ? '15px' : '40px',
-      paddingBottom: '120px',
-      maxWidth: '100%',
-      margin: '0 auto',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: winWidth < 768 ? '15px' : '30px',
-      fontFamily: "'Inter', sans-serif",
-      overflowX: 'hidden'
+      paddingBottom: '20px', 
+      maxWidth: '100%', 
+      margin: '0 auto', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: winWidth < 768 ? '15px' : '30px', 
+      fontFamily: "'Inter', sans-serif", 
+      overflowX: 'hidden' 
     },
     grid: { display: 'flex', flexDirection: 'column', gap: winWidth < 768 ? '12px' : '25px' },
-    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '1px solid #0B1E3F', display: 'flex', flexDirection: 'column' },
-    mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#3b5b80ff', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
+    mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#0B1E3F', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
     yesterdayBox: { backgroundColor: '#f0fdf4', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '180px', height: '100%', border: '1.5px solid #dcfce7', display: 'flex', flexDirection: 'column' },
     yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px', marginBottom: '8px' },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: '#f8fafc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.0px solid #bfdbfe', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
+    todayBox: { backgroundColor: '#f8fafc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.5px solid #bfdbfe', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
     todayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px' },
     editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
     taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
     statusBadge: { fontSize: '10px', fontWeight: '1000', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#0B1E3F', width: 'fit-content', marginTop: '12px' },
     liveBadge: { fontSize: '10px', fontWeight: '1000', color: '#cbd5e1', alignSelf: 'flex-end', marginTop: 'auto' },
-    statsCard: { backgroundColor: '#0B1E3F', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(11,30,63,0.15)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
+    statsCard: { backgroundColor: 'white', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '2px solid #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
   };
 
   const avatarInitial = (name = '') => name?.charAt(0)?.toUpperCase() || '?';
@@ -851,126 +815,109 @@ const Dashboard = ({ setActiveTab }) => {
       <div style={s.grid}>
         {/* ────── ATTENDANCE PORTAL SECTION ────── */}
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <div style={{ ...s.mainTitle, fontSize: '28px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={20} color="#2a3c63ff" /> Attendance Overview
+          <div style={{ ...s.mainTitle, fontSize: '18px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Calendar size={20} color="#3B5998" /> Attendance Tracking
           </div>
-          <div
+          <div 
             onClick={(e) => { e.stopPropagation(); setActiveTab('ATTENDANCE'); }}
-            style={{
-              padding: '26px 24px',
-              backgroundColor: '#ffffff',
-              borderRadius: '24px',
-              border: '1px solid #0b1e3f',
-              borderLeft: '10px solid #0b1e3f',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '20px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)'
+            style={{ 
+              padding: '30px', 
+              backgroundColor: '#eff6ff', 
+              borderRadius: '35px', 
+              border: '2px solid #dbeafe', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '25px', 
+              cursor: 'pointer', 
+              transition: 'all 0.2s ease', 
+              boxShadow: '0 10px 20px rgba(59, 89, 152, 0.05)' 
             }}
           >
-            <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '50%', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Calendar size={24} color="#2563eb" />
+            <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '50%', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+              <Calendar size={28} color="#2563eb" />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '15px', fontWeight: '900', color: '#371534ff', letterSpacing: '0.5px' }}>My Attendance</div>
-              <div style={{ fontSize: '22px', fontWeight: '900', color: '#20427cff', marginTop: '2px' }}>Attendance History</div>
+              <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>My Attendance</div>
+              <div style={{ fontSize: '16px', fontWeight: '900', color: '#1e3a8a' }}>Log History</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontSize: '11px', fontWeight: '900', letterSpacing: '0.5px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
-              <span>LIVE UPDATES</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#dcfce7', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
+              <span style={{ fontSize: '10px', fontWeight: '1000', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Live Update</span>
             </div>
-            <ChevronRight size={20} color="#161718ff" />
+            <ChevronRight size={24} color="#94a3b8" />
           </div>
         </motion.div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1200 ? '1fr' : '1fr 320px', gap: '30px', marginTop: winWidth < 768 ? '15px' : '30px' }}>
-
+        <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1200 ? '1fr' : '1fr 320px', gap: '30px' }}>
+          
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} style={{ ...s.mainCard, minHeight: 'fit-content', padding: winWidth < 768 ? '25px' : '35px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: winWidth < 768 ? '15px' : '25px', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '24px', marginBottom: 0 }}>Team Command Center</div>
+                <div style={{ ...s.mainTitle, fontSize: winWidth < 768 ? '17px' : '18px', marginBottom: 0 }}>Team Command Center</div>
 
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '15px' }}>
-                <div
+              
+              <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '35px' }}>
+                <div 
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'INDIVIDUAL' }); }}
-                  onMouseEnter={() => setHoveredCard('individual')}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  style={{
-                    padding: winWidth < 768 ? '12px' : '16px',
-                    background: hoveredCard === 'individual' ? '#0b1e3f' : 'white',
-                    borderRadius: '34px',
-                    border: hoveredCard === 'individual' ? '1.5px solid #0b1e3f' : '1.5px solid #1e3a8a',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: winWidth < 768 ? '15px' : '25px',
-                    cursor: 'pointer',
-                    transition: 'all 0.25s ease',
-                    boxShadow: hoveredCard === 'individual' ? '0 10px 25px rgba(11,30,63,0.2)' : '0 10px 20px rgba(37,99,235,0.03)'
-                  }}
+                  style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#3B5998', borderRadius: '35px', border: '1.5px solid #3B5998', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 15px 30px rgba(59, 89, 152, 0.15)' }}
                 >
-                  <div style={{ backgroundColor: 'white', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%', border: '1.5px solid #bfdbfe', boxShadow: '0 4px 10px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <User size={winWidth < 768 ? 22 : 28} color="#2563eb" />
+                  <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: winWidth < 768 ? '10px' : '15px', borderRadius: '50%' }}>
+                    <User size={winWidth < 768 ? 22 : 28} color="white" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '15px', fontWeight: '800', color: hoveredCard === 'individual' ? 'white' : '#475569', letterSpacing: '0.5px', transition: 'color 0.2s ease' }}>Individual</div>
-                    <div style={{ fontSize: winWidth < 768 ? '20px' : '22px', fontWeight: '900', color: hoveredCard === 'individual' ? 'white' : '#0b1e3f', transition: 'color 0.2s ease', marginTop: '2px' }}>
-                      {individualProjects.length} <span style={{ fontSize: winWidth < 768 ? '14px' : '15px', color: hoveredCard === 'individual' ? 'white' : '#64748b', fontWeight: '700', transition: 'color 0.2s ease' }}>Projects</span>
-                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.5px' }}>Individual</div>
+                    <div style={{ fontSize: winWidth < 768 ? '18px' : '20px', fontWeight: '900', color: 'white' }}>{individualProjects.length} <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>Projects</span></div>
                   </div>
-                  <ChevronRight size={20} color={hoveredCard === 'individual' ? 'white' : '#2563eb'} style={{ transition: 'color 0.2s ease' }} />
+                  <ChevronRight size={20} color="rgba(255,255,255,0.4)" />
                 </div>
-
-                <div
+ 
+                <div 
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'TEAM' }); }}
-                  onMouseEnter={() => setHoveredCard('team')}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  style={{
-                    padding: winWidth < 768 ? '12px' : '16px',
-                    background: hoveredCard === 'team' ? '#0b1e3f' : 'white',
-                    borderRadius: '34px',
-                    border: hoveredCard === 'team' ? '1.5px solid #0b1e3f' : '1.5px solid #5b21b6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: winWidth < 768 ? '15px' : '25px',
-                    cursor: 'pointer',
-                    transition: 'all 0.25s ease',
-                    boxShadow: hoveredCard === 'team' ? '0 10px 25px rgba(11,30,63,0.2)' : '0 10px 20px rgba(124,58,237,0.03)'
-                  }}
+                  style={{ padding: winWidth < 768 ? '20px' : '30px', backgroundColor: '#f8fafc', borderRadius: '35px', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '15px' : '25px', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
-                  <div style={{ backgroundColor: 'white', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%', border: '1.5px solid #ddd6fe', boxShadow: '0 4px 10px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Users size={28} color="#7c3aed" />
+                  <div style={{ backgroundColor: '#eff6ff', padding: '15px', borderRadius: '50%' }}>
+                    <Users size={28} color="#3B5998" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '15px', fontWeight: '800', color: hoveredCard === 'team' ? 'white' : '#475569', letterSpacing: '0.5px', transition: 'color 0.2s ease' }}>Team</div>
-                    <div style={{ fontSize: winWidth < 768 ? '20px' : '22px', fontWeight: '900', color: hoveredCard === 'team' ? 'white' : '#0b1e3f', transition: 'color 0.2s ease', marginTop: '2px' }}>
-                      {teamProjects.length} <span style={{ fontSize: winWidth < 768 ? '14px' : '15px', color: hoveredCard === 'team' ? 'white' : '#64748b', fontWeight: '700', transition: 'color 0.2s ease' }}>Projects</span>
-                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px' }}>Team</div>
+                    <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>{teamProjects.length} <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '700' }}>Projects</span></div>
                   </div>
-                  <ChevronRight size={20} color={hoveredCard === 'team' ? 'white' : '#7c3aed'} style={{ transition: 'color 0.2s ease' }} />
+                  <ChevronRight size={20} color="#cbd5e1" />
                 </div>
               </div>
 
 
-              <div style={s.taskGrid}>
+        <div style={s.taskGrid}>
                 <div style={{ ...s.yesterdayBox, position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={s.yesterdayLabel}>
                       <CheckCircle2 size={22} color="#0B1E3F" /> Yesterday
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <button
+                      {yesterdayTasks.length > 0 && (
+                        <div style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Clock size={12} />
+                          {(() => {
+                             const validTs = yesterdayTasks
+                               .map(t => typeof t === 'object' ? Number(t.id) : null)
+                               .filter(id => !isNaN(id) && id > 1000000000000);
+                             const latestId = validTs.length > 0 ? Math.max(...validTs) : null;
+                             return latestId
+                               ? new Date(latestId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                               : '';
+                          })()}
+                        </div>
+                      )}
+                      <button 
                         onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #0f4824ff', color: '#15803d', padding: '8px 14px', borderRadius: '20px', fontSize: '11px', fontFamily: 'sans-serif' }}
+                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #86efac', color: '#15803d', padding: '6px 14px', borderRadius: '20px', fontSize: '11px' }}
                       >
-                        View Report &rarr;
+                        View Report
                       </button>
                     </div>
                   </div>
-
+                  
                   {yesterdayTasks.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0', flex: 1 }}>
                       {yesterdayTasks.slice(0, 3).map((t, i) => {
@@ -982,7 +929,7 @@ const Dashboard = ({ setActiveTab }) => {
                           <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
                             <CheckCircle2 size={12} color="#16a34a" />
                             <span style={{ fontSize: '12px', color: '#475569' }}>
-                              {typeof t === 'string' ? t : t.text}
+                              {typeof t === 'string' ? t : t.text} 
                             </span>
                           </div>
                         );
@@ -990,16 +937,18 @@ const Dashboard = ({ setActiveTab }) => {
                       {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#64748b', fontWeight: '600', fontSize: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flex: 1, margin: '20px 0', color: '#64748b', fontWeight: '600', fontSize: '13px' }}>
                       No log found.
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
-                    <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
-                      {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : 'Pending'}
+                  {yesterdayTasks.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
+                      <div style={{ padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#0B1E3F', fontSize: '9px', fontWeight: '1000', textTransform: 'uppercase' }}>
+                        {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : ''}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
@@ -1021,41 +970,43 @@ const Dashboard = ({ setActiveTab }) => {
 
                   {!isEditing ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
-                      {todayTasks.length > 0 ? (
-                        todayTasks.map((t, i) => {
-                          return (
-                            <div key={i} style={s.taskItem}>
-                              <CheckCircle2 size={14} color="#3b82f6" />
-                              <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
-                          <AlertCircle size={16} /> Update ur todays task
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
-                        <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
-                          {todayStatus && todayStatus !== 'No Data' ? todayStatus : 'PENDING'}
-                        </div>
-                      </div>
+                       {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
+                       {todayTasks.length > 0 ? (
+                         todayTasks.map((t, i) => {
+                           return (
+                             <div key={i} style={s.taskItem}>
+                               <CheckCircle2 size={14} color="#3b82f6" />
+                               <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
+                             </div>
+                           );
+                         })
+                       ) : (
+                         <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
+                           <AlertCircle size={16} /> Update ur todays task
+                         </div>
+                       )}
+                       {todayTasks.length > 0 && (
+                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
+                             <div style={{ padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#0B1E3F', fontSize: '9px', fontWeight: '1000', textTransform: 'uppercase' }}>
+                               {todayStatus && todayStatus !== 'No Data' ? todayStatus : ''}
+                             </div>
+                         </div>
+                       )}
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
                       {editBuffer.map((t, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input
-                            type="text"
-                            value={t.text}
-                            onChange={(e) => {
-                              const nb = [...editBuffer];
-                              nb[i].text = e.target.value;
-                              setEditBuffer(nb);
-                            }}
-                            style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
-                            placeholder="Type task details..."
+                          <input 
+                             type="text"
+                             value={t.text}
+                             onChange={(e) => {
+                               const nb = [...editBuffer];
+                               nb[i].text = e.target.value;
+                               setEditBuffer(nb);
+                             }}
+                             style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
+                             placeholder="Type task details..."
                           />
                           <button onClick={() => setEditBuffer(editBuffer.filter((_, idx) => idx !== i))} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
                             <Trash2 size={16} color="#ef4444" />
@@ -1063,12 +1014,12 @@ const Dashboard = ({ setActiveTab }) => {
                         </div>
                       ))}
                       <button onClick={() => setEditBuffer([...editBuffer, { text: '', id: Date.now() }])} style={{ padding: '8px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '5px' }}>
-                        + Add Task
+                         + Add Task
                       </button>
                       <div style={{ marginTop: '15px' }}>
                         <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px' }}>End of day status override</div>
-                        <select
-                          value={editStatus}
+                        <select 
+                          value={editStatus} 
                           onChange={e => setEditStatus(e.target.value)}
                           style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', fontWeight: '700' }}
                         >
@@ -1081,7 +1032,7 @@ const Dashboard = ({ setActiveTab }) => {
                   )}
                 </div>
               </div>
-
+              
               <AnimatePresence>
                 {notificationFeedback && (
                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#16a34a', color: 'white', padding: '10px 25px', borderRadius: '40px', fontSize: '13px', fontWeight: '1000', zIndex: 10000, boxShadow: '0 15px 30px rgba(0,0,0,0.1)' }}>
@@ -1092,13 +1043,13 @@ const Dashboard = ({ setActiveTab }) => {
             </motion.div>
           </div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} style={{ ...s.statsCard, minHeight: 'fit-content', padding: '30px', borderRadius: winWidth < 768 ? '25px' : '45px' }} onClick={(e) => e.stopPropagation()}>
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} style={{ ...s.statsCard, minHeight: 'fit-content', padding: '30px', borderRadius: winWidth < 768 ? '25px' : '45px', backgroundColor: '#0B1E3F' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: '18px', fontWeight: '800', color: 'white', textAlign: 'center', marginBottom: '24px', fontFamily: "'Outfit', 'Inter', sans-serif" }}>Yesterday Progress</div>
-            <div style={{ width: '130px', height: '130px', borderRadius: '50%', background: `radial-gradient(closest-side, #0B1E3F 79%, transparent 80% 100%), conic-gradient(#38bdf8 ${yesterdayCompletion}%, rgba(255,255,255,0.1) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+            <div style={{ width: '130px', height: '130px', borderRadius: '50%', background: `radial-gradient(closest-side, #0B1E3F 79%, transparent 80% 100%), conic-gradient(white ${yesterdayCompletion}%, rgba(255,255,255,0.1) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
               <span style={{ fontSize: '24px', fontWeight: '900', color: 'white' }}>{yesterdayCompletion}%</span>
             </div>
-            <div style={{ marginTop: '24px', fontSize: '11px', color: yesterdayCompletion === 100 ? '#4ade80' : '#cbd5e1', fontWeight: '800', textAlign: 'center', backgroundColor: yesterdayCompletion === 100 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(255, 255, 255, 0.1)', padding: '10px 20px', borderRadius: '15px' }}>
-              {yesterdayCompletion === 100 ? 'Completed' : yesterdayCompletion > 0 ? 'In Progress' : 'Verified'}
+            <div style={{ marginTop: '24px', fontSize: '11px', color: yesterdayCompletion === 100 ? '#16a34a' : '#64748b', fontWeight: '800', textAlign: 'center', backgroundColor: yesterdayCompletion === 100 ? '#ebf9f1' : '#f8fafc', padding: '10px 20px', borderRadius: '15px' }}>
+              {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : 'No Log Found'}
             </div>
           </motion.div>
         </div>
@@ -1106,135 +1057,96 @@ const Dashboard = ({ setActiveTab }) => {
         <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: '32px', marginTop: '32px' }}>
           <div style={{ ...s.mainCard, display: 'flex', flexDirection: 'column', minHeight: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Gift size={24} color="#ec4899" /> Upcoming Birthdays
-              </div>
-              <button
-                onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('BIRTHDAYS'); }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  border: '1.2px solid #e2e8f0',
-                  backgroundColor: 'transparent',
-                  color: '#2563eb',
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                View All &rarr;
-              </button>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#e11d48', display: 'flex', alignItems: 'center', gap: '10px' }}><Gift size={24} /> Birthdays</div>
+              <div style={{ fontSize: '10px', fontWeight: '800', color: '#fb7185' }}>Celebrations</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
               {birthdaysList.slice(0, 2).map((b, idx) => {
+                const isToday = parseSafe(b.date).toDateString() === new Date().toDateString();
                 return (
-                  <div key={idx} style={{ padding: '14px 18px', backgroundColor: '#f8fafc', borderRadius: '18px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
+                  <div key={idx} style={{ padding: '16px 20px', backgroundColor: '#fff1f2', borderRadius: '20px', border: '1px solid #ffe4e6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px', flexShrink: 0, overflow: 'hidden' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e11d48', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '14px', flexShrink: 0, overflow: 'hidden' }}>
                         {b.profileImage ? <img src={`${BASE_URL}${b.profileImage}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : avatarInitial(b.name)}
                       </div>
                       <div>
-                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>{b.name}</div>
-                        <div style={{ fontSize: '11px', fontWeight: '600', color: '#000000', marginTop: '4px', lineHeight: '1.2' }}>
-                          {(() => {
-                            const dob = parseSafe(b.date);
-                            return `${String(dob.getDate()).padStart(2, '0')}/${String(dob.getMonth() + 1).padStart(2, '0')}/${dob.getFullYear()}`;
-                          })()}
-                        </div>
+                        <div style={{ fontSize: '14px', fontWeight: '900', color: '#881337' }}>{b.name}</div>
+                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#fb7185' }}>{new Date(new Date().getFullYear(), parseSafe(b.date).getMonth(), parseSafe(b.date).getDate()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
                       </div>
                     </div>
+                    {isToday && <button onClick={() => sendBirthdayWish(b)} style={{ padding: '8px 16px', borderRadius: '12px', border: 'none', backgroundColor: '#e11d48', color: 'white', fontSize: '11px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.2)' }}>Wish him/her</button>}
                   </div>
                 );
               })}
-              {birthdaysList.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#fb7185', fontWeight: '700', fontSize: '13px', backgroundColor: 'transparent', borderRadius: '20px' }}>No upcoming birthdays.</div>}
+              {birthdaysList.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#fb7185', fontWeight: '700', fontSize: '13px', backgroundColor: '#fff1f2', borderRadius: '20px' }}>No upcoming birthdays.</div>}
             </div>
+            <button onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('BIRTHDAYS'); }} style={{ marginTop: '20px', padding: '12px', width: '100%', borderRadius: '15px', border: '1.5px solid #ffe4e6', backgroundColor: 'transparent', color: '#e11d48', fontSize: '11px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s', display: 'block' }}>More celebrations</button>
           </div>
 
           <div style={{ ...s.mainCard, display: 'flex', flexDirection: 'column', minHeight: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Calendar size={24} color="#2563eb" /> Public Holidays
-              </div>
-              <button
-                onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('CALENDAR'); }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  border: '1.2px solid #e2e8f0',
-                  backgroundColor: 'transparent',
-                  color: '#2563eb',
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                View All &rarr;
-              </button>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#d97706', display: 'flex', alignItems: 'center', gap: '10px' }}><Calendar size={24} /> Holidays</div>
+              <div style={{ fontSize: '10px', fontWeight: '800', color: '#fbbf24' }}>Public calendar</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-              {holidays.filter(h => new Date(h.date) >= new Date().setHours(0, 0, 0, 0)).slice(0, 2).map((h, idx) => {
-                const hDate = new Date(h.date);
-                return (
-                  <div key={idx} style={{ padding: '14px 18px', backgroundColor: '#eff6ff', borderRadius: '18px', border: '1px solid #dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: '#1e3a8a', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ fontSize: '8px', fontWeight: '800', textTransform: 'uppercase', opacity: 0.9 }}>
-                          {hDate.toLocaleString('default', { month: 'short' })}
-                        </span>
-                        <span style={{ fontSize: '14px', fontWeight: '900', lineHeight: '1.1' }}>
-                          {hDate.getDate()}
-                        </span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2' }}>{h.name}</div>
-                        <div style={{ fontSize: '11px', color: '#000000', fontWeight: '600', marginTop: '4px', textTransform: 'capitalize', lineHeight: '1.2' }}>
-                          {hDate.toLocaleDateString('en-US', { weekday: 'long' })}
-                        </div>
-                      </div>
-                    </div>
+              {holidays.filter(h => new Date(h.date) >= new Date().setHours(0, 0, 0, 0)).slice(0, 2).map((h, idx) => (
+                <div key={idx} style={{ padding: '16px 20px', backgroundColor: '#fffbeb', borderRadius: '20px', border: '1px solid #fef3c7', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#d97706', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '14px', flexShrink: 0 }}><Calendar size={18} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '900', color: '#0B1E3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.name}</div>
+                    <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '800', marginTop: '4px' }}>{new Date(h.date).toLocaleString('default', { month: 'short', day: 'numeric' })}</div>
                   </div>
-                );
-              })}
-              {holidays.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#d97706', fontWeight: '700', fontSize: '13px', backgroundColor: 'transparent', borderRadius: '20px' }}>No upcoming holidays.</div>}
+                </div>
+              ))}
+              {holidays.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#d97706', fontWeight: '700', fontSize: '13px', backgroundColor: '#fffbeb', borderRadius: '20px' }}>No upcoming holidays.</div>}
             </div>
+            <button onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('CALENDAR'); }} style={{ marginTop: '20px', padding: '12px', width: '100%', borderRadius: '15px', border: '1.5px solid #fef3c7', backgroundColor: 'transparent', color: '#d97706', fontSize: '11px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s', display: 'block' }}>More holidays</button>
           </div>
         </div>
 
-        {/* Team Suggestions */}
+        {/* Saturday Suggestions */}
         {suggestions.length > 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{ fontSize: '16px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={24} color="#f59e0b" /> Team Suggestions
+                <FileText size={24} color="#f59e0b" /> Saturday Suggestions
               </div>
             </div>
-
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {suggestions.slice(0, 3).map((sug, i) => (
-                <div key={i} style={{ padding: '14px 18px', borderRadius: '18px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F', marginBottom: '4px' }}>
-                    {sug.employee_name || 'Anonymous'}
+              {suggestions.map((sug, i) => {
+                const dateStr = sug.created_at || sug.date || '';
+                let formattedDate = '';
+                if (dateStr) {
+                  const d = new Date(dateStr);
+                  if (!isNaN(d.getTime())) {
+                    formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${d.getFullYear()}`;
+                  }
+                }
+                
+                return (
+                  <div key={i} style={{ padding: '14px 18px', borderRadius: '18px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', position: 'relative' }}>
+                    {formattedDate && (
+                      <div style={{ position: 'absolute', top: '14px', right: '18px', fontSize: '10px', fontWeight: '800', color: '#d97706', backgroundColor: '#fef3c7', padding: '4px 8px', borderRadius: '8px' }}>
+                        {formattedDate}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F', marginBottom: '4px', paddingRight: '80px' }}>
+                      {sug.employee_name || 'Anonymous'}
+                    </div>
+                    {sug.requirement && (
+                      <div style={{ fontSize: '12px', color: '#475569', marginBottom: '4px' }}>
+                        <strong>Req:</strong> {sug.requirement}
+                      </div>
+                    )}
+                    {sug.suggestion && (
+                      <div style={{ fontSize: '12px', color: '#475569' }}>
+                        <strong>Suggestion:</strong> {sug.suggestion}
+                      </div>
+                    )}
                   </div>
-                  {sug.requirement && (
-                    <div style={{ fontSize: '12px', color: '#475569', marginBottom: '4px' }}>
-                      <strong>Req:</strong> {sug.requirement}
-                    </div>
-                  )}
-                  {sug.suggestion && (
-                    <div style={{ fontSize: '12px', color: '#475569' }}>
-                      <strong>Idea:</strong> {sug.suggestion}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1244,7 +1156,7 @@ const Dashboard = ({ setActiveTab }) => {
       <AnimatePresence>
         {showFinalizeModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, backdropFilter: 'blur(4px)' }}>
-            <motion.div
+            <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1255,17 +1167,17 @@ const Dashboard = ({ setActiveTab }) => {
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0B1E3F', marginBottom: '12px' }}>Finalize Task?</h2>
               <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '32px' }}>
-                Are you sure you want to mark <span style={{ fontWeight: '800', color: '#1e3a8a' }}>{pendingStatusData?.projName}</span> as <span style={{ fontWeight: '800' }}>{pendingStatusData?.st}</span>?
+                Are you sure you want to mark <span style={{ fontWeight: '800', color: '#1e3a8a' }}>{pendingStatusData?.projName}</span> as <span style={{ fontWeight: '800' }}>{pendingStatusData?.st}</span>? 
                 {pendingStatusData?.st === 'Completed' && " This will set progress to 100%."}
               </p>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button
+                <button 
                   onClick={() => setShowFinalizeModal(false)}
                   style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
-                <button
+                <button 
                   onClick={confirmStatusChange}
                   style={{ flex: 1, padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#0B1E3F', color: 'white', fontWeight: '800', fontSize: '14px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(11, 30, 63, 0.2)' }}
                 >

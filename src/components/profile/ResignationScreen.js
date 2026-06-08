@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Send, Calendar, FileText, ChevronLeft, AlertCircle, History, Users, RefreshCcw, X, Check, User, Info, Download, Printer, ArrowLeft } from 'lucide-react';
+import { LogOut, Send, Calendar, FileText, ChevronLeft, ChevronDown, AlertCircle, History, Users, RefreshCcw, X, Check, User, Info, Download, Printer, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { getTheme } from '../../constants/Theme';
@@ -250,14 +250,32 @@ export default function ResignationScreen({ onBack }) {
                   </div>
                 </div>
 
-                <label style={s.label}>Primary Reason</label>
-                <select style={s.select} value={reason} onChange={e => setReason(e.target.value)}>
-                  <option value="">Select a reason</option>
-                  <option value="Better Career Opportunity">Better Career Opportunity</option>
-                  <option value="Personal Reasons">Personal Reasons</option>
-                  <option value="Higher Education">Higher Education</option>
-                  <option value="Other">Other</option>
-                </select>
+                <label style={s.label}>Select Purpose</label>
+                <div style={{ position: 'relative', width: '100%', marginBottom: '25px' }}>
+                  <select 
+                    style={{ ...s.select, marginBottom: 0, paddingRight: '45px' }} 
+                    value={reason} 
+                    onChange={e => setReason(e.target.value)}
+                  >
+                    <option value="" disabled hidden>Select for the Purpose</option>
+                    <option value="Better Career Opportunity">Better Career Opportunity</option>
+                    <option value="Personal Reasons">Personal Reasons</option>
+                    <option value="Higher Education">Higher Education</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <div style={{ 
+                    position: 'absolute', 
+                    right: '20px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    pointerEvents: 'none',
+                    color: '#64748b',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <ChevronDown size={18} />
+                  </div>
+                </div>
 
                 <label style={s.label}>Additional Details</label>
                 <textarea style={s.textarea} placeholder="Describe your reasons briefly..." value={detailedReason} onChange={e => setDetailedReason(e.target.value)} />

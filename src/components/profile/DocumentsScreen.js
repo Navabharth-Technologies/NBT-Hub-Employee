@@ -12,6 +12,47 @@ import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
 import BackButton from '../BackButton';
 
+// Date format conversion helpers
+const formatDateToDMY = (val) => {
+  if (!val || val === 'Not Provided' || val === 'Add Date of Birth' || val === 'Add Date of Joining' || val === 'Add Separation Date' || val === 'Add Last Working Day') return val;
+  const s = String(val).trim();
+  // Already in DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  // ISO format YYYY-MM-DD or YYYY-MM-DDT...
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  // Try parsing as date object
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return s;
+};
+
+const formatDateToYMD = (val) => {
+  if (!val || val === 'Not Provided') return val;
+  const s = String(val).trim();
+  // Already in YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // If in DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    const parts = s.split('/');
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  // Try parsing
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return s;
+};
+
 // These fields are strictly controlled by the backend for non-admin users
 const LOCKED_FIELDS = [
   'designation',
@@ -49,8 +90,6 @@ const SECTIONS = [
     color: '#8b5cf6',
     fields: [
       { key: 'designation', label: 'Designation', type: 'text' },
-      { key: 'department', label: 'Department', type: 'text' },
-      { key: 'process', label: 'Process', type: 'text' },
       { key: 'supervisor_l1', label: 'Supervisor L1 (Reporting Person)', type: 'text' },
       { key: 'supervisor_l2', label: 'Supervisor L2', type: 'text' },
       { key: 'doj', label: 'Date of Joining', type: 'text', placeholder: 'DD/MM/YYYY' },
@@ -168,7 +207,7 @@ const SECTIONS = [
       { key: 'total_experience', label: 'Total Experience (Years)', type: 'text' },
       { key: 'experience_letter_photo', label: 'Experience Letter', type: 'file' },
       { key: 'separation', label: 'Separation Date', type: 'text', placeholder: 'DD/MM/YYYY' },
-      { key: 'lwd', label: 'Last Working Day (LWD)', type: 'text' },
+      { key: 'lwd', label: 'Last Working Day (LWD)', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'attrition_bucket', label: 'Attrition Bucket', type: 'select', options: ['N/A', 'Resignation', 'Performance', 'Behavioral', 'Medical'] },
       { key: 'reason', label: 'Primary Reason', type: 'text' },
       { type: 'header', label: 'Salary Proof' },
@@ -271,8 +310,8 @@ export default function DocumentsScreen({ onBack }) {
           // Map core identification values
           if (lowerKey === 'employee_id' || lowerKey === 'emp_id') assetUpdates['emp_id'] = val;
           if (lowerKey === 'employee_name' || lowerKey === 'emp_name') assetUpdates['emp_name'] = val;
-          if (lowerKey === 'joining_date' || lowerKey === 'doj') assetUpdates['doj'] = val;
-          if (lowerKey === 'last_working_date' || lowerKey === 'lwd') assetUpdates['lwd'] = val;
+          if (lowerKey === 'joining_date' || lowerKey === 'doj') assetUpdates['doj'] = formatDateToDMY(val);
+          if (lowerKey === 'last_working_date' || lowerKey === 'lwd') assetUpdates['lwd'] = formatDateToDMY(val);
           if (lowerKey === 'laptop_details' || lowerKey === 'asset_name') assetUpdates['asset_name'] = val;
           if (lowerKey === 'asset_serial_no' || lowerKey === 'serial_number') assetUpdates['serial_number'] = val;
 
@@ -330,7 +369,7 @@ export default function DocumentsScreen({ onBack }) {
             ...prev,
             emp_name: prev.emp_name && prev.emp_name !== 'Not Provided' ? prev.emp_name : (foundUser.name || foundUser.userName || ''),
             emp_id: prev.emp_id && prev.emp_id !== 'Not Provided' ? prev.emp_id : (foundUser.employee_id || foundUser.id || ''),
-            official_email_id: prev.official_email_id || foundUser.email || '',
+            official_email_id: (prev.official_email_id || foundUser.email || '').toLowerCase(),
             department: prev.department && prev.department !== 'Not Provided' ? prev.department : (foundUser.department || foundUser.dept || ''),
             designation: prev.designation && prev.designation !== 'Not Provided' ? prev.designation : (foundUser.designation || foundUser.role || '')
           }));
@@ -350,32 +389,15 @@ export default function DocumentsScreen({ onBack }) {
         ? API_ENDPOINTS.EMPLOYEE_PROFILE(employeeId)
         : API_ENDPOINTS.MY_EMPLOYEE_PROFILE;
 
-      // Format DOB to DD/MM/YYYY (Moved here to format cache too)
-      const formatDOB = (val) => {
-        if (!val || val === 'Not Provided') return val;
-        const s = String(val).trim();
-        // Already in DD/MM/YYYY
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-        // ISO format YYYY-MM-DD or YYYY-MM-DDT...
-        const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-        // Try parsing as date object
-        const d = new Date(s);
-        if (!isNaN(d.getTime())) {
-          const dd = String(d.getDate()).padStart(2, '0');
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const yyyy = d.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        }
-        return s;
-      };
-
       // Pre-fill from localStorage cache instantly (avoids blank screen on refresh)
       const cacheKey = `nbt_profile_cache_${employeeId || user?.employee_id || user?.id}`;
       try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
         if (cached) {
-          if (cached.dob) cached.dob = formatDOB(cached.dob);
+          if (cached.dob) cached.dob = formatDateToDMY(cached.dob);
+          if (cached.doj) cached.doj = formatDateToDMY(cached.doj);
+          if (cached.lwd) cached.lwd = formatDateToDMY(cached.lwd);
+          if (cached.separation) cached.separation = formatDateToDMY(cached.separation);
           setForm(prev => ({ ...prev, ...cached }));
         }
       } catch (_) { }
@@ -398,7 +420,11 @@ export default function DocumentsScreen({ onBack }) {
             if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
               val = val.substring(0, 10);
             }
-            cleanData[key.toLowerCase().replace(/\s/g, '_')] = val === null ? '' : val;
+            let keyStr = key.toLowerCase().replace(/\s/g, '_');
+            if (keyStr.toLowerCase().includes('email') && typeof val === 'string') {
+              val = val.toLowerCase();
+            }
+            cleanData[keyStr] = val === null ? '' : val;
           });
 
           const empIdVal = cleanData.emp_id || cleanData.employee_id || cleanData.employeeid || cleanData.userid || cleanData.id || cleanData.emp_no;
@@ -407,16 +433,17 @@ export default function DocumentsScreen({ onBack }) {
           if (empNameVal) cleanData.emp_name = empNameVal;
 
           const dojVal = cleanData.doj || cleanData.joining_date || cleanData.date_of_joining || cleanData.dateofjoining || cleanData.joiningdate;
-          if (dojVal) cleanData.doj = dojVal;
+          if (dojVal) cleanData.doj = formatDateToDMY(dojVal);
 
           const lwdVal = cleanData.lwd || cleanData.last_working_day || cleanData.last_working_date || cleanData.lwd_date;
-          if (lwdVal) cleanData.lwd = lwdVal;
+          if (lwdVal) cleanData.lwd = formatDateToDMY(lwdVal);
 
-
+          const separationVal = cleanData.separation || cleanData.separation_date || cleanData.resignation_date;
+          if (separationVal) cleanData.separation = formatDateToDMY(separationVal);
 
           const dobVal = cleanData.dob || cleanData.date_of_birth || cleanData.dateofbirth || cleanData.birth_date;
           if (dobVal) {
-            cleanData.dob = formatDOB(dobVal);
+            cleanData.dob = formatDateToDMY(dobVal);
           }
 
           // Gender placeholder default if not set in database
@@ -442,7 +469,7 @@ export default function DocumentsScreen({ onBack }) {
           }
 
           if (isOwnProfile && (!cleanData.dob || cleanData.dob === 'Not Provided')) {
-            cleanData.dob = formatDOB(user?.date_of_birth || user?.dob || '');
+            cleanData.dob = formatDateToDMY(user?.date_of_birth || user?.dob || '');
           }
 
           if (!cleanData.designation) cleanData.designation = user?.role || user?.designation || '';
@@ -465,8 +492,8 @@ export default function DocumentsScreen({ onBack }) {
                 if (latest) {
                   setForm(prev => ({
                     ...prev,
-                    separation: latest.resignation_date || latest.resignationDate || prev.separation,
-                    lwd: latest.last_working_day || latest.lastWorkingDay || prev.lwd,
+                    separation: formatDateToDMY(latest.resignation_date || latest.resignationDate || prev.separation),
+                    lwd: formatDateToDMY(latest.last_working_day || latest.lastWorkingDay || prev.lwd),
                     reason: latest.reason || prev.reason,
                     detailed_reason: latest.letter_content || latest.detailedReason || latest.detailed_reason || prev.detailed_reason,
                     attrition_bucket: (latest.status === 'PENDING' || latest.status === 'Approved') ? 'Resignation' : prev.attrition_bucket
@@ -485,7 +512,7 @@ export default function DocumentsScreen({ onBack }) {
               emp_name: user.name || user.userName || '',
               emp_id: user.employee_id || user.empId || user.id || '',
               designation: user.role || user.designation || '',
-              official_email_id: user.email || ''
+              official_email_id: (user.email || '').toLowerCase()
             }));
           }
         }
@@ -497,7 +524,7 @@ export default function DocumentsScreen({ onBack }) {
           emp_id: user.employee_id || user.empId || user.id || '',
           designation: user.role || user.designation || '',
           department: user.department || user.dept || '',
-          official_email_id: user.email || ''
+          official_email_id: (user.email || '').toLowerCase()
         }));
       }
     } catch (err) {
@@ -525,7 +552,7 @@ export default function DocumentsScreen({ onBack }) {
         emp_id: user.employee_id || user.empId || user.id || prev.emp_id,
         designation: user.role || user.designation || prev.designation,
         department: user.department || user.dept || prev.department,
-        official_email_id: user.email || prev.official_email_id
+        official_email_id: (user.email || prev.official_email_id || '').toLowerCase()
       }));
     }
   }, [user, employeeId, form.emp_name]);
@@ -541,7 +568,7 @@ export default function DocumentsScreen({ onBack }) {
 
     // REQUIRED FIELDS CHECK
     const required = [
-      'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
+      'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'official_email_id',
       // Contact & Geography
       'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
       // Academic & Career
@@ -559,8 +586,8 @@ export default function DocumentsScreen({ onBack }) {
     if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
       if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
       if (/[^a-zA-Z\s]/.test(value)) error = 'Special characters are not allowed';
-    } else if (key === 'dob') {
-      if (value && value !== 'Not Provided' && value !== 'Add Date of Birth') {
+    } else if (['dob', 'doj', 'lwd', 'separation'].includes(key)) {
+      if (value && value !== 'Not Provided' && value !== 'Add Date of Birth' && value !== 'Add Date of Joining' && value !== 'Add Separation Date' && value !== 'Add Last Working Day' && String(value).trim() !== '') {
         if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
           error = 'Format must be DD/MM/YYYY (e.g., 08/09/2002)';
         } else {
@@ -571,12 +598,11 @@ export default function DocumentsScreen({ onBack }) {
           const d = new Date(year, month - 1, day);
           if (isNaN(d.getTime()) || d.getDate() !== day || d.getMonth() + 1 !== month || d.getFullYear() !== year) {
             error = 'Invalid Date';
+          } else if (year < 1900 || year > 2100) {
+            error = 'Year must be between 1900 and 2100';
           }
         }
       }
-    } else if (key === 'department') {
-      if (/[0-9]/.test(value)) error = 'Numeric values are not allowed in Department';
-      if (/[^a-zA-Z\s\&\-\/\.]/.test(value)) error = 'Only alphabetic and valid special characters allowed';
     } else if (key === 'blood_group') {
       const clean = String(value).toUpperCase().trim();
       if (!/^(A|B|AB|O)[+-]$/.test(clean)) {
@@ -623,8 +649,12 @@ export default function DocumentsScreen({ onBack }) {
       if (/^[0-9]+$/.test(value.trim())) error = 'Branch name cannot be numeric only';
       if (/[^a-zA-Z0-9\s\-\/\.,&()]/.test(value)) error = 'Invalid characters in branch name';
     } else if (key.toLowerCase().includes('email')) {
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      if (!emailRegex.test(value)) error = 'Format: abc@gmail.com';
+      const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+      if (/[A-Z]/.test(value)) {
+        error = 'Email ID cannot contain uppercase letters';
+      } else if (!emailRegex.test(value)) {
+        error = 'Format: abc@gmail.com';
+      }
     }
 
     return error;
@@ -693,8 +723,8 @@ export default function DocumentsScreen({ onBack }) {
     } else if (['pan_number', 'voter_id', 'ifsc_code'].includes(key)) {
       cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); // Alphanumeric only
     } else if (key.toLowerCase().includes('email')) {
-      const basicClean = value.replace(/[^a-zA-Z0-9@\._\-\+]/g, ''); // Block spaces and invalid characters instantly
-      const tldMatch = basicClean.match(/^(.*@[a-zA-Z0-9.-]+\.(?:com|co\.in|in|org|net|edu|gov))(.*)$/i);
+      const basicClean = value.replace(/[^a-zA-Z0-9@\._\-\+]/g, '').toLowerCase(); // Block spaces and invalid characters instantly, convert to lowercase
+      const tldMatch = basicClean.match(/^(.*@[a-z0-9.-]+\.(?:com|co\.in|in|org|net|edu|gov))(.*)$/);
       if (tldMatch) {
         cleanValue = tldMatch[1]; // Truncate everything after the TLD
       } else {
@@ -863,6 +893,10 @@ export default function DocumentsScreen({ onBack }) {
                   val = `${parts[2]}/${parts[1]}/${parts[0]}`;
                 }
               }
+            }
+            // Normalize DOJ, LWD, and Separation to YYYY-MM-DD for backend consistency
+            if (['doj', 'lwd', 'separation'].includes(field.key)) {
+              val = formatDateToYMD(val);
             }
             sanitizedForm[field.key] = val;
             if (field.key === 'dob') {
@@ -1251,7 +1285,7 @@ export default function DocumentsScreen({ onBack }) {
                   );
                 }
                 const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
-                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
+                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole || field.key === 'emp_name';
 
                 return (
                   <div key={field.key} style={{
@@ -1270,7 +1304,7 @@ export default function DocumentsScreen({ onBack }) {
                         {field.key === 'father_husband_name' 
                           ? (form.marital_status === 'Married' ? 'Spouse Name' : "Father's Name") 
                           : field.label} {[
-                          'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'department', 'official_email_id',
+                          'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'official_email_id',
                           'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
                           'qualification', 'edu_completion_year', 'college', 'university', 'languages_known',
                           'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',

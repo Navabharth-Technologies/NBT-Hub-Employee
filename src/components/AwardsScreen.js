@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Force Recompile for AwardsScreen Points Fix
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Star, Medal, ArrowLeft, Trophy, Calendar, Users, Zap, X, ChevronRight } from 'lucide-react';
 import { BASE_URL, API_ENDPOINTS } from '../config';
@@ -74,10 +74,6 @@ const AwardsScreen = ({ onBack }) => {
     const [grantLoading, setGrantLoading] = useState(false);
     const [winWidth, setWinWidth] = useState(window.innerWidth);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
-    const [leadStartDate, setLeadStartDate] = useState('2026-06-01');
-    const [leadEndDate, setLeadEndDate] = useState('2026-06-30');
-    const leadStartDateRef = useRef(null);
-    const leadEndDateRef = useRef(null);
     const [filteredLeaderboard, setFilteredLeaderboard] = useState([]);
     const [leadLoading, setLeadLoading] = useState(false);
 
@@ -124,21 +120,34 @@ const AwardsScreen = ({ onBack }) => {
         return dateStr;
     };
 
+    const robustParseDate = (dateInput) => {
+        if (!dateInput) return 0;
+        if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? 0 : dateInput.getTime();
+        let str = String(dateInput).trim();
+        const ddmmMatch = str.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})(.*)$/);
+        if (ddmmMatch) {
+            const [, day, month, year, rest] = ddmmMatch;
+            str = `${year}/${month}/${day}${rest}`;
+        } else if (!str.includes('T')) {
+            str = str.replace(/-/g, '/');
+        }
+        const dObj = new Date(str);
+        return isNaN(dObj.getTime()) ? 0 : dObj.getTime();
+    };
+
     const isWithinDateRange = (dateString) => {
         if (!startDate && !endDate) return true;
-        const d = new Date(dateString);
-        if (isNaN(d.getTime())) return true;
+        const t = robustParseDate(dateString);
+        if (t === 0) return true; // fallback if unparseable
+        
         if (startDate && endDate) {
-            const s = new Date(startDate);
-            const e = new Date(endDate);
-            e.setHours(23, 59, 59, 999);
-            return d >= s && d <= e;
+            const s = robustParseDate(startDate);
+            const e = robustParseDate(endDate) + 86400000 - 1;
+            return t >= s && t <= e;
         } else if (startDate) {
-            return d >= new Date(startDate);
+            return t >= robustParseDate(startDate);
         } else if (endDate) {
-            const e = new Date(endDate);
-            e.setHours(23, 59, 59, 999);
-            return d <= e;
+            return t <= robustParseDate(endDate) + 86400000 - 1;
         }
         return true;
     };
@@ -511,23 +520,7 @@ const AwardsScreen = ({ onBack }) => {
                     return isNaN(num) ? 0 : num;
                 };
 
-                const parseDateLocal = (dateInput) => {
-                    if (!dateInput) return 0;
-                    let dObj;
-                    if (dateInput instanceof Date) {
-                        dObj = dateInput;
-                    } else {
-                        const str = String(dateInput).trim();
-                        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-                            dObj = new Date(str.replace(/-/g, '/'));
-                        } else if (str.includes('T')) {
-                            dObj = new Date(str);
-                        } else {
-                            dObj = new Date(str.replace(/-/g, '/'));
-                        }
-                    }
-                    return isNaN(dObj.getTime()) ? 0 : dObj.getTime();
-                };
+                const parseDateLocal = robustParseDate;
 
                 const getQuizPointsForPeriod = (qList, start, end) => {
                     if (!qList || !Array.isArray(qList)) return 0;
@@ -553,7 +546,7 @@ const AwardsScreen = ({ onBack }) => {
                         .filter(q => {
                             const d = q.rawDateParsed;
                             if (start && d < startTime) return false;
-                            if (end && d > endTime + 86400000) return false;
+                            if (end && d > endTime + 86400000 - 1) return false;
                             return true;
                         })
                         .reduce((sum, q) => sum + q.points, 0);
@@ -597,16 +590,44 @@ const AwardsScreen = ({ onBack }) => {
                     }));
                 }
 
-                // Fetch rewards logs
-                const rRes = await fetch(`${BASE_URL}/api/rewards`, { headers }).catch(() => null);
+                // Fetch rewards logs AND the pre-calculated public leaderboard in parallel
+                const [rRes, publicLeadRes] = await Promise.all([
+                    fetch(`${BASE_URL}/api/rewards`, { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null)
+                ]);
                 const rData = rRes && rRes.ok ? await rRes.json() : [];
                 const rList = Array.isArray(rData) ? rData : (rData?.data || rData?.rewards || []);
+
+                // Parse the public leaderboard API for pre-calculated totals
+                const publicLeadData = publicLeadRes && publicLeadRes.ok ? await publicLeadRes.json() : [];
+                const publicList = Array.isArray(publicLeadData) ? publicLeadData : (publicLeadData?.data || []);
+                const publicScoreMap = new Map();
+                publicList.forEach(item => {
+                    const id = cleanIdLocal(item.employee_id || item.user_id || item._id || item.id || item.userId);
+                    if (!id) return;
+                    const extractNumPub = (val) => {
+                        if (val === undefined || val === null || val === '') return 0;
+                        const s = String(val).replace(/,/g, '').replace(/[^0-9.-]+/g, '').trim();
+                        const n = Number(s);
+                        return isNaN(n) ? 0 : n;
+                    };
+                    const totalScore = Number(item.totalPointsNum || 0) ||
+                        Number(item.totalRepNum || 0) ||
+                        extractNumPub(item.total_points || item.totalPoints || item.total_rep) ||
+                        extractNumPub(item.score || item.total_score || item.points || 0);
+                    const name = item.employee_name || item.name || item.userName || '';
+                    const rank = Number(item.rank || 0);
+                    const totalAwards = Number(item.total_awards || 0);
+                    if (totalScore > 0) {
+                        publicScoreMap.set(id, { totalScore, name, rank, totalAwards });
+                    }
+                });
 
                 const mergedMap = new Map();
 
                 // 1. Populate map with employees and their quiz points in period
                 allEmployeesList.forEach(emp => {
-                    const quizPts = getQuizPointsForPeriod(allQuizHistories[emp.cleanId], leadStartDate, leadEndDate);
+                    const quizPts = getQuizPointsForPeriod(allQuizHistories[emp.cleanId], startDate, endDate);
                     mergedMap.set(emp.cleanId, {
                         id: emp.rawId,
                         name: masterEmployeeMap[emp.cleanId] || `Employee ${emp.rawId}`,
@@ -621,36 +642,67 @@ const AwardsScreen = ({ onBack }) => {
                     const recipientId = cleanIdLocal(r.employee_id || r.userId || r.id);
                     if (!recipientId) return;
 
-                    // Exclude quizzes from the rewards feed since they are already fetched from the quiz leaderboard
-                    const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
-                    const cat = String(r.category || '').toUpperCase();
-                    const isNotQuiz = !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
-                    if (!isNotQuiz) return;
-
+                    // We no longer exclude quizzes here because the quiz history endpoint is returning 404.
+                    // All points (including quizzes) from the rewards log must be counted.
                     const rDate = parseDateLocal(r.created_at || r.date);
-                    if (leadStartDate && rDate < parseDateLocal(leadStartDate)) return;
-                    if (leadEndDate && rDate > parseDateLocal(leadEndDate) + 86400000) return;
+                    if (startDate && rDate < parseDateLocal(startDate)) return;
+                    if (endDate && rDate > parseDateLocal(endDate) + 86400000) return;
 
                     if (!mergedMap.has(recipientId)) {
                         const name = r.employee_name || masterEmployeeMap[recipientId] || 'Team Member';
                         mergedMap.set(recipientId, {
                             id: recipientId,
                             name: name,
-                            quiz_points: getQuizPointsForPeriod(allQuizHistories[recipientId], leadStartDate, leadEndDate),
+                            quiz_points: getQuizPointsForPeriod(allQuizHistories[recipientId], startDate, endDate),
                             reward_points: 0,
                             score: 0
                         });
                     }
 
                     const entry = mergedMap.get(recipientId);
-                    entry.reward_points += cleanNum(r.points || r.rep || 0);
+                    
+                    const extractNumLocal = (val) => {
+                        if (val === undefined || val === null || val === '') return 0;
+                        const cleanStr = String(val).replace(/,/g, '').replace(/[^0-9.-]+/g, '').trim();
+                        const num = Number(cleanStr);
+                        return isNaN(num) ? 0 : num;
+                    };
+                    entry.reward_points += extractNumLocal(r.points || r.rep || 0);
+                });
+
+                // 2b. Merge in pre-calculated public leaderboard totals as fallback
+                // For each employee in the public leaderboard, if the raw-log-based score
+                // is less than the pre-calculated total, use the pre-calculated total instead.
+                // This handles cases where raw reward logs don't capture all points
+                // (e.g., quiz history endpoint returns 404).
+                publicScoreMap.forEach((pubData, pubId) => {
+                    if (mergedMap.has(pubId)) {
+                        const entry = mergedMap.get(pubId);
+                        const rawLogScore = entry.quiz_points + entry.reward_points;
+                        if (pubData.totalScore > rawLogScore) {
+                            // Use the public leaderboard's pre-calculated total
+                            entry.reward_points = pubData.totalScore - entry.quiz_points;
+                            if (pubData.name && (!entry.name || entry.name.startsWith('Employee') || entry.name === 'Team Member')) {
+                                entry.name = pubData.name;
+                            }
+                        }
+                    } else {
+                        // Employee exists in public leaderboard but not in our mergedMap
+                        mergedMap.set(pubId, {
+                            id: pubId,
+                            name: pubData.name || masterEmployeeMap[pubId] || `Employee ${pubId}`,
+                            quiz_points: 0,
+                            reward_points: pubData.totalScore,
+                            score: pubData.totalScore
+                        });
+                    }
                 });
 
                 // 3. Final calculations, filter out entries with 0 points, and sort
                 const finalLeaderboard = Array.from(mergedMap.values())
                     .map(item => ({
                         ...item,
-                        score: item.quiz_points + item.reward_points
+                        score: Math.max(item.quiz_points + item.reward_points, item.score || 0)
                     }))
                     .filter(item => item.score > 0)
                     .sort((a, b) => b.score - a.score)
@@ -668,7 +720,7 @@ const AwardsScreen = ({ onBack }) => {
         };
 
         fetchFilteredLeaderboard();
-    }, [leadStartDate, leadEndDate, employees, showLeaderboard]);
+    }, [startDate, endDate, employees, showLeaderboard]);
 
 
     const getRankSuffix = (rank) => {
@@ -746,7 +798,14 @@ const AwardsScreen = ({ onBack }) => {
         return isWithinDateRange(item.created_at || item.date);
     });
 
-    const totalPointsFromHistory = filteredUniqueHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
+    const extractNumLocalGlobal = (val) => {
+        if (val === undefined || val === null || val === '') return 0;
+        const cleanStr = String(val).replace(/,/g, '').replace(/[^0-9.-]+/g, '').trim();
+        const num = Number(cleanStr);
+        return isNaN(num) ? 0 : num;
+    };
+
+    const totalPointsFromHistory = filteredUniqueHistory.reduce((sum, item) => sum + extractNumLocalGlobal(item.points || item.rep || 0), 0);
 
     // Source 2: Build leaderboard from all participants to find global rank
     const liveMap = new Map();
@@ -874,28 +933,29 @@ const AwardsScreen = ({ onBack }) => {
         : Math.max(quizUserPoints || 0, localQuizPointsTotal, userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].quiz_points || 0) : 0);
 
     const userName = user?.name || user?.employee_name || 'You';
-    // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
-    if (userRank === 0 && finalQuizPoints > 0) {
-        sortedLeaderboard.push({ id: myId, name: userName, score: finalQuizPoints, rank: sortedLeaderboard.length + 1 });
-        sortedLeaderboard.sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.score - a.score);
-        const dynamicIndex = sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
-        userRank = dynamicIndex >= 0 ? (sortedLeaderboard[dynamicIndex].rank || dynamicIndex + 1) : 0;
+    
+    // Determine active leaderboard (use filtered if dates are set, otherwise all-time)
+    const activeLeaderboard = (startDate || endDate) ? filteredLeaderboard : sortedLeaderboard;
+    
+    let activeUserRank = 0;
+    const activeUserEntryIndex = activeLeaderboard.findIndex(e => String(e.id || '').split(':')[0].trim().toLowerCase() === String(myId).split(':')[0].trim().toLowerCase());
+    
+    if (activeUserEntryIndex >= 0) {
+        activeUserRank = activeLeaderboard[activeUserEntryIndex].rank || (activeUserEntryIndex + 1);
+    } else if (finalQuizPoints > 0) {
+        // If user has points but wasn't explicitly found in the leaderboard array, calculate rank dynamically
+        activeLeaderboard.push({ id: myId, name: userName, score: finalQuizPoints, rank: activeLeaderboard.length + 1 });
+        activeLeaderboard.sort((a, b) => (a.rank || 999) - (b.rank || 999) || b.score - a.score);
+        const dynamicIndex = activeLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === myId);
+        activeUserRank = dynamicIndex >= 0 ? (activeLeaderboard[dynamicIndex].rank || dynamicIndex + 1) : 0;
     }
 
-    // Prefer the explicitly fetched backend rewards rank, fallback to dynamically computed userRank
-    const finalRank = rewardsBackendRank && rewardsBackendRank > 0 ? rewardsBackendRank : userRank;
-    // Calculate total endorsements accurately by counting the number of actual rewards (non-quiz) the user received
-    const myRewards = uniqueHistory.filter(item => {
-        const rawTitle = String(item.reward_name || item.rewardName || item.title || '').trim().toLowerCase();
-        const cat = String(item.category || '').toUpperCase();
-        return !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
-    });
-    const myFilteredRewards = myRewards.filter(item => {
-        return isWithinDateRange(item.created_at || item.date);
-    });
+    // Prefer the explicitly fetched backend rewards rank if no date filter is active
+    const finalRank = (startDate || endDate) ? activeUserRank : (rewardsBackendRank && rewardsBackendRank > 0 ? rewardsBackendRank : activeUserRank);
+    // Calculate total endorsements accurately by counting all rewards (PM, TL, HR) and quiz completions
     const finalEndorsements = (startDate || endDate)
-        ? myFilteredRewards.length
-        : Math.max(myRewards.length, backendEndorsements || 0);
+        ? filteredUniqueHistory.length
+        : Math.max(uniqueHistory.length, backendEndorsements || 0);
 
     const stats = {
         rank: finalRank > 0 ? finalRank : 'N/A',
@@ -903,8 +963,8 @@ const AwardsScreen = ({ onBack }) => {
         total_points: finalTotalPoints,
         endorsements: finalEndorsements,
         score: 'Active',
-        topName: sortedLeaderboard[0]?.name || 'TBD',
-        topScore: sortedLeaderboard[0]?.score || 0
+        topName: activeLeaderboard[0]?.name || 'TBD',
+        topScore: activeLeaderboard[0]?.score || 0
     };
 
     const openMemberProfile = async (member) => {
@@ -978,14 +1038,14 @@ const AwardsScreen = ({ onBack }) => {
             setMemberRewards(combinedHistory);
 
             // Calculate recognition total
-            const recognitionTotal = combinedHistory.reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
+            const recognitionTotal = combinedHistory.reduce((sum, item) => sum + extractNumLocalGlobal(item.points || item.rep || 0), 0);
 
             // Get score from leaderboard as a robust fallback
-            const lbScore = Number(member.score || leaderboard.find(e => String(e.id || '').split(':')[0] === String(memberId))?.score || 0);
+            const lbScore = extractNumLocalGlobal(member.score || leaderboard.find(e => String(e.id || '').split(':')[0] === String(memberId))?.score || 0);
 
             // Use the highest known total
-            const finalTotal = Math.max(recognitionTotal, total, lbScore);
-            setMemberPoints(finalTotal);
+            const finalTotal = Math.max(recognitionTotal, extractNumLocalGlobal(total), lbScore);
+            setMemberPoints(isNaN(finalTotal) ? 0 : finalTotal);
 
             // If there's a significant gap between history and total, add a summary quiz entry
             if (finalTotal > recognitionTotal && !combinedHistory.some(h => String(h.reward_name || '').toUpperCase().includes('QUIZ'))) {
@@ -1274,31 +1334,31 @@ const AwardsScreen = ({ onBack }) => {
                     
                     {/* Date filter inputs for Leaderboard */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { leadStartDateRef.current?.showPicker(); } catch(e) { leadStartDateRef.current?.focus(); leadStartDateRef.current?.click(); } }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
                             <Calendar size={14} color="#3B5998" />
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: leadStartDate ? '#1e293b' : '#94a3b8' }}>
-                                {formatDisplayDate(leadStartDate)}
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
+                                {formatDisplayDate(startDate)}
                             </span>
                             <input
-                                ref={leadStartDateRef}
+                                ref={startDateRef}
                                 type="date"
                                 style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-                                value={leadStartDate}
-                                onChange={(e) => setLeadStartDate(e.target.value)}
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
                             />
                         </div>
                         <span style={{ fontSize: '10px', fontWeight: '900', color: '#cbd5e1' }}>TO</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { leadEndDateRef.current?.showPicker(); } catch(e) { leadEndDateRef.current?.focus(); leadEndDateRef.current?.click(); } }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
                             <Calendar size={14} color="#3B5998" />
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: leadEndDate ? '#1e293b' : '#94a3b8' }}>
-                                {formatDisplayDate(leadEndDate)}
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
+                                {formatDisplayDate(endDate)}
                             </span>
                             <input
-                                ref={leadEndDateRef}
+                                ref={endDateRef}
                                 type="date"
                                 style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-                                value={leadEndDate}
-                                onChange={(e) => setLeadEndDate(e.target.value)}
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
                             />
                         </div>
                     </div>
@@ -1497,7 +1557,7 @@ const AwardsScreen = ({ onBack }) => {
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginTop: '8px' }}>
                                         <p style={{ margin: 0, opacity: 0.7, fontSize: '13px' }}>Global Rank: #{filteredLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
                                         <div style={{ padding: '4px 12px', borderRadius: '10px', backgroundColor: '#FBBC05', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000' }}>
-                                            {memberPoints} REP
+                                            {isNaN(memberPoints) || memberPoints === null || memberPoints === undefined ? 0 : memberPoints} REP
                                         </div>
                                     </div>
                                 </div>
@@ -1578,7 +1638,7 @@ const AwardsScreen = ({ onBack }) => {
                     <BackButton onClick={onBack} />
                     <div>
                         <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>Awards & recognition</h1>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Excellence recognized at Nbt hub</p>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Excellence recognized at NBT HUB</p>
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1769,7 +1829,7 @@ const AwardsScreen = ({ onBack }) => {
                                 <Trophy size={12} />
                                 {(() => {
                                     const totalHrPoints = (history.hr || []).reduce((sum, aw) => {
-                                        return sum + (Number(aw.points || aw.rep || 0));
+                                        return sum + extractNumLocalGlobal(aw.points || aw.rep || 0);
                                     }, 0);
                                     return `${totalHrPoints} REP TOTAL`;
                                 })()}
@@ -1893,7 +1953,7 @@ const AwardsScreen = ({ onBack }) => {
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginTop: '8px' }}>
                                     <p style={{ margin: 0, opacity: 0.7, fontSize: '13px' }}>Global Rank: #{sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
                                     <div style={{ padding: '4px 12px', borderRadius: '10px', backgroundColor: '#FBBC05', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000' }}>
-                                        {memberPoints} REP
+                                        {isNaN(memberPoints) || memberPoints === null || memberPoints === undefined ? 0 : memberPoints} REP
                                     </div>
                                 </div>
                             </div>

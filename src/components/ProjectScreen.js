@@ -734,8 +734,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                         // 1. Fully locked if Approved by manager.
                         // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert, UNLESS it was Rejected by manager.
                         const isTaskDone = pStatus === 'Completed' || pProg === 100;
-                        const isTeamProject = activeView === 'TEAM';
-                        const isLocked = isTeamProject || isApproved || (isTaskDone && st !== 'Completed');
+                        // Allow employees to update team projects
+                        const isLocked = isApproved || (isTaskDone && st !== 'Completed');
                         
                         // Keep all buttons visible so they are never removed from the UI
 
@@ -744,7 +744,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                             key={st}
                             onClick={() => !isLocked && handleStatusUpdate(pName, st, proj.id, pStatus, pProg)}
                             disabled={isLocked}
-                            title={isLocked ? (isTeamProject ? 'Team projects are read-only' : isApproved ? 'Approved by manager' : isRejected ? 'Rejected – awaiting resubmission' : 'Task is completed') : ''}
+                            title={isLocked ? (isApproved ? 'Approved by manager' : isRejected ? 'Rejected – awaiting resubmission' : 'Task is completed') : ''}
                             style={{ 
                               flex: 1, 
                               padding: '10px 5px', 

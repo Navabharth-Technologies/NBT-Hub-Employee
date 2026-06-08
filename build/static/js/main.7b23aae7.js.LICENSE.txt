@@ -209,7 +209,7 @@
  */
 
 /**
- * @license lucide-react v1.17.0 - ISC
+ * @license lucide-react v1.16.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
@@ -220,17 +220,6 @@
  * @author Stoyan Stefanov <sstoo@gmail.com>
  * {@link   http://www.phpied.com/rgb-color-parser-in-javascript/}
  * @license Use it if you like it
- */
-
-/**
- * react-router v7.15.0
- *
- * Copyright (c) Remix Software Inc.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE.md file in the root directory of this source tree.
- *
- * @license MIT
  */
 
 /** ====================================================================

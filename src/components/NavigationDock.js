@@ -92,7 +92,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee }) => {
     { id: 'COURSES', icon: <BookOpen className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Courses' },
     { id: 'THREAD', icon: <MessageSquare className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Thread' },
     { id: 'FUN', icon: <Gamepad2 className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Fun' },
-    { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Leaves' },
+    { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Leave' },
     { id: 'PROFILE', icon: <User className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Profile' },
   ].filter(item => isNewJoinee ? (item.id === 'HOME' || item.id === 'PROFILE') : true);
 

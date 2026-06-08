@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane, ArrowLeft, Calendar, Info, Clock, CheckCircle, XCircle, X, Plus, Filter, Search, Users, Activity, Umbrella, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plane, ArrowLeft, Calendar, Info, Clock, CheckCircle, XCircle, X, Plus, Filter, Search, Users, Activity, Umbrella, CreditCard, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
@@ -349,11 +349,12 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     setIsSubmitting(true);
     const token = localStorage.getItem('token');
     const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
-    const uid = user?.id || user?.empId || user?.employee_id || user?.userId;
+    const rawUid = user?.id || user?.empId || user?.employee_id || user?.userId;
+    const uid = sanitizeId(rawUid);
 
     try {
       // Frontend Probation Check for Casual Leave ONLY
-      if (formData.type === 'Casual Leave' && user.joining_date) {
+      if (formData.type === 'Casual Leave' && user?.joining_date) {
         const joinDate = new Date(user.joining_date);
         const today = new Date();
         const diffDays = Math.floor((today - joinDate) / (1000 * 60 * 60 * 24));
@@ -362,6 +363,43 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           setModalConfig({
             show: true,
             message: `Casual Leave can only be applied after 3 months of joining. Service days: ${diffDays}/90`,
+            type: 'error'
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Validate date order (To date cannot be earlier than From date)
+      const sDateObj = new Date(formData.start_date);
+      const eDateObj = new Date(formData.end_date);
+      sDateObj.setHours(0,0,0,0);
+      eDateObj.setHours(0,0,0,0);
+      if (eDateObj < sDateObj) {
+        setModalConfig({
+          show: true,
+          message: "The 'To date' cannot be earlier than the 'From date'.",
+          type: 'error'
+        });
+          setIsSubmitting(false);
+          return;
+      }
+
+      // Half Day specific validations
+      if (formData.isHalfDay) {
+        if (formData.start_date !== formData.end_date) {
+          setModalConfig({
+            show: true,
+            message: "For a Half Day request, the 'From date' and 'To date' must be the same.",
+            type: 'error'
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        if (!formData.halfDaySlot) {
+          setModalConfig({
+            show: true,
+            message: "Please select a Half Day Slot.",
             type: 'error'
           });
           setIsSubmitting(false);
@@ -382,7 +420,8 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       }
 
       const days = calculateDays(formData.start_date, formData.end_date);
-      const mId = Number(user.reporting_manager_id || user.reportingManagerId || user.manager_id || user.managerId || 1);
+      const rawMId = user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || 1;
+      const mId = Number(sanitizeId(rawMId));
 
       const payload = {
         user_id: Number(uid),
@@ -444,6 +483,16 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       if (res.ok) {
         setModalConfig({ show: true, message: "Leave request submitted successfully!", type: 'success' });
         setShowForm(false);
+        setFormData({
+          type: '',
+          to: '',
+          cc: '',
+          reason: '',
+          start_date: '',
+          end_date: '',
+          isHalfDay: false,
+          halfDaySlot: ''
+        });
         fetchData();
         fetchUserBalance();
       } else {
@@ -1099,7 +1148,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           {selectedCalEvent && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5000 }}
               onClick={() => setSelectedCalEvent(null)}
             >
               <motion.div
@@ -1203,7 +1252,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                             <option value="LOP">LOP</option>
                           </select>
                           <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                            <ArrowLeft size={16} color="#000000" style={{ transform: 'rotate(-90deg)' }} />
+                            <ChevronDown size={18} color="#000000" />
                           </div>
                         </div>
                       </div>
@@ -1263,7 +1312,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                               <option value="Second Half (1:30 - 6:00 pm)">Second Half (1:30 - 6:00 pm)</option>
                             </select>
                             <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                              <ArrowLeft size={16} color="#000000" style={{ transform: 'rotate(-90deg)' }} />
+                              <ChevronDown size={18} color="#000000" />
                             </div>
                           </div>
                         </motion.div>
@@ -1298,7 +1347,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           {modalConfig.show && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40000 }}
               onClick={() => setModalConfig({ ...modalConfig, show: false })}
             >
               <motion.div
@@ -1331,7 +1380,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           {selectedLeave && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11, 30, 63, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}
               onClick={() => setSelectedLeave(null)}
             >
               {(() => {

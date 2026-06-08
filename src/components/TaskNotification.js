@@ -121,11 +121,16 @@ const TaskNotification = ({ onOpenTask }) => {
             }
         }
 
+        let finalDesc = rawMsg;
+        if (dynamicTitle === 'New Fun Quiz' || (gn.type && gn.type.toUpperCase() === 'QUIZ') || rawMsg.toLowerCase().includes('new fun quiz')) {
+            finalDesc = "Added new quiz";
+        }
+
         return {
           id: gId,
           type: gn.type || 'ALERT',
           title: dynamicTitle,
-          description: rawMsg,
+          description: finalDesc,
           formattedTime: formatDate(parseDate),
           isNew: !isRead,
           rawDate: parseDate

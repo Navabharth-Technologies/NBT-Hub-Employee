@@ -14,7 +14,9 @@ import {
   Download,
   FileText,
   ChevronDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Palmtree,
+  CalendarDays
 } from 'lucide-react';
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -271,8 +273,44 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139); // #64748b
       const fmtDate = (raw) => { if (!raw) return 'All'; const p = String(raw).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : raw; };
+      
+      let displayStart = startDate;
+      let displayEnd = endDate;
+
+      if (filteredLogs && filteredLogs.length > 0) {
+        const dates = filteredLogs
+          .map(log => {
+            const rawDate = log.punch_date || log.date;
+            if (!rawDate) return null;
+            if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+              const [year, month, day] = rawDate.trim().split('-').map(Number);
+              return new Date(year, month - 1, day);
+            }
+            const d = new Date(rawDate);
+            return isNaN(d.getTime()) ? null : d;
+          })
+          .filter(Boolean);
+
+        if (dates.length > 0) {
+          if (!displayStart) {
+            const minDate = new Date(Math.min(...dates));
+            const y = minDate.getFullYear();
+            const m = String(minDate.getMonth() + 1).padStart(2, '0');
+            const d = String(minDate.getDate()).padStart(2, '0');
+            displayStart = `${y}-${m}-${d}`;
+          }
+          if (!displayEnd) {
+            const maxDate = new Date(Math.max(...dates));
+            const y = maxDate.getFullYear();
+            const m = String(maxDate.getMonth() + 1).padStart(2, '0');
+            const d = String(maxDate.getDate()).padStart(2, '0');
+            displayEnd = `${y}-${m}-${d}`;
+          }
+        }
+      }
+
       doc.text(`Employee: ${user?.name || 'N/A'} (ID: ${user?.id || user?.empId || 'N/A'})`, 14, 28);
-      doc.text(`Date Range: ${fmtDate(startDate)} to ${fmtDate(endDate)}`, 14, 34);
+      doc.text(`Date Range: ${fmtDate(displayStart)} to ${fmtDate(displayEnd)}`, 14, 34);
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
 
       const tableColumn = ["Date", "Punch In", "Punch Out", "Work Hrs", "Status", "Audit Location"];
@@ -485,89 +523,54 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
               onChange={(e) => setEndDate(e.target.value)}
             />
             {(startDate || endDate) && (
-              <button onClick={() => { setStartDate(''); setEndDate(''); }} style={{ border: 'none', background: 'none', color: '#ef4444', fontWeight: '800', cursor: 'pointer', padding: '0 5px' }}>×</button>
+              <button 
+                onClick={() => { setStartDate(''); setEndDate(''); }} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: '#ef4444', 
+                  fontWeight: '800', 
+                  fontSize: '12px', 
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  backgroundColor: '#fef2f2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginLeft: '4px'
+                }}
+              >
+                Clear
+              </button>
             )}
           </div>
+
           <button onClick={() => fetchAttendance()} style={{ ...s.btnPrimary, backgroundColor: 'white', color: '#0B1E3F', border: '1px solid #e2e8f0' }}>
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
           
-          {/* Export Dropdown */}
-          <div style={{ position: 'relative' }}>
-            <button
-              style={{ 
-                ...s.btnPrimary, 
-                width: isMobile ? '100%' : 'auto', 
-                justifyContent: 'center',
-                backgroundColor: '#0B1E3F',
-                color: 'white',
-                border: 'none',
-                gap: '10px',
-                padding: '0 20px',
-                height: '42px',
-                display: 'flex',
-                alignItems: 'center',
-                borderRadius: '12px'
-              }}
-              className="attendance-search"
-              onClick={() => setShowExportMenu(!showExportMenu)}
-            >
-              <Download size={18} /> 
-              <span style={{ position: 'relative', top: '-1px' }}>Export Data</span>
-              <ChevronDown size={14} />
-            </button>
-
-            <AnimatePresence>
-              {showExportMenu && (
-                <>
-                  <div 
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }} 
-                    onClick={() => setShowExportMenu(false)} 
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 8px)',
-                      right: 0,
-                      width: '200px',
-                      backgroundColor: 'white',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                      padding: '8px',
-                      zIndex: 1001,
-                      border: '1px solid #e2e8f0'
-                    }}
-                  >
-                    <button
-                      onClick={exportToPDF}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        backgroundColor: 'transparent',
-                        cursor: 'pointer',
-                        color: '#1e293b',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <FileText size={18} color="#ef4444" /> Export as PDF
-                    </button>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Export Direct Button */}
+          <button
+            style={{ 
+              ...s.btnPrimary, 
+              width: isMobile ? '100%' : 'auto', 
+              justifyContent: 'center',
+              backgroundColor: '#0B1E3F',
+              color: 'white',
+              border: 'none',
+              gap: '10px',
+              padding: '0 20px',
+              height: '42px',
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: '12px'
+            }}
+            className="attendance-search"
+            onClick={exportToPDF}
+          >
+            <FileText size={18} /> 
+            <span style={{ position: 'relative', top: '-1px' }}>Export as PDF</span>
+          </button>
         </div>
       </header>
 
@@ -650,9 +653,9 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><Activity size={18} color="#ef4444" /></div>
+          <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><CalendarDays size={18} color="#ef4444" /></div>
           <div>
-            <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LEAVES</div>
+            <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LEAVE</div>
             <div style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>
               {stats.leaves}
             </div>
@@ -806,3 +809,4 @@ const CheckCircle = ({ size }) => (
 );
 
 export default AttendanceDashboard;
+// Force recompile for localhost:3002

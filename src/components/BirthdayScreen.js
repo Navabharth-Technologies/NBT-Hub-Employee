@@ -212,7 +212,7 @@ const BirthdayScreen = ({ onBack }) => {
       display: 'flex',
       flexDirection: 'column',
       gap: '15px',
-      minHeight: '100vh',
+      minHeight: 'auto',
       backgroundColor: '#f8fafc'
     },
     headerCard: {
@@ -371,7 +371,7 @@ const BirthdayScreen = ({ onBack }) => {
         </div>
       </motion.div>
 
-      <div style={{ height: '100px' }} /> {/* Space for NavigationDock */}
+      <div style={{ height: '20px' }} /> {/* Space for NavigationDock */}
     </div>
   );
 };
