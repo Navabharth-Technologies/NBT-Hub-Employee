@@ -468,17 +468,7 @@ export default function ThreadScreen() {
                                             onChange={(e) => setEditContent(e.target.value)}
                                         />
 
-                                        <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
-                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                            <div style={styles.mediaBtn} onClick={() => editFileInputRef.current?.click()}>
-                                                <ImageIcon size={18} color="#10b981" /> Replace Photo/Video
-                                            </div>
-                                            {(editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia && (
-                                                <div style={{ ...styles.mediaBtn, color: '#ef4444' }} onClick={() => { setEditRemoveMedia(true); setEditMediaFile(null); setEditMediaPreview(null); }}>
-                                                    <Trash2 size={18} color="#ef4444" /> Remove Media
-                                                </div>
-                                            )}
-                                        </div>
+
 
                                         {(editMediaPreview && !editRemoveMedia) && (
                                             <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
@@ -496,6 +486,10 @@ export default function ThreadScreen() {
                                                 const separator = mediaPath.startsWith('/') ? '' : '/';
                                                 src = `${BASE_URL}${separator}${mediaPath}`;
                                             }
+                                            const manualBuster = window.__threadImgBusters?.[post.id];
+                                            const busterTs = manualBuster || new Date(post.updated_at || post.updatedAt || post.createdAt || Date.now()).getTime();
+                                            const cacheBuster = `?t=${busterTs}`;
+                                            src = src.includes('?') ? `${src}&t=${cacheBuster.substring(3)}` : `${src}${cacheBuster}`;
                                             return (
                                                 <div style={{ marginTop: '10px', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px', opacity: 0.5 }}>
                                                     {isVideo ? (<video src={src} controls style={{ width: '100%', display: 'block' }} />) : (<img src={src} style={{ width: '100%', display: 'block' }} alt="" />)}
@@ -553,6 +547,10 @@ export default function ThreadScreen() {
                                 const separator = mediaPath.startsWith('/') ? '' : '/';
                                 src = `${BASE_URL}${separator}${mediaPath}`;
                             }
+                            const manualBuster = window.__threadImgBusters?.[post.id];
+                            const busterTs = manualBuster || new Date(post.updated_at || post.updatedAt || post.createdAt || Date.now()).getTime();
+                            const cacheBuster = `?t=${busterTs}`;
+                            src = src.includes('?') ? `${src}&t=${cacheBuster.substring(3)}` : `${src}${cacheBuster}`;
                             return (
                                 <div style={styles.postMedia}>
                                     {isVideo ? (

@@ -623,6 +623,8 @@ export const ThreadProvider = ({ children }) => {
         });
          
         if (res.ok) {
+             window.__threadImgBusters = window.__threadImgBusters || {};
+             window.__threadImgBusters[id] = Date.now();
              await fetchThreads(currentUserId);
              return true;
         } else {

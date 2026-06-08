@@ -1331,37 +1331,7 @@ const AwardsScreen = ({ onBack }) => {
                             <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Top performers across all departments</p>
                         </div>
                     </div>
-                    
-                    {/* Date filter inputs for Leaderboard */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
-                            <Calendar size={14} color="#3B5998" />
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
-                                {formatDisplayDate(startDate)}
-                            </span>
-                            <input
-                                ref={startDateRef}
-                                type="date"
-                                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                            />
-                        </div>
-                        <span style={{ fontSize: '10px', fontWeight: '900', color: '#cbd5e1' }}>TO</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
-                            <Calendar size={14} color="#3B5998" />
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
-                                {formatDisplayDate(endDate)}
-                            </span>
-                            <input
-                                ref={endDateRef}
-                                type="date"
-                                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                    {/* Date filter inputs removed */}
                 </div>
 
                 {/* Leaderboard content container */}

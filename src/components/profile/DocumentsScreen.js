@@ -1050,7 +1050,7 @@ export default function DocumentsScreen({ onBack }) {
             <BackButton onClick={onBack} />
             <div>
               <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1 }}>Profile Info</h1>
-              <p style={{ fontSize: isMobile ? '11px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>Employee metadata record</p>
+              <p style={{ fontSize: isMobile ? '11px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>Employee Metadata Record</p>
             </div>
           </div>
 
@@ -1269,7 +1269,7 @@ export default function DocumentsScreen({ onBack }) {
               </div>
               <div style={{ marginTop: '10px' }}>
                 <h2 style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: '900', color: '#000000', margin: 0 }}>{currentSection.label}</h2>
-                <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#000000', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata records' : 'Official employee metadata records'}</p>
+                <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#000000', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata Records' : 'Official Employee Metadata Records'}</p>
               </div>
             </div>
 

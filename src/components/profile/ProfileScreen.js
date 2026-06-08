@@ -155,7 +155,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const resolveImagePath = (path) => {
     if (!path || typeof path !== 'string') return null;
     if (path.startsWith('http') || path.startsWith('data:')) return path;
-    return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+    const buster = window.__profileImgBuster || '';
+    const base = `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+    return buster ? (base.includes('?') ? `${base}&t=${buster}` : `${base}?t=${buster}`) : base;
   };
 
 
@@ -391,8 +393,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         triggerToast('Profile image updated successfully!');
         const imgPath = data.profileImage || data.profile_pic || data.profile_picture;
         if (imgPath) {
+          window.__profileImgBuster = Date.now();
           const finalImg = imgPath.startsWith('http') || imgPath.startsWith('data:') ? imgPath : `${BASE_URL}${imgPath}`;
-          setProfileImage(finalImg);
+          setProfileImage(resolveImagePath(imgPath));
 
           if (refreshUser) {
             refreshUser();
