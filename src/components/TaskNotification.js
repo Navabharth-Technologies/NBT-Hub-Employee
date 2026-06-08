@@ -281,7 +281,9 @@ const TaskNotification = ({ onOpenTask }) => {
                         const nTitle = String(notif.title || '').toLowerCase();
                         const nDesc = String(notif.description || '').toLowerCase();
                         
-                        if (nType === 'LEAVE' || nTitle.includes('leave') || nDesc.includes('leave')) {
+                        if (nType === 'TICKET' || nTitle.includes('ticket') || nDesc.includes('ticket')) {
+                          tab = 'TICKET';
+                        } else if (nType === 'LEAVE' || nTitle.includes('leave') || nDesc.includes('leave')) {
                           tab = 'LEAVE';
                         } else if (nType === 'THREAD' || nTitle.includes('thread') || nDesc.includes('thread')) {
                           tab = 'THREAD';
