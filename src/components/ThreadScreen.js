@@ -357,14 +357,6 @@ export default function ThreadScreen() {
         <div style={styles.container}>
             {/* CREATE THREAD */}
             <div style={{ ...styles.card, borderTop: '5px solid #FDB913' }}>
-                <input
-                    id="thread-tagline-input"
-                    type="text"
-                    style={styles.tagInput}
-                    placeholder="ENTER POST TAGLINE (OPTIONAL) - e.g. ANNOUNCEMENT, SUCCESS STORY"
-                    value={tagline}
-                    onChange={e => setTagline(e.target.value)}
-                />
                 <textarea id="thread-content-input" style={styles.mainInput} placeholder="Share an update with the team..." value={newPost} onChange={e => setNewPost(e.target.value)} />
 
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} hidden accept="image/*,video/*" />
@@ -485,14 +477,6 @@ export default function ThreadScreen() {
                         <div style={{ marginTop: '14px', fontSize: isMobile ? '13px' : '15px', color: '#0B1E3F', lineHeight: '1.6', fontWeight: '600', whiteSpace: 'pre-wrap' }}>
                             {isEditing ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <input
-                                        id={`thread-edit-tagline-input-${post.id}`}
-                                        type="text"
-                                        style={styles.tagInput}
-                                        placeholder="ENTER POST TAGLINE (OPTIONAL) - e.g. ANNOUNCEMENT, SUCCESS STORY"
-                                        value={editTagline}
-                                        onChange={(e) => setEditTagline(e.target.value)}
-                                    />
                                     <textarea
                                         id={`thread-edit-content-input-${post.id}`}
                                         autoFocus
@@ -863,7 +847,7 @@ export default function ThreadScreen() {
             {showEditRemoveFirstModal && (
                 <div style={styles.modalOverlay}>
                     <div style={styles.modalContent}>
-                        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Existing Media Present</h3>
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Remove Media</h3>
                         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>
                             To upload new photo or video files, you must click <span style={{ color: '#ef4444', fontWeight: '800' }}>Remove Media</span> first to clear the existing media.
                         </p>
