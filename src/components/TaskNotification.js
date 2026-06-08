@@ -91,7 +91,9 @@ const TaskNotification = ({ onOpenTask }) => {
         
         if (!dynamicTitle || dynamicTitle === 'System Alert' || dynamicTitle.toLowerCase().includes('system alert')) {
             const lowerMsg = rawMsg.toLowerCase();
-            if (lowerMsg.includes('leave') && (lowerMsg.includes('approved') || lowerMsg.includes('accepted'))) {
+            if (lowerMsg.includes('ticket')) {
+                dynamicTitle = 'Ticket response';
+            } else if (lowerMsg.includes('leave') && (lowerMsg.includes('approved') || lowerMsg.includes('accepted'))) {
                 dynamicTitle = 'Leave Approved';
             } else if (lowerMsg.includes('leave') && (lowerMsg.includes('rejected') || lowerMsg.includes('declined'))) {
                 dynamicTitle = 'Leave Rejected';
