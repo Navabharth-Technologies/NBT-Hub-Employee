@@ -413,6 +413,7 @@ export default function ThreadScreen() {
                 const isAuthor = authorIdMatch || nameMatch;
 
                 const isLead = user?.role === 'TEAMLEADER' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
+                const hasMedia = !!(post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path);
                 const canManage = isAuthor;
                 const isEditing = editingPostId === post.id;
                 const pLiked = post.userHasLiked || false;
@@ -490,34 +491,7 @@ export default function ThreadScreen() {
                                         onChange={(e) => setEditContent(e.target.value)}
                                     />
 
-                                    <input type="file" ref={editFileInputRef} onChange={handleEditFileSelect} hidden accept="image/*,video/*" />
-                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                        <div style={styles.mediaBtn} onClick={() => {
-                                            const hasExisting = (editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia;
-                                            if (hasExisting) {
-                                                setPendingEditPost(post);
-                                                setShowEditRemoveFirstModal(true);
-                                                return;
-                                            }
-                                            editFileInputRef.current?.click();
-                                        }}>
-                                            <ImageIcon size={18} color="#10b981" /> Photo/Video
-                                        </div>
-                                        {(editMediaPreview || post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path) && !editRemoveMedia && (
-                                            <div style={{ ...styles.mediaBtn, color: '#ef4444' }} onClick={() => { setEditRemoveMedia(true); setEditMediaFile(null); setEditMediaPreview(null); }}>
-                                                <Trash2 size={18} color="#ef4444" /> Remove Media
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {(editMediaPreview && !editRemoveMedia) && (
-                                        <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
-                                            <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
-                                            {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
-                                        </div>
-                                    )}
-
-                                    {(!editMediaPreview && !editRemoveMedia) && (() => {
+                                    {(() => {
                                         const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
                                         if (!mediaPath || typeof mediaPath !== 'string') return null;
                                         const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');

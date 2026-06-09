@@ -4,9 +4,27 @@ import { useAuth, safeSetItem, checkAuthOnce } from '../context/AuthContext';
 import { API_ENDPOINTS, BASE_URL } from '../config';
 import { 
   User, Users, Briefcase, Clock, CheckCircle2, 
-  Shield
+  Shield, FileText
 } from 'lucide-react';
 import BackButton from './BackButton';
+
+const handleViewPDF = (data, name) => {
+    if (!data) return;
+    try {
+      const byteCharacters = atob(data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("PDF Preview Error:", err);
+      alert("Could not open PDF. Data may be corrupted.");
+    }
+};
 
 const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const { user } = useAuth();
@@ -23,6 +41,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
   const [taskReviewMap, setTaskReviewMap] = useState({}); // Stores manager review from /api/master-task/review/{id}
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [pendingStatusData, setPendingStatusData] = useState(null);
+  const [sessionOverrides, setSessionOverrides] = useState({});
   
   // Helper to strip legacy ":1" suffixes from IDs
   const sanitizeId = (id) => String(id || '').split(':')[0];
@@ -292,6 +311,17 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
       
       setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
       setSprintProgressMap(prev => ({ ...prev, [pName]: newProgress }));
+      setSessionOverrides(prev => ({ ...prev, [pName]: true }));
+      
+      // Store rejection override signature to survive refreshes
+      try {
+        const rv = taskReviewMap[taskId] || {};
+        const td = taskDetailMap[taskId] || {};
+        const finalReview = rv.task_review || rv.review || rv.feedback || rv.managerReview || td.task_review || td.review || td.feedback || '';
+        const reviewText = String(finalReview).toUpperCase();
+        const reviewTime = rv.updated_at || rv.created_at || td.updated_at || td.review_date || reviewText;
+        localStorage.setItem('override_rejection_' + suid + '_' + pName, String(reviewTime));
+      } catch(e) {}
 
       // Save to localStorage immediately
       try {
@@ -361,6 +391,18 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
     // Optimistic update: update UI state immediately so the user sees the change
     setSprintStatusMap(prev => ({ ...prev, [pName]: st }));
     setSprintProgressMap(prev => ({ ...prev, [pName]: progress }));
+    setSessionOverrides(prev => ({ ...prev, [pName]: true }));
+    
+    // Store rejection override signature to survive refreshes
+    try {
+      const rv = taskReviewMap[taskId] || {};
+      const td = taskDetailMap[taskId] || {};
+      const finalReview = rv.task_review || rv.review || rv.feedback || rv.managerReview || td.task_review || td.review || td.feedback || '';
+      const reviewText = String(finalReview).toUpperCase();
+      const reviewTime = rv.updated_at || rv.created_at || td.updated_at || td.review_date || reviewText;
+      localStorage.setItem('override_rejection_' + suid + '_' + pName, String(reviewTime));
+    } catch(e) {}
+
     setNotificationFeedback(`Project "${pName}" updated to ${st}!`);
     setTimeout(() => setNotificationFeedback(null), 3000);
 
@@ -401,7 +443,10 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
             body: JSON.stringify({ 
               status: st, 
               overallStatus: st,
-              progress: progress 
+              progress: progress,
+              verify: 'PENDING REVIEW', // Clear rejected state
+              managerReview: '',
+              feedback: ''
             })
         });
       }
@@ -575,15 +620,26 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
 
           // Check if employee has explicitly overridden via sprint status update (e.g. clicked Complete after rejection)
           const explicitSprintStatus = sprintStatusMap[pName];
-          const userExplicitlyCompleted = explicitSprintStatus === 'Completed';
+          const hasExplicitOverride = explicitSprintStatus !== undefined && explicitSprintStatus !== null;
+          
+          let isSessionOverride = !!sessionOverrides[pName];
+          if (!isSessionOverride) {
+            try {
+              const cachedOverride = localStorage.getItem('override_rejection_' + sanitizeId(user?.id) + '_' + pName);
+              const reviewTime = rv.updated_at || rv.created_at || td.updated_at || td.review_date || reviewText;
+              if (cachedOverride && cachedOverride === String(reviewTime)) {
+                isSessionOverride = true;
+              }
+            } catch(e) {}
+          }
 
           if (isApproved) pStatus = 'Completed';
-          else if (isRejected && !userExplicitlyCompleted) {
-            // Manager rejected — force back to In Progress at 70%, UNLESS employee explicitly completed again
-            pStatus = 'In Progress';
-          } else if (isRejected && userExplicitlyCompleted) {
-            // Employee resubmitted after rejection — honor their explicit completion
-            pStatus = 'Completed';
+          else if (isRejected) {
+            if (hasExplicitOverride && (explicitSprintStatus !== 'Completed' || isSessionOverride)) {
+              pStatus = explicitSprintStatus;
+            } else {
+              pStatus = 'In Progress';
+            }
           }
 
           let pProg = (sprintProgressMap[pName] !== undefined && sprintProgressMap[pName] !== null) ? sprintProgressMap[pName] :
@@ -591,8 +647,12 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                       (proj.progress !== undefined && proj.progress !== null ? proj.progress : 
                       (proj.progress_percentage || proj.sprint_progress || (pStatus === 'Completed' ? 100 : 0))));
 
-          if (isRejected && !userExplicitlyCompleted && (pProg === 100 || pProg < 70)) {
-            pProg = 70;
+          if (isRejected) {
+            if (!hasExplicitOverride || (explicitSprintStatus === 'Completed' && !isSessionOverride) || pProg === 100 || pProg < 70) {
+              if (!isSessionOverride) {
+                pProg = 70;
+              }
+            }
           }
 
           const getValidDate = (...dates) => {
@@ -612,6 +672,8 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
             proj.end_date,
             proj.target_date
           );
+
+
           
           const today = new Date();
           today.setHours(0, 0, 0, 0);
@@ -693,23 +755,30 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                   </div>
                   <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.6', margin: '0 0 20px 0', maxWidth: '600px' }}>{pDesc}</p>
                   
-                  {isApproved && (
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px', 
-                      padding: '6px 14px', 
-                      borderRadius: '12px', 
-                      backgroundColor: '#f0fdf4', 
-                      color: '#16a34a', 
-                      fontSize: '11px', 
-                      fontWeight: '800', 
-                      border: '1.5px solid #dcfce7',
-                      width: 'fit-content'
-                    }}>
-                      ✓ VERIFIED
+                  {(td.attachment_data || proj.attachment_data) && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewPDF(td.attachment_data || proj.attachment_data, td.attachment_name || proj.attachment_name);
+                        }}
+                        style={{ 
+                          display: 'inline-flex', alignItems: 'center', gap: '8px', 
+                          padding: '10px 18px', backgroundColor: '#f8fafc', color: '#1e3a8a', 
+                          borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: '800', 
+                          fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s',
+                          fontFamily: "'Inter', sans-serif"
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                      >
+                        <FileText size={16} color="#475569" /> 
+                        {td.attachment_name || proj.attachment_name}
+                      </button>
                     </div>
                   )}
+
+
                 </div>
 
                 {/* Right Side: Progress & Buttons */}
@@ -734,8 +803,10 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                         // 1. Fully locked if Approved by manager.
                         // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert, UNLESS it was Rejected by manager.
                         const isTaskDone = pStatus === 'Completed' || pProg === 100;
-                        // Allow employees to update team projects
-                        const isLocked = isApproved || (isTaskDone && st !== 'Completed');
+                        // 3. For team projects, lock all buttons. Only TLs should edit team projects directly.
+                        const isLocked = isApproved || 
+                                         (isTaskDone && st !== 'Completed' && !isRejected) || 
+                                         (activeView === 'TEAM');
                         
                         // Keep all buttons visible so they are never removed from the UI
 

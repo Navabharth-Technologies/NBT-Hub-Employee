@@ -27,7 +27,7 @@ function formatAmount(val) {
   return isNaN(num) ? '0' : num.toLocaleString('en-IN');
 }
 
-export default function PayslipScreen({ onBack }) {
+export default function PaySlipScreen({ onBack }) {
   const { user } = useAuth();
   const [payslips, setPayslips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,19 +60,19 @@ export default function PayslipScreen({ onBack }) {
 
         if (res.ok) {
           const data = await res.json();
-          console.log('[PayslipScreen] Raw API response:', JSON.stringify(data, null, 2));
+          console.log('[PaySlipScreen] Raw API response:', JSON.stringify(data, null, 2));
           const list = Array.isArray(data)
             ? data
             : (data.value || data.data || data.payslips || data.result || data.results || data.records || data.items || []);
-          console.log('[PayslipScreen] Parsed list:', list);
+          console.log('[PaySlipScreen] Parsed list:', list);
           setPayslips(list);
         } else {
-          console.warn('[PayslipScreen] API returned error:', res.status);
+          console.warn('[PaySlipScreen] API returned error:', res.status);
           setError(`Failed to load payslips (${res.status}). Please try again later.`);
           setPayslips([]);
         }
       } catch (err) {
-        console.error('[PayslipScreen] Fetch error:', err);
+        console.error('[PaySlipScreen] Fetch error:', err);
         setError('Could not connect to server. Please check your connection.');
         setPayslips([]);
       } finally {
@@ -101,24 +101,13 @@ export default function PayslipScreen({ onBack }) {
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'pt',
+        format: [canvas.width, canvas.height]
+      });
 
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-
-      let imgW = pageW;
-      let imgH = (canvas.height * imgW) / canvas.width;
-
-      if (imgH > pageH) {
-        const ratio = pageH / imgH;
-        imgH = pageH;
-        imgW = imgW * ratio;
-      }
-
-      const x = (pageW - imgW) / 2;
-      const y = (pageH - imgH) / 2;
-
-      pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH);
+      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
       const label = formatMonthLabel(selectedPayslip).replace(/\s+/g, '_');
 
       // Save directly as standard PDF file
@@ -234,8 +223,6 @@ export default function PayslipScreen({ onBack }) {
               {payslips.map((ps, idx) => {
                 const netPay = formatAmount(getNetPayAmt(ps));
                 const monthLabel = formatMonthLabel(ps);
-                const status = ps.status || ps.payment_status || ps.paymentStatus || 'Paid';
-                const isPaid = String(status).toLowerCase().includes('paid');
 
                 return (
                   <motion.div
@@ -368,18 +355,18 @@ export default function PayslipScreen({ onBack }) {
         style={{ maxWidth: '900px', width: '100%', margin: '0 auto', backgroundColor: 'white', padding: '60px 40px 80px', borderRadius: '2px', boxShadow: '0 0 40px rgba(0,0,0,0.05)', position: 'relative', overflowX: 'auto', minHeight: '1100px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}
       >
         {/* Decorative corner shapes */}
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '180px', height: '180px', backgroundColor: '#3b82f6', clipPath: 'polygon(100% 0, 100% 100%, 0 0)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTop: '180px solid #3b82f6', borderLeft: '180px solid transparent', zIndex: 1 }} />
 
         {/* Header */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', position: 'relative', zIndex: 10 }}>
-          <img src={logo} alt="NBT Logo" style={{ height: '70px', marginBottom: '20px' }} />
+          <img src={logo} alt="NBT Logo" style={{ height: '150px', marginBottom: '20px' }} />
           <div style={{ fontSize: '26px', fontWeight: '900', color: '#0f172a', letterSpacing: '1px', textAlign: 'center', textTransform: 'uppercase' }}>
             {ps.company_name || ps.companyName || ps.organisation || ps.organization || COMPANY_INFO.name}
           </div>
           <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px', marginTop: '8px', textAlign: 'center' }}>
             {ps.company_tagline || ps.companyTagline || ps.tagline || COMPANY_INFO.tagline}
           </div>
-          <div style={{ marginTop: '40px', paddingBottom: '8px', borderBottom: '2px solid #e2e8f0', textAlign: 'center', fontSize: '15px', fontWeight: '900', color: '#1e293b', letterSpacing: '2px', textTransform: 'uppercase', display: 'inline-block' }}>
+          <div style={{ marginTop: '40px', paddingBottom: '8px', borderBottom: '2px solid #e2e8f0', textAlign: 'center', fontSize: '15px', fontWeight: '900', color: '#1e293b', letterSpacing: '1px', textTransform: 'uppercase', display: 'inline-block' }}>
             Pay Slip for the Month of {monthLabel}
           </div>
         </div>
@@ -460,7 +447,7 @@ export default function PayslipScreen({ onBack }) {
           </table>
         </div>
 
-        {/* Earnings / Incentives / Deductions */}
+        {/* Earning / Incentive / Deduction Table */}
         <div style={{ marginTop: '20px', position: 'relative', zIndex: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
             {['EARNING', 'INCENTIVES', 'DEDUCTION'].map(t => (
@@ -497,7 +484,7 @@ export default function PayslipScreen({ onBack }) {
         </div>
 
         {/* Bottom decorative shapes */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '150px', height: '150px', backgroundColor: '#3b82f6', clipPath: 'polygon(0 0, 0 100%, 100% 100%)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 0, height: 0, borderBottom: '150px solid #3b82f6', borderRight: '150px solid transparent', zIndex: 1 }} />
 
         <style>{`
           @media print {

@@ -825,8 +825,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02, rotate: 0.5 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              cursor: 'pointer',
               background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
               backgroundSize: '100% 100%',
               padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
@@ -857,12 +859,17 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            whileHover={{ scale: 1.02, rotate: -0.5 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              cursor: 'pointer',
               background: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
               padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
               boxShadow: '0 20px 40px -12px rgba(16, 185, 129, 0.25)',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(255,255,255,0.1)',
+              minHeight: winWidth < 768 ? '120px' : '160px',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              boxSizing: 'border-box'
             }}
           >
             <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Calendar size={120} /></div>
@@ -881,12 +888,17 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            whileHover={{ scale: 1.02, rotate: 0.5 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              cursor: 'pointer',
               background: 'linear-gradient(135deg, #5b21b6 0%, #8b5cf6 100%)',
               padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
               boxShadow: '0 20px 40px -12px rgba(139, 92, 246, 0.25)',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(255,255,255,0.1)',
+              minHeight: winWidth < 768 ? '120px' : '160px',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              boxSizing: 'border-box'
             }}
           >
             <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', color: 'white', opacity: 0.15 }}><Info size={120} /></div>
@@ -905,7 +917,10 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              cursor: 'pointer',
               background: 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)',
               padding: winWidth < 768 ? '14px' : '20px', borderRadius: winWidth < 768 ? '18px' : '25px', color: 'white', position: 'relative', overflow: 'hidden',
               boxShadow: '0 20px 40px -12px rgba(239, 68, 68, 0.25)',

@@ -2,66 +2,40 @@ import React, { useState, useEffect, cloneElement, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, ChevronRight, Save, CreditCard, Building2, FileText, ChevronDown,
-  Shield, AlertCircle, CheckCircle2, User, Hash, Landmark, RefreshCw,
-  Briefcase, MapPin, Mail, Phone, GraduationCap, History, DollarSign,
-  FileCheck, Users, Calendar, Heart, Globe, Trash2, Pencil, Camera, Image as ImageIcon, Eye, Check, X
+  ChevronLeft, ChevronRight, Save, Building2, FileText, ChevronDown,
+  Shield, AlertCircle, CheckCircle2, User, Landmark, RefreshCw,
+  Briefcase, MapPin, GraduationCap, History,
+  FileCheck, Eye, Check, X, Pencil, Camera, Trash2
 } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
-import BackButton from '../BackButton';
-
-// Date format conversion helpers
-const formatDateToDMY = (val) => {
-  if (!val || val === 'Not Provided' || val === 'Add Date of Birth' || val === 'Add Date of Joining' || val === 'Add Separation Date' || val === 'Add Last Working Day') return val;
-  const s = String(val).trim();
-  // Already in DD/MM/YYYY
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-  // ISO format YYYY-MM-DD or YYYY-MM-DDT...
-  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-  // Try parsing as date object
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  }
-  return s;
-};
-
-const formatDateToYMD = (val) => {
-  if (!val || val === 'Not Provided') return val;
-  const s = String(val).trim();
-  // Already in YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // If in DD/MM/YYYY
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-    const parts = s.split('/');
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  }
-  // Try parsing
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  return s;
-};
 
 // These fields are strictly controlled by the backend for non-admin users
 const LOCKED_FIELDS = [
-  'designation',
+  'designation', 'department',
   'gross_salary_a', 'salary', 'pt', 'bgv_status', 'approved_by_ceo',
   'onboarding_link', 'appointment_letter', 'onboarding_doc_completed', 'id_card',
   'emp_id', 'doj', 'lwd', 'asset_name', 'asset_serial_no', 'asset_charger_details',
   'has_mouse', 'has_keyboard', 'has_laptop_stand', 'has_ruf_pad', 'has_pendrive',
   'has_mobile', 'has_camera', 'has_headphone', 'has_tablet'
 ];
+
+const REQUIRED_FIELDS = [
+  // Primary Profile
+  'emp_name', 'gender', 'date_of_birth', 'age', 'blood_group', 'marital_status', 'father_husband_name', 'pan_number', 'pancard_photo', 'aadhar_number', 'adharcard_photo',
+  // Organizational Hierarchy
+  'designation', 'supervisor_l1', 'supervisor_l2', 'doj', 'ft_pt', 'status', 'place', 'moved', 'official_email_id',
+  // Contact & Geography
+  'contact_no', 'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
+  // Academic & Career
+  'qualification', 'edu_completion_year', 'college', 'university', 'languages_known', 'sslc_percentage', 'puc_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_percentage', 'ug_pg_markscard', 'source',
+  // Banking & Finance
+  'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'gross_salary_a', 'salary', 'pt', 'passbook_photo',
+  // Compliance & Docs
+  'bgv_status', 'appointment_letter', 'approved_by_ceo', 'onboarding_doc_completed', 'id_card', 'onboarding_link'
+];
+
 
 const SECTIONS = [
   {
@@ -72,15 +46,15 @@ const SECTIONS = [
     fields: [
       { key: 'emp_name', label: 'Employee Name', placeholder: 'Full Name', type: 'text' },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
+      { key: 'date_of_birth', label: 'Date of Birth', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'age', label: 'Age', type: 'text', placeholder: 'Years' },
-      { key: 'marital_status', label: 'Marital Status', type: 'select', options: ['Single', 'Married'] },
-      { key: 'father_husband_name', label: "Father's Name", type: 'text' },
-      { key: 'pan_number', label: 'PAN Number', type: 'text', placeholder: 'ABCDE1234F' },
-      { key: 'pancard_photo', label: 'PAN Card Proof', type: 'file' },
-      { key: 'aadhar_number', label: 'Aadhar Number', type: 'text', placeholder: '1234 5678 9012' },
-      { key: 'adharcard_photo', label: 'Aadhar Card Proof', type: 'file' },
       { key: 'blood_group', label: 'Blood Group', type: 'text' },
+      { key: 'marital_status', label: 'Marital Status', type: 'select', options: ['Single', 'Married'] },
+      { key: 'father_husband_name', label: "Father/Husband's Name", type: 'text' },
+      { key: 'pan_number', label: 'PAN Number', type: 'text', placeholder: 'ABCDE1234F' },
+      { key: 'aadhar_number', label: 'Aadhar Number', type: 'text', placeholder: '1234 5678 9012' },
+      { key: 'pancard_photo', label: 'PAN Card Proof', type: 'file', onlyImages: true },
+      { key: 'adharcard_photo', label: 'Aadhar Card Proof', type: 'file', onlyImages: true },
     ]
   },
   {
@@ -138,7 +112,7 @@ const SECTIONS = [
       { key: 'sslc_markscard', label: 'SSLC Marks Card', type: 'file' },
       { key: 'puc_markscard', label: '12th or equivalent Marks Card', type: 'file' },
 
-      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'Enter Graduation Percentage / CGPA' },
+      { key: 'ug_pg_percentage', label: 'Graduation Percentage / CGPA', type: 'text', placeholder: 'e.g. 9.0 for CGPA or 85 for %' },
       { key: 'ug_pg_markscard', label: 'Graduation Certificate', type: 'file' },
       { key: 'source', label: 'Source (How you found us)', type: 'text' },
     ]
@@ -207,7 +181,6 @@ const SECTIONS = [
       { key: 'total_experience', label: 'Total Experience (Years)', type: 'text' },
       { key: 'experience_letter_photo', label: 'Experience Letter', type: 'file' },
       { key: 'separation', label: 'Separation Date', type: 'text', placeholder: 'DD/MM/YYYY' },
-      { key: 'lwd', label: 'Last Working Day (LWD)', type: 'text', placeholder: 'DD/MM/YYYY' },
       { key: 'attrition_bucket', label: 'Attrition Bucket', type: 'select', options: ['N/A', 'Resignation', 'Performance', 'Behavioral', 'Medical'] },
       { key: 'reason', label: 'Primary Reason', type: 'text' },
       { type: 'header', label: 'Salary Proof' },
@@ -217,46 +190,48 @@ const SECTIONS = [
 ];
 
 export default function DocumentsScreen({ onBack }) {
-  const { user, updateProfile } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { employeeId } = useParams();
 
   const [form, setForm] = useState({
-    emp_name: '', gender: '', dob: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: '',
+    emp_name: '', gender: '', date_of_birth: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: '',
     designation: '', department: '', process: '', supervisor_l1: '', supervisor_l2: '', doj: '', ft_pt: 'Full Time', status: 'Active', place: '', moved: '', official_email_id: '',
+    dailyGoal: '',
     contact_no: '', emergency_contact_no: '', personal_email_id: '', present_address: '', permanent_address: '', state: '',
     qualification: '', edu_completion_year: '', college: '', university: '', previous_organization: '', previous_experience: '', source: '', languages_known: '',
     separation: '', lwd: '', attrition_bucket: 'N/A', reason: '',
     bank_name: '', bank_account_no: '', ifsc_code: '', bank_branch: '', gross_salary_a: '', salary: '', pt: '',
     bgv_status: 'Pending', appointment_letter: 'Not Sent', approved_by_ceo: 'No', onboarding_doc_completed: 'No', id_card: 'Not Issued', onboarding_link: '',
-    emp_id: '', doj: '', lwd: '', asset_name: '',
+    emp_id: '', asset_name: '',
     has_mouse: 'No', has_keyboard: 'No', has_laptop_stand: 'No', has_ruf_pad: 'No', has_pendrive: 'No', has_mobile: 'No', has_camera: 'No', has_headphone: 'No', has_tablet: 'No',
     pancard_photo: '', adharcard_photo: '', experience_letter_photo: '', sslc_markscard: '', ug_pg_markscard: '',
     sslc_percentage: '', puc_percentage: '', ug_pg_percentage: '', puc_markscard: '',
     total_experience: '',
     previous_company_payslip: '',
-    voter_id: '', voter_id_photo: '', passport_photo: '', passbook_photo: ''
+    voter_id: '', voter_id_photo: '', passbook_photo: ''
   });
   const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
   const isMobile = winWidth < 768;
   const isTablet = winWidth < 1100;
-  const VALID_SECTIONS = ['primary', 'hierarchy', 'contact', 'academic', 'finance', 'compliance', 'assets', 'exit'];
-  const [activeSection, setActiveSection] = useState(() => {
-    try {
-      const saved = localStorage.getItem('nbt_profile_section');
-      return (saved && VALID_SECTIONS.includes(saved)) ? saved : 'primary';
-    } catch { return 'primary'; }
-  });
-  const changeSection = (id) => {
-    setActiveSection(id);
-    try { localStorage.setItem('nbt_profile_section', id); } catch { }
-  };
+  const [activeSection, setActiveSection] = useState('primary');
   const [isEditing, setIsEditing] = useState(false);
   const [viewImage, setViewImage] = useState(null);
   const tabsRef = useRef(null);
+
+  // Enhanced PDF detection to handle query params, data URIs, and Drive streams
+  const isPDF = (url) => {
+    if (!url) return false;
+    const s = String(url).toLowerCase();
+    // Handle query parameters by splitting at '?'
+    const base = s.split('?')[0];
+    return base.endsWith('.pdf') ||
+      s.includes('.pdf?') ||
+      s.startsWith('data:application/pdf') ||
+      s.includes('/api/drive/stream/');
+  };
 
   const scrollTabs = (direction) => {
     if (tabsRef.current) {
@@ -302,16 +277,16 @@ export default function DocumentsScreen({ onBack }) {
           const lowerKey = key.toLowerCase().trim();
 
           // FIX: Improved Date Check (don't corrupt laptop details containing 'T')
-          const isISODate = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val);
-          if (isISODate) {
-            val = val.substring(0, 10);
+          if (typeof val === 'string' && /^\d{4}[-/]\d{2}[-/]\d{2}/.test(val)) {
+            const p = val.substring(0, 10).split(/[-/]/);
+            val = `${p[2]}/${p[1]}/${p[0]}`;
           }
 
           // Map core identification values
           if (lowerKey === 'employee_id' || lowerKey === 'emp_id') assetUpdates['emp_id'] = val;
           if (lowerKey === 'employee_name' || lowerKey === 'emp_name') assetUpdates['emp_name'] = val;
-          if (lowerKey === 'joining_date' || lowerKey === 'doj') assetUpdates['doj'] = formatDateToDMY(val);
-          if (lowerKey === 'last_working_date' || lowerKey === 'lwd') assetUpdates['lwd'] = formatDateToDMY(val);
+          if (lowerKey === 'joining_date' || lowerKey === 'doj') assetUpdates['doj'] = val;
+          if (lowerKey === 'last_working_date' || lowerKey === 'lwd') assetUpdates['lwd'] = val;
           if (lowerKey === 'laptop_details' || lowerKey === 'asset_name') assetUpdates['asset_name'] = val;
           if (lowerKey === 'asset_serial_no' || lowerKey === 'serial_number') assetUpdates['serial_number'] = val;
 
@@ -369,9 +344,7 @@ export default function DocumentsScreen({ onBack }) {
             ...prev,
             emp_name: prev.emp_name && prev.emp_name !== 'Not Provided' ? prev.emp_name : (foundUser.name || foundUser.userName || ''),
             emp_id: prev.emp_id && prev.emp_id !== 'Not Provided' ? prev.emp_id : (foundUser.employee_id || foundUser.id || ''),
-            official_email_id: (prev.official_email_id || foundUser.email || '').toLowerCase(),
-            department: prev.department && prev.department !== 'Not Provided' ? prev.department : (foundUser.department || foundUser.dept || ''),
-            designation: prev.designation && prev.designation !== 'Not Provided' ? prev.designation : (foundUser.designation || foundUser.role || '')
+            official_email_id: (prev.official_email_id || foundUser.email || '').toLowerCase()
           }));
           return foundUser;
         }
@@ -389,21 +362,9 @@ export default function DocumentsScreen({ onBack }) {
         ? API_ENDPOINTS.EMPLOYEE_PROFILE(employeeId)
         : API_ENDPOINTS.MY_EMPLOYEE_PROFILE;
 
-      // Pre-fill from localStorage cache instantly (avoids blank screen on refresh)
-      const cacheKey = `nbt_profile_cache_${employeeId || user?.employee_id || user?.id}`;
-      try {
-        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-        if (cached) {
-          if (cached.dob) cached.dob = formatDateToDMY(cached.dob);
-          if (cached.doj) cached.doj = formatDateToDMY(cached.doj);
-          if (cached.lwd) cached.lwd = formatDateToDMY(cached.lwd);
-          if (cached.separation) cached.separation = formatDateToDMY(cached.separation);
-          setForm(prev => ({ ...prev, ...cached }));
-        }
-      } catch (_) { }
-
       const res = await fetch(endpoint, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) {
         const result = await res.json();
@@ -420,11 +381,19 @@ export default function DocumentsScreen({ onBack }) {
             if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
               val = val.substring(0, 10);
             }
-            let keyStr = key.toLowerCase().replace(/\s/g, '_');
-            if (keyStr.toLowerCase().includes('email') && typeof val === 'string') {
+            if (typeof val === 'string' && key.toLowerCase().includes('email')) {
               val = val.toLowerCase();
             }
-            cleanData[keyStr] = val === null ? '' : val;
+            // Standardize all dates to use slashes on load as per standard DD/MM/YYYY
+            if (typeof val === 'string' && (key.toLowerCase().includes('date') || key.toLowerCase().includes('date_of_birth') || key.toLowerCase().includes('doj') || key.toLowerCase().includes('lwd') || key.toLowerCase().includes('separation'))) {
+              if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(val)) {
+                const parts = val.substring(0, 10).split(/[-/]/);
+                val = `${parts[2]}/${parts[1]}/${parts[0]}`;
+              } else {
+                val = val.replace(/-/g, '/');
+              }
+            }
+            cleanData[key.toLowerCase().replace(/\s/g, '_')] = val === null ? '' : val;
           });
 
           const empIdVal = cleanData.emp_id || cleanData.employee_id || cleanData.employeeid || cleanData.userid || cleanData.id || cleanData.emp_no;
@@ -433,32 +402,18 @@ export default function DocumentsScreen({ onBack }) {
           if (empNameVal) cleanData.emp_name = empNameVal;
 
           const dojVal = cleanData.doj || cleanData.joining_date || cleanData.date_of_joining || cleanData.dateofjoining || cleanData.joiningdate;
-          if (dojVal) cleanData.doj = formatDateToDMY(dojVal);
+          if (dojVal) cleanData.doj = dojVal;
 
           const lwdVal = cleanData.lwd || cleanData.last_working_day || cleanData.last_working_date || cleanData.lwd_date;
-          if (lwdVal) cleanData.lwd = formatDateToDMY(lwdVal);
+          if (lwdVal) cleanData.lwd = lwdVal;
 
-          const separationVal = cleanData.separation || cleanData.separation_date || cleanData.resignation_date;
-          if (separationVal) cleanData.separation = formatDateToDMY(separationVal);
+          const contactVal = cleanData.contact_no || cleanData.phone_number || cleanData.phone;
+          if (contactVal) cleanData.contact_no = contactVal;
 
-          const dobVal = cleanData.dob || cleanData.date_of_birth || cleanData.dateofbirth || cleanData.birth_date;
-          if (dobVal) {
-            cleanData.dob = formatDateToDMY(dobVal);
-          }
+          const dobVal = cleanData.date_of_birth || cleanData.dob || cleanData.dateofbirth;
+          if (dobVal) cleanData.date_of_birth = dobVal;
 
-          // Gender placeholder default if not set in database
-          if (!cleanData.gender) {
-            cleanData.gender = '';
-          }
-
-          // Marital Status normalization
-          if (cleanData.marital_status) {
-            const ms = String(cleanData.marital_status).trim().toLowerCase();
-            const msMap = { 'single': 'Single', 'married': 'Married', 'divorced': 'Divorced', 'widowed': 'Widowed' };
-            if (msMap[ms]) cleanData.marital_status = msMap[ms];
-          }
-
-          // Aggressive Name and DOB Resolution
+          // Aggressive Name Resolution
           const isOwnProfile = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
           if (isOwnProfile && (!cleanData.emp_name || cleanData.emp_name === 'Not Provided')) {
             cleanData.emp_name = user?.name || user?.userName || '';
@@ -466,10 +421,6 @@ export default function DocumentsScreen({ onBack }) {
 
           if (isOwnProfile && (!cleanData.emp_id || cleanData.emp_id === 'Not Provided')) {
             cleanData.emp_id = user?.employee_id || user?.empId || user?.id || '';
-          }
-
-          if (isOwnProfile && (!cleanData.dob || cleanData.dob === 'Not Provided')) {
-            cleanData.dob = formatDateToDMY(user?.date_of_birth || user?.dob || '');
           }
 
           if (!cleanData.designation) cleanData.designation = user?.role || user?.designation || '';
@@ -490,13 +441,21 @@ export default function DocumentsScreen({ onBack }) {
                 const resigData = await resigResp.json();
                 const latest = Array.isArray(resigData) ? resigData[0] : resigData;
                 if (latest) {
+                  const formatDate = (v) => {
+                    if (!v) return null;
+                    if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(v)) {
+                      const p = v.substring(0, 10).split(/[-/]/);
+                      return `${p[2]}/${p[1]}/${p[0]}`;
+                    }
+                    return String(v).replace(/-/g, '/');
+                  };
                   setForm(prev => ({
                     ...prev,
-                    separation: formatDateToDMY(latest.resignation_date || latest.resignationDate || prev.separation),
-                    lwd: formatDateToDMY(latest.last_working_day || latest.lastWorkingDay || prev.lwd),
-                    reason: latest.reason || prev.reason,
-                    detailed_reason: latest.letter_content || latest.detailedReason || latest.detailed_reason || prev.detailed_reason,
-                    attrition_bucket: (latest.status === 'PENDING' || latest.status === 'Approved') ? 'Resignation' : prev.attrition_bucket
+                    separation: prev.separation || formatDate(latest.resignation_date || latest.resignationDate),
+                    lwd: prev.lwd || formatDate(latest.last_working_day || latest.lastWorkingDay),
+                    reason: prev.reason || latest.reason,
+                    detailed_reason: prev.detailed_reason || latest.letter_content || latest.detailedReason || latest.detailed_reason,
+                    attrition_bucket: (prev.attrition_bucket && prev.attrition_bucket !== 'N/A') ? prev.attrition_bucket : ((latest.status === 'PENDING' || latest.status === 'Approved') ? 'Resignation' : prev.attrition_bucket)
                   }));
                 }
               }
@@ -512,7 +471,7 @@ export default function DocumentsScreen({ onBack }) {
               emp_name: user.name || user.userName || '',
               emp_id: user.employee_id || user.empId || user.id || '',
               designation: user.role || user.designation || '',
-              official_email_id: (user.email || '').toLowerCase()
+              official_email_id: user.email || ''
             }));
           }
         }
@@ -523,8 +482,7 @@ export default function DocumentsScreen({ onBack }) {
           emp_name: user.name || user.userName || '',
           emp_id: user.employee_id || user.empId || user.id || '',
           designation: user.role || user.designation || '',
-          department: user.department || user.dept || '',
-          official_email_id: (user.email || '').toLowerCase()
+          official_email_id: user.email || ''
         }));
       }
     } catch (err) {
@@ -551,8 +509,7 @@ export default function DocumentsScreen({ onBack }) {
         emp_name: user.name || user.userName || prev.emp_name,
         emp_id: user.employee_id || user.empId || user.id || prev.emp_id,
         designation: user.role || user.designation || prev.designation,
-        department: user.department || user.dept || prev.department,
-        official_email_id: (user.email || prev.official_email_id || '').toLowerCase()
+        official_email_id: user.email || prev.official_email_id
       }));
     }
   }, [user, employeeId, form.emp_name]);
@@ -560,34 +517,23 @@ export default function DocumentsScreen({ onBack }) {
   const validateField = (key, value) => {
     let error = null;
 
-    const isRepeatedPlaceholder = (str) => {
-      if (!str) return false;
-      const s = String(str).toUpperCase().replace(/\s/g, '');
-      return /^(.)\1+$/.test(s);
-    };
-
     // REQUIRED FIELDS CHECK
-    const required = [
-      'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'official_email_id',
-      // Contact & Geography
-      'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
-      // Academic & Career
-      'qualification', 'edu_completion_year', 'college', 'university', 'languages_known',
-      'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
-      // Banking & Finance
-      'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
-    ];
-    if (required.includes(key) && (!value || String(value).trim() === '')) {
-      return `${key.replace(/_/g, ' ').toUpperCase()} is required`;
+    if (REQUIRED_FIELDS.includes(key) && (!value || String(value).trim() === '')) {
+      let displayLabel = key.replace(/_/g, ' ').toUpperCase();
+      if (key === 'father_husband_name') {
+        displayLabel = form.marital_status === 'Married' ? "Spouse Name" : "Father's Name";
+      }
+      return `${displayLabel.toUpperCase()} is required`;
     }
 
     if (!value) return null;
 
-    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
-      if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
-      if (/[^a-zA-Z\s]/.test(value)) error = 'Special characters are not allowed';
-    } else if (['dob', 'doj', 'lwd', 'separation'].includes(key)) {
-      if (value && value !== 'Not Provided' && value !== 'Add Date of Birth' && value !== 'Add Date of Joining' && value !== 'Add Separation Date' && value !== 'Add Last Working Day' && String(value).trim() !== '') {
+    const nameFields = ['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'place', 'moved', 'state', 'college', 'university', 'bank_branch'];
+    const numericFields = ['contact_no', 'emergency_contact_no', 'aadhar_number', 'bank_account_no', 'age', 'edu_completion_year', 'previous_experience', 'total_experience'];
+    const percentageFields = ['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'];
+
+    if (key === 'date_of_birth') {
+      if (value && value !== 'Not Provided' && value !== 'Add Date of Birth') {
         if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
           error = 'Format must be DD/MM/YYYY (e.g., 08/09/2002)';
         } else {
@@ -598,62 +544,81 @@ export default function DocumentsScreen({ onBack }) {
           const d = new Date(year, month - 1, day);
           if (isNaN(d.getTime()) || d.getDate() !== day || d.getMonth() + 1 !== month || d.getFullYear() !== year) {
             error = 'Invalid Date';
-          } else if (year < 1900 || year > 2100) {
-            error = 'Year must be between 1900 and 2100';
+          } else {
+            const today = new Date();
+            if (d > today) {
+              error = 'Date of Birth cannot be in the future';
+            }
           }
         }
       }
-    } else if (key === 'blood_group') {
-      const clean = String(value).toUpperCase().trim();
-      if (!/^(A|B|AB|O)[+-]$/.test(clean)) {
-        error = 'Invalid blood group (e.g., A+, AB-)';
-      }
-    } else if (key === 'age') {
-      if (value && String(value).length > 2) error = 'Maximum 2 digits allowed';
-    } else if (['contact_no', 'emergency_contact_no'].includes(key)) {
-      if (/[a-zA-Z]/.test(value)) error = 'Numbers only';
-      else if (value && !/^[6-9]/.test(value)) error = 'Mobile number must start with 6, 7, 8, or 9';
-      else if (value.length !== 10) error = 'Must be exactly 10 digits';
-    } else if (key === 'aadhar_number') {
-      const clean = String(value).replace(/\s/g, '');
-      if (!/^\d{12}$/.test(clean)) error = 'Aadhaar must be exactly 12 digits';
-      else if (isRepeatedPlaceholder(clean)) error = 'Repeated placeholder numbers are not allowed';
-    } else if (key === 'pan_number') {
-      const clean = String(value).toUpperCase().trim();
-      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(clean)) {
-        error = 'Format must be: 5 Letters, 4 Numbers, 1 Letter (e.g., ABCDE1234F)';
-      } else if (isRepeatedPlaceholder(clean)) {
-        error = 'Repeated placeholder sequences are not allowed';
-      }
-    } else if (key === 'voter_id') {
-      const clean = String(value).toUpperCase();
-      if (clean.length > 11) error = 'Maximum 11 characters allowed';
-      else if (/[^A-Z0-9]/.test(clean)) error = 'Alphanumeric only';
-    } else if (key === 'ifsc_code') {
-      const clean = String(value).toUpperCase();
-      if (clean.length !== 11) error = 'IFSC must be 11 characters';
-      else if (/[^A-Z0-9]/.test(clean)) error = 'Alphanumeric only';
-    } else if (key === 'bank_account_no') {
-      if (/\D/.test(value)) error = 'Numbers only';
-    } else if (key === 'edu_completion_year') {
-      if (value && value.length !== 4) error = 'Year must be exactly 4 digits';
-    } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      const num = parseFloat(value);
-      if (isNaN(num)) error = 'Enter a valid percentage';
-      else if (num > 100) error = 'Maximum 100% allowed';
+    } else if (nameFields.includes(key)) {
+      if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
+      else if (/[^a-zA-Z\s.]/.test(value)) error = 'Only alphabets, spaces and dots allowed';
+    } else if (numericFields.includes(key)) {
+      if (/[^0-9]/.test(value)) error = 'Digits only';
       else {
-        const parts = String(value).split('.');
-        if (parts[1] && parts[1].length > 2) error = 'Maximum 2 decimal places allowed';
+        if (key === 'edu_completion_year') {
+          if (value.length !== 4) {
+            error = 'Year must be exactly 4 digits';
+          } else {
+            const numYear = parseInt(value, 10);
+            const currentYear = new Date().getFullYear();
+            if (isNaN(numYear) || numYear < 1900 || numYear > currentYear) {
+              error = `Year must be between 1900 and ${currentYear}`;
+            }
+          }
+        }
+        if (key === 'contact_no' || key === 'emergency_contact_no') {
+          if (!/^[6-9]/.test(value)) {
+            error = 'Contact number must start only with 6, 7, 8, or 9';
+          } else if (value.length !== 10) {
+            error = 'Must be exactly 10 digits';
+          }
+        }
+        if (key === 'aadhar_number' && value.length !== 12) error = 'Must be exactly 12 digits';
+        if (key === 'age' && (Number(value) < 18 || Number(value) > 100)) error = 'Invalid age range (18-100)';
       }
-    } else if (key === 'bank_branch') {
-      if (/^[0-9]+$/.test(value.trim())) error = 'Branch name cannot be numeric only';
-      if (/[^a-zA-Z0-9\s\-\/\.,&()]/.test(value)) error = 'Invalid characters in branch name';
+    } else if (percentageFields.includes(key)) {
+      if (/[^0-9.]/.test(value)) {
+        error = 'Only numbers and a single decimal point are allowed';
+      } else if ((value.match(/\./g) || []).length > 1) {
+        error = 'Only a single decimal point is allowed';
+      } else if (value.includes('-') || parseFloat(value) < 0) {
+        error = 'Negative numbers are not allowed';
+      } else {
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+          error = 'Enter a valid percentage';
+        } else if (num > 100) {
+          error = 'Percentage cannot exceed 100%';
+        } else if (key === 'ug_pg_percentage') {
+          if (num > 10 && num < 35) {
+            error = 'CGPA cannot exceed 10. If this is a percentage, it must be between 35% and 100%';
+          } else if (!value.includes('.') && num <= 10) {
+            error = 'Please enter CGPA with a decimal (e.g., 9.0) or enter a valid Percentage (e.g., 90)';
+          }
+        }
+
+        if (!error) {
+          const parts = String(value).split('.');
+          if (parts[1] && parts[1].length > 2) {
+            error = 'Maximum 2 decimal places allowed';
+          }
+        }
+      }
+    } else if (key === 'pan_number') {
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      if (!panRegex.test(String(value).toUpperCase())) error = 'Use ABCDE1234F format (10 chars)';
+    } else if (key === 'ifsc_code') {
+      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+      if (!ifscRegex.test(String(value).toUpperCase())) error = 'Use ABCD0123456 format (11 chars)';
     } else if (key.toLowerCase().includes('email')) {
-      const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
       if (/[A-Z]/.test(value)) {
-        error = 'Email ID cannot contain uppercase letters';
-      } else if (!emailRegex.test(value)) {
-        error = 'Format: abc@gmail.com';
+        error = 'Email ID must be in lowercase only';
+      } else {
+        const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+        if (!emailRegex.test(value)) error = 'Invalid email format (lowercase only, e.g. user@domain.com)';
       }
     }
 
@@ -684,96 +649,114 @@ export default function DocumentsScreen({ onBack }) {
   };
 
   const handleChange = (key, value) => {
-    // Immediate cleaning for specific fields
-    let cleanValue = value;
-    if (['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'state', 'college', 'university', 'qualification'].includes(key)) {
-      cleanValue = value.replace(/[^a-zA-Z\s]/g, ''); // Block non-alphabets instantly
-    } else if (['dob', 'doj', 'lwd', 'separation'].includes(key)) {
-      // Allow only digits and slashes
-      cleanValue = value.replace(/[^0-9/]/g, '');
-      // Auto-insert slashes when typing forward (prevents collapse/scramble during backspace/middle edit)
-      const prevVal = form[key] || '';
-      if (cleanValue.length > prevVal.length) {
-        if (cleanValue.length === 2 || cleanValue.length === 5) {
-          cleanValue += '/';
-        }
-      }
-    } else if (key === 'department') {
-      cleanValue = value.replace(/[^a-zA-Z\s\&\-\/\.]/g, ''); // Block numbers, allow basic special chars
-
-    } else if (key === 'blood_group') {
-      const clean = value.replace(/[^a-zA-Z\+\-]/g, '').toUpperCase();
-      if (clean.length > 3) return;
-      if (clean.length >= 1 && !/^[A-Z]/.test(clean)) return;
-      if (clean.length >= 2 && !/^[A-Z][A-Z+-]/.test(clean)) return;
-      if (clean.length >= 3 && !/^[A-Z][A-Z+-][+-]$/.test(clean)) return;
-      cleanValue = clean;
-    } else if (['contact_no', 'emergency_contact_no'].includes(key)) {
-      cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
-      cleanValue = cleanValue.replace(/^[^6-9]+/, ''); // Remove invalid starting digits
-    } else if (['aadhar_number', 'bank_account_no', 'age', 'edu_completion_year'].includes(key)) {
-      cleanValue = value.replace(/\D/g, ''); // Block non-numbers instantly
-    } else if (['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'].includes(key)) {
-      cleanValue = value.replace(/[^0-9.]/g, ''); // Block characters, allow dots for decimals
-      const parts = cleanValue.split('.');
-      if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join(''); // Prevent multiple dots
-      if (parts[1] && parts[1].length > 2) cleanValue = parts[0] + '.' + parts[1].slice(0, 2); // Max 2 decimal places
-    } else if (key === 'bank_branch') {
-      cleanValue = value.replace(/[^a-zA-Z0-9\s\-\/\.,&()]/g, ''); // Allow standard branch name characters, block invalid ones
-    } else if (['pan_number', 'voter_id', 'ifsc_code'].includes(key)) {
-      cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); // Alphanumeric only
-    } else if (key.toLowerCase().includes('email')) {
-      const basicClean = value.replace(/[^a-zA-Z0-9@\._\-\+]/g, '').toLowerCase(); // Block spaces and invalid characters instantly, convert to lowercase
-      const tldMatch = basicClean.match(/^(.*@[a-z0-9.-]+\.(?:com|co\.in|in|org|net|edu|gov))(.*)$/);
-      if (tldMatch) {
-        cleanValue = tldMatch[1]; // Truncate everything after the TLD
-      } else {
-        cleanValue = basicClean;
-      }
+    // If the value is selected from calendar (YYYY-MM-DD format), convert to DD/MM/YYYY
+    if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(key) && value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const parts = value.split('-');
+      value = `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
 
-    // Length caps
+    let cleanValue = value;
+
+    // 1. Immediate Sanitization (Input Restrictions)
+    const nameFields = ['emp_name', 'father_husband_name', 'nominee_name', 'bank_name', 'religion', 'nationality', 'place', 'moved', 'state', 'college', 'university', 'bank_branch', 'process'];
+    const numericFields = ['contact_no', 'emergency_contact_no', 'aadhar_number', 'bank_account_no', 'age', 'edu_completion_year', 'previous_experience', 'total_experience', 'emp_id'];
+    const percentageFields = ['sslc_percentage', 'puc_percentage', 'ug_pg_percentage'];
+
+    if (nameFields.includes(key)) {
+      // Remove numbers, special characters (except space/dot), and emojis
+      cleanValue = value.replace(/[^a-zA-Z\s.]/g, '');
+    } else if (numericFields.includes(key)) {
+      // Remove all non-digits
+      cleanValue = value.replace(/\D/g, '');
+      if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 0 && !/^[6-9]/.test(cleanValue)) {
+        return;
+      }
+    } else if (percentageFields.includes(key)) {
+      cleanValue = value;
+    } else if (key.includes('email')) {
+      // Do not force lowercase or alter text during typing to avoid cursor reset.
+      // Spaces are removed, other uppercase/format checks are performed in validateField.
+      cleanValue = value.replace(/\s/g, '');
+      if (key === 'personal_email_id') {
+        const lastComIndex = cleanValue.toLowerCase().lastIndexOf('.com');
+        if (lastComIndex !== -1) {
+          cleanValue = cleanValue.substring(0, lastComIndex + 4);
+        }
+      }
+    } else if (key === 'pan_number' || key === 'ifsc_code' || key === 'voter_id') {
+      // Alphanumeric only, forced uppercase
+      cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    } else if (key === 'blood_group') {
+      // Allow only letters and symbols +, -
+      cleanValue = value.replace(/[^a-zA-Z+-]/g, '').toUpperCase();
+    } else if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(key)) {
+      // Allow only digits and slashes for date fields
+      cleanValue = value.replace(/[^0-9/]/g, '');
+    }
+
+    // 2. Length Caps
+    if (key === 'blood_group' && cleanValue.length > 3) return;
     if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 10) return;
-    if (['dob', 'doj', 'lwd', 'separation'].includes(key) && cleanValue.length > 10) return;
     if (key === 'aadhar_number' && cleanValue.length > 12) return;
-    if (key === 'age' && cleanValue.length > 2) return;
-    if (key === 'edu_completion_year' && cleanValue.length > 4) return;
     if (key === 'pan_number' && cleanValue.length > 10) return;
-    if (key === 'voter_id' && cleanValue.length > 11) return;
     if (key === 'ifsc_code' && cleanValue.length > 11) return;
+    if (key === 'age' && cleanValue.length > 3) return;
+    if (key === 'edu_completion_year' && cleanValue.length > 4) return;
+
+    // 3. Date Formatting (DD/MM/YYYY) - Auto-insert slashes and strict validation
+    if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(key)) {
+      const isTyping = cleanValue.length > (form[key]?.length || 0);
+      let raw = cleanValue.replace(/\D/g, '');
+      
+      if (raw.length > 0) {
+        let dd = parseInt(raw.substring(0, 2), 10);
+        if (raw.length === 1 && dd > 3) raw = '0' + raw;
+        if (raw.length >= 2 && dd > 31) raw = '31' + raw.substring(2);
+        
+        if (raw.length > 2) {
+          let mm = parseInt(raw.substring(2, 4), 10);
+          if (raw.length === 3 && raw[2] > '1') raw = raw.substring(0, 2) + '0' + raw[2];
+          if (raw.length >= 4 && mm > 12) raw = raw.substring(0, 2) + '12' + raw.substring(4);
+        }
+      }
+      
+      let formatted = '';
+      if (raw.length > 0) formatted += raw.substring(0, 2);
+      
+      if (raw.length > 2) {
+        formatted += '/' + raw.substring(2, 4);
+      } else if (raw.length === 2 && isTyping) {
+        formatted += '/';
+      }
+      
+      if (raw.length > 4) {
+        formatted += '/' + raw.substring(4, 8);
+      } else if (raw.length === 4 && isTyping) {
+        formatted += '/';
+      }
+      
+      cleanValue = formatted;
+    }
+    // Limit date length
+    if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(key) && cleanValue.length > 10) return;
 
     let updates = { [key]: cleanValue };
 
-    // Auto-calculate age for DOB formats (DD/MM/YYYY or YYYY-MM-DD)
-    if (key === 'dob' && cleanValue && cleanValue.length === 10) {
-      let birthDate = null;
-      if (cleanValue.includes('/')) {
-        const parts = cleanValue.split('/');
-        if (parts.length === 3) {
-          const d = parseInt(parts[0], 10);
-          const m = parseInt(parts[1], 10);
-          const y = parseInt(parts[2], 10);
-          if (y > 1000) birthDate = new Date(y, m - 1, d);
-        }
-      } else if (cleanValue.includes('-')) {
-        const parts = cleanValue.split('-');
-        if (parts.length === 3) {
-          if (parts[0].length === 4) { // YYYY-MM-DD
-            birthDate = new Date(parts[0], parts[1] - 1, parts[2]);
-          } else { // DD-MM-YYYY
-            birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
+    // Auto-calculate age for DOB format DD/MM/YYYY
+    if (key === 'date_of_birth' && cleanValue && cleanValue.length === 10) {
+      const parts = cleanValue.split('/');
+      if (parts.length === 3) {
+        // parts[0]=DD, parts[1]=MM, parts[2]=YYYY
+        const birthDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        if (!isNaN(birthDate.getTime())) {
+          const today = new Date();
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const m = today.getMonth() - birthDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
           }
+          if (age >= 0) updates.age = String(age);
         }
-      }
-
-      if (birthDate && !isNaN(birthDate.getTime())) {
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
-        }
-        if (age >= 0) updates.age = String(age);
       }
     }
 
@@ -784,7 +767,7 @@ export default function DocumentsScreen({ onBack }) {
 
     setForm(prev => ({ ...prev, ...updates }));
 
-    // Clear error for this field as the user types
+    // Real-time validation error feedback
     const error = validateField(key, cleanValue);
     setErrors(prev => ({ ...prev, [key]: error }));
   };
@@ -792,49 +775,42 @@ export default function DocumentsScreen({ onBack }) {
   const handleFileUpload = async (key, file) => {
     if (!file) return;
 
-    // Read file as Base64 and preview locally
+    // Preview locally
     const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result;
-
-      // Instant local preview
-      setForm(prev => ({ ...prev, [key]: base64 }));
-
-      // Sync to backend via the working /api/profile/update endpoint
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            email: user?.email,
-            [key]: base64,
-          }),
-        });
-
-        if (res.ok) {
-          setToast({ type: 'success', msg: `${key.replace(/_/g, ' ').toUpperCase()} uploaded successfully!` });
-
-          // Persist in localStorage so it survives page refresh
-          try {
-            const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-            localStorage.setItem('user', JSON.stringify({ ...storedUser, [key]: base64 }));
-          } catch (_) { }
-        } else {
-          // Keep the local preview even if server rejects
-          setToast({ type: 'info', msg: 'Document saved locally. Server sync pending.' });
-        }
-      } catch (err) {
-        console.error('Upload Error:', err);
-        setToast({ type: 'info', msg: 'Document saved locally (Network error).' });
-      } finally {
-        setTimeout(() => setToast(null), 3000);
-      }
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, [key]: reader.result }));
     };
     reader.readAsDataURL(file);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', employeeId || user?.employee_id || user?.id);
+    formData.append('docType', key);
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/profile/upload-document`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        setToast({ type: 'success', msg: `${key.replace(/_/g, ' ').toUpperCase()} uploaded successfully!` });
+      } else {
+        if (res.status === 404) {
+          console.warn('Backend upload endpoint not found. Image kept in local state for preview.');
+          setToast({ type: 'info', msg: 'Photo saved locally (Backend endpoint missing)' });
+        } else {
+          setToast({ type: 'error', msg: 'Failed to upload document.' });
+        }
+      }
+    } catch (err) {
+      console.error('Upload Error:', err);
+      // Fallback to local state if server is down
+      setToast({ type: 'info', msg: 'Photo updated locally (Network error)' });
+    } finally {
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
   const handleSave = async () => {
@@ -855,6 +831,15 @@ export default function DocumentsScreen({ onBack }) {
       setErrors(newErrors);
       setToast({ type: 'error', msg: 'Please fix the highlighted errors in this section before saving.' });
       setTimeout(() => setToast(null), 3000);
+
+      // Scroll the first invalid field into view smoothly
+      const firstErrorKey = Object.keys(newErrors)[0];
+      setTimeout(() => {
+        const errorEl = document.getElementById(`field-${firstErrorKey}`);
+        if (errorEl) {
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
@@ -863,60 +848,43 @@ export default function DocumentsScreen({ onBack }) {
       const uid = employeeId || user?.employee_id || user?.id || user?.userId;
       const token = localStorage.getItem('token');
 
-      // Scrub data: Only include fields from the current section for targeted updates
+      // Scrub data before sending to prevent backend "appending" loops
       const sanitizedForm = {};
-      if (currentSectionConfig && currentSectionConfig.fields) {
-        currentSectionConfig.fields.forEach(field => {
-          if (field.key) {
-            // Skip file columns to prevent "request entity too large" error (handled via handleFileUpload)
-            if (field.type === 'file') {
-              return;
-            }
-            let val = form[field.key];
-            if (typeof val === 'string') {
-              val = val.trim();
-            }
+      Object.keys(form).forEach(key => {
+        let val = form[key];
+        if (typeof val === 'string') {
+          val = val.trim();
+        }
+        if (typeof val === 'string' && key.toLowerCase().includes('email')) {
+          val = val.toLowerCase();
+        }
 
-            // Convert "Yes"/"No" strings to booleans for fields starting with 'has_'
-            if (field.key.startsWith('has_')) {
-              val = (val === 'Yes');
-            }
-            // Normalize DOB to DD/MM/YYYY format before saving to backend
-            if (field.key === 'dob' && val && val !== 'Not Provided' && val !== 'Add Date of Birth') {
-              if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
-                const parts = val.split('-');
-                val = `${parts[0]}/${parts[1]}/${parts[2]}`;
-              } else if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val)) {
-                const dateOnly = val.split('T')[0];
-                const parts = dateOnly.split('-');
-                if (parts.length === 3) {
-                  val = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                }
-              }
-            }
-            // Normalize DOJ, LWD, and Separation to YYYY-MM-DD for backend consistency
-            if (['doj', 'lwd', 'separation'].includes(field.key)) {
-              val = formatDateToYMD(val);
-            }
-            sanitizedForm[field.key] = val;
-            if (field.key === 'dob') {
-              if (val && val !== 'Not Provided' && val !== 'Add Date of Birth' && !/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
-                setSaving(false);
-                setToast({ type: 'error', msg: 'Strict format violation: DOB must be strictly DD/MM/YYYY' });
-                setTimeout(() => setToast(null), 3000);
-                throw new Error("Strict DOB format violation");
-              }
-              sanitizedForm['date_of_birth'] = val;
-            }
-            if (field.key === 'doj') {
-              sanitizedForm['joining_date'] = val;
-              sanitizedForm['date_of_joining'] = val;
-            }
-          }
-        });
-      }
+        // Convert "Yes"/"No" strings to booleans for fields starting with 'has_'
+        if (key.startsWith('has_')) {
+          val = (val === 'Yes');
+        }
+        // Skip file fields to prevent request entity too large errors (synced on upload)
+        const currentSectionConfig = SECTIONS.find(s => s.id === activeSection);
+        const fieldConfig = currentSectionConfig?.fields?.find(f => f.key === key);
+        if (fieldConfig?.type === 'file') {
+          return;
+        }
+        sanitizedForm[key] = val;
+      });
 
-      console.log("[DOB Flow] Sending payload to UPDATE_EMPLOYEE_PROFILE:", { ...sanitizedForm, employee_id: uid });
+      // Preserve original DD/MM/YYYY values before SQL conversion (needed for users table sync)
+      const originalDob = sanitizedForm.date_of_birth;
+
+      // Convert DD/MM/YYYY to YYYY-MM-DD for backend SQL Date compatibility
+      const dateFields = ['date_of_birth', 'doj', 'separation', 'lwd'];
+      dateFields.forEach(field => {
+        const dateVal = sanitizedForm[field];
+        if (dateVal && typeof dateVal === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) {
+          const [d, m, y] = dateVal.split('/');
+          sanitizedForm[field] = `${y}-${m}-${d}`;
+        }
+      });
+
       const res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -924,35 +892,70 @@ export default function DocumentsScreen({ onBack }) {
       });
 
       if (res.ok) {
-        console.log("[DOB Flow] UPDATE_EMPLOYEE_PROFILE succeeded. Syncing context with users table.");
-        // If DOB was updated, sync it with the users table to update the Birthday List
-        if (sanitizedForm.dob && updateProfile) {
+        // SYNC TO USERS TABLE IF CORE INFO CHANGED
+        if (sanitizedForm.emp_name || originalDob || sanitizedForm.contact_no) {
           try {
-            const targetOptions = {
-              email: form.official_email_id || form.personal_email_id || form.email || user?.email,
-              employee_id: uid,
-              id: uid
+            // Use a very robust email resolution for the users table sync
+            const targetEmail = (form.official_email_id || form.email || form.personal_email_id || user?.email || user?.official_email_id || localStorage.getItem('user_email') || '').toLowerCase();
+
+            const syncBody = {
+              email: targetEmail,
+              userId: uid,
+              user_id: uid,
+              emp_id: uid
             };
-            console.log("[DOB Flow] Syncing 'dob' and 'date_of_birth' via updateProfile for target:", targetOptions);
-            await updateProfile('dob', sanitizedForm.dob, targetOptions);
-            await updateProfile('date_of_birth', sanitizedForm.dob, targetOptions);
-          } catch (dobErr) {
-            console.warn("Failed to sync DOB to users table:", dobErr);
+
+            if (sanitizedForm.emp_name) {
+              syncBody.name = sanitizedForm.emp_name;
+              syncBody.emp_name = sanitizedForm.emp_name;
+            }
+
+            // Send DD/MM/YYYY format for users table storage (compatibility with style 103 parsing)
+            if (originalDob) {
+              syncBody.date_of_birth = originalDob;
+              syncBody.dateOfBirth = originalDob;
+
+              console.log(`[SYNC DEBUG] Target Email: ${targetEmail}`);
+              console.log(`[SYNC DEBUG] Target DOB: ${originalDob}`);
+            }
+
+            if (sanitizedForm.contact_no) {
+              syncBody.phone_number = sanitizedForm.contact_no;
+              syncBody.phoneNumber = sanitizedForm.contact_no;
+              syncBody.contact_no = sanitizedForm.contact_no;
+              syncBody.phone = sanitizedForm.contact_no;
+            }
+
+            const syncHeaders = {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token?.trim()}`
+            };
+
+            // TRY BOTH PUT AND POST TO BE ABSOLUTELY SURE
+            console.log('[SYNC DEBUG] Sending PUT request...');
+            const putRes = await fetch(`${API_ENDPOINTS.UPDATE_PROFILE}?email=${encodeURIComponent(targetEmail)}`, {
+              method: 'PUT',
+              headers: syncHeaders,
+              body: JSON.stringify(syncBody)
+            });
+            console.log('[SYNC DEBUG] PUT Status:', putRes.status);
+
+            console.log('[SYNC DEBUG] Sending POST request...');
+            const postRes = await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
+              method: 'POST',
+              headers: syncHeaders,
+              body: JSON.stringify(syncBody)
+            });
+            console.log('[SYNC DEBUG] POST Status:', postRes.status);
+          } catch (syncErr) {
+            console.error("Users Table Sync Error:", syncErr);
           }
         }
 
-        // Clear local cache for birthdays to force a fresh pull when accessing the screen
-        localStorage.removeItem('nbt_birthdays_cache');
-
-        setToast({ type: 'success', msg: 'Profile updated successfully!' });
+        setToast({ type: 'success', msg: 'Profile updated successfully across all records!' });
         setIsEditing(false);
-        // Cache saved data to localStorage so it survives page refresh
-        try {
-          const cacheKey = `nbt_profile_cache_${uid}`;
-          const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-          localStorage.setItem(cacheKey, JSON.stringify({ ...existing, ...sanitizedForm }));
-        } catch (_) { }
         await loadDocs();
+        if (refreshUser) await refreshUser();
       } else {
         const err = await res.json();
         setToast({ type: 'error', msg: err.error || 'Failed to save changes.' });
@@ -1004,7 +1007,7 @@ export default function DocumentsScreen({ onBack }) {
         )}
       </AnimatePresence>
 
-      {/* Full Screen Image Modal */}
+      {/* Full Screen Image/PDF Modal */}
       <AnimatePresence>
         {viewImage && (
           <motion.div
@@ -1015,17 +1018,30 @@ export default function DocumentsScreen({ onBack }) {
             style={{
               position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)',
               zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '40px', cursor: 'zoom-out'
+              padding: isMobile ? '20px' : '40px', cursor: 'zoom-out'
             }}
           >
-            <motion.img
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              src={viewImage}
-              style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
-            />
-            <button style={{ position: 'absolute', top: '30px', right: '30px', background: 'white', border: 'none', borderRadius: '50%', padding: '10px', cursor: 'pointer' }}>
-              <X size={20} color="#ef4444" onClick={(e) => { e.stopPropagation(); setViewImage(null); }} />
+            {isPDF(viewImage) ? (
+              <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                <iframe
+                  src={viewImage}
+                  title="PDF Viewer"
+                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px', backgroundColor: 'white' }}
+                />
+              </div>
+            ) : (
+              <motion.img
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                src={viewImage}
+                style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+              />
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setViewImage(null); }}
+              style={{ position: 'absolute', top: '30px', right: '30px', background: 'white', border: 'none', borderRadius: '50%', padding: '10px', cursor: 'pointer', zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <X size={20} color="#0B1E3F" />
             </button>
           </motion.div>
         )}
@@ -1047,10 +1063,22 @@ export default function DocumentsScreen({ onBack }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px' }}>
-            <BackButton onClick={onBack} />
+            <button onClick={onBack} style={{
+              padding: isMobile ? '8px' : '12px',
+              borderRadius: '12px',
+              backgroundColor: 'white',
+              border: '1.5px solid #e2e8f0',
+              cursor: 'pointer',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}>
+              <ArrowLeft size={isMobile ? 20 : 24} color="#0B1E3F" strokeWidth={3} />
+            </button>
             <div>
-              <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1 }}>Profile Info</h1>
-              <p style={{ fontSize: isMobile ? '11px' : '14px', color: '#64748b', margin: '2px 0 0 0', fontWeight: '600' }}>Employee Metadata Record</p>
+              <h1 style={{ fontSize: isMobile ? '20px' : '32px', fontWeight: '900', color: '#0B1E3F', margin: 0, lineHeight: 1, marginTop: '8px' }}>Profile Info</h1>
             </div>
           </div>
 
@@ -1067,7 +1095,7 @@ export default function DocumentsScreen({ onBack }) {
               }}
             >
               {saving ? <RefreshCw size={14} className="spin" /> : <Save size={14} />}
-              {isMobile ? 'Save' : 'Save Section Details'}
+              {isMobile ? 'Save' : 'Save All Details'}
             </motion.button>
           ) : (
             <motion.button
@@ -1127,7 +1155,7 @@ export default function DocumentsScreen({ onBack }) {
                 return (
                   <button
                     key={sec.id}
-                    onClick={() => changeSection(sec.id)}
+                    onClick={() => setActiveSection(sec.id)}
                     style={{
                       padding: '10px 10px',
                       borderRadius: '12px',
@@ -1169,7 +1197,7 @@ export default function DocumentsScreen({ onBack }) {
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
+        gridTemplateColumns: (isMobile || isTablet) ? '1fr' : '280px 1fr',
         gap: isMobile ? '2px' : '24px',
         alignItems: 'start',
         padding: isMobile ? '0 15px' : '0',
@@ -1211,7 +1239,7 @@ export default function DocumentsScreen({ onBack }) {
                   <motion.button
                     key={sec.id}
                     whileHover={{ x: 4 }}
-                    onClick={() => changeSection(sec.id)}
+                    onClick={() => setActiveSection(sec.id)}
                     style={{
                       padding: '16px 32px',
                       borderRadius: '18px',
@@ -1256,7 +1284,7 @@ export default function DocumentsScreen({ onBack }) {
             style={{
               backgroundColor: 'white',
               padding: isMobile ? '20px' : '40px 40px 80px 40px',
-              border: 'none',
+              border: '1.5px solid #0B1E3F',
               borderRadius: isMobile ? '22px' : '28px',
               boxSizing: 'border-box',
               width: '100%',
@@ -1269,7 +1297,7 @@ export default function DocumentsScreen({ onBack }) {
               </div>
               <div style={{ marginTop: '10px' }}>
                 <h2 style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: '900', color: '#000000', margin: 0 }}>{currentSection.label}</h2>
-                <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#000000', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata Records' : 'Official Employee Metadata Records'}</p>
+                <p style={{ fontSize: isMobile ? '10px' : '14px', color: '#000000', margin: '2px 0 0 0', fontWeight: '600' }}>{isMobile ? 'Metadata records' : 'Official employee metadata records'}</p>
               </div>
             </div>
 
@@ -1284,8 +1312,109 @@ export default function DocumentsScreen({ onBack }) {
                     </div>
                   );
                 }
+                if (field.key === 'father_husband_name') {
+                  return null;
+                }
+
+                if (field.key === 'marital_status') {
+                  const fatherField = currentSection.fields.find(f => f.key === 'father_husband_name');
+                  const isLockedMS = LOCKED_FIELDS.includes('marital_status') && !isAdmin;
+                  const isDisabledMS = (activeSection === 'assets') || !isEditing || isLockedMS;
+                  const isLockedFather = fatherField && LOCKED_FIELDS.includes('father_husband_name') && !isAdmin;
+                  const isDisabledFather = (activeSection === 'assets') || !isEditing || isLockedFather;
+                  const fatherLabel = form.marital_status === 'Married' ? "Spouse Name" : "Father's Name";
+
+                  return (
+                    <div key="marital_status_row" style={{
+                      gridColumn: '1 / -1',
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                      gap: isMobile ? '24px' : '40px',
+                      padding: '12px 0'
+                    }}>
+                      {/* Marital Status */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-start',
+                        alignItems: 'stretch',
+                        gap: '12px',
+                        opacity: isLockedMS ? 0.7 : 1,
+                        alignSelf: 'start'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                          <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                            {field.label} {REQUIRED_FIELDS.includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
+                          </label>
+                          {isLockedMS && <Shield size={10} color="#000000" />}
+                        </div>
+                        <div style={{ position: 'relative', width: '100%' }}>
+                          <select
+                            id="field-marital_status"
+                            value={form.marital_status}
+                            disabled={isDisabledMS}
+                            onChange={e => handleChange('marital_status', e.target.value)}
+                            style={{
+                              width: '100%', padding: isMobile ? '14px 40px 14px 16px' : '16px 45px 16px 20px', borderRadius: isMobile ? '12px' : '16px', fontSize: isMobile ? '14px' : '16px',
+                              fontWeight: '700', color: '#000000', backgroundColor: isDisabledMS ? '#f1f5f9' : '#f8fafc',
+                              border: errors.marital_status ? '2px solid #ef4444' : (!isDisabledMS ? '2px solid #315A9E' : '2px solid #e2e8f0'), outline: 'none', cursor: isDisabledMS ? 'default' : 'pointer', appearance: 'none', boxSizing: 'border-box',
+                              transition: 'all 0.2s', opacity: isDisabledMS ? 0.8 : 1
+                            }}
+                          >
+                            {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                          <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabledMS ? '#cbd5e1' : '#315A9E' }}>
+                            <ChevronDown size={isMobile ? 16 : 18} strokeWidth={3} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Father / Spouse Name */}
+                      {fatherField && (
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'flex-start',
+                          alignItems: 'stretch',
+                          gap: '12px',
+                          opacity: isLockedFather ? 0.7 : 1,
+                          alignSelf: 'start'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                            <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                              {fatherLabel} {REQUIRED_FIELDS.includes('father_husband_name') && <span style={{ color: '#ef4444' }}>*</span>}
+                            </label>
+                            {isLockedFather && <Shield size={10} color="#000000" />}
+                          </div>
+                          <input
+                            id="field-father_husband_name"
+                            type="text"
+                            value={form.father_husband_name}
+                            readOnly={isDisabledFather}
+                            onChange={e => handleChange('father_husband_name', e.target.value)}
+                            placeholder={isEditing ? `Enter ${fatherLabel}` : 'Not Provided'}
+                            style={{
+                              width: '100%', padding: isMobile ? '14px 16px' : '16px 20px', borderRadius: isMobile ? '12px' : '16px', fontSize: isMobile ? '14px' : '16px',
+                              fontWeight: '800', color: '#000000', backgroundColor: isDisabledFather ? '#f1f5f9' : '#f8fafc',
+                              border: errors.father_husband_name ? '2px solid #ef4444' : (!isDisabledFather ? '2px solid #315A9E' : '2px solid #e2e8f0'),
+                              outline: 'none', boxSizing: 'border-box',
+                              transition: 'all 0.2s', cursor: isDisabledFather ? 'default' : 'text',
+                              opacity: isDisabledFather ? 0.8 : 1
+                            }}
+                          />
+                          {errors.father_husband_name && (
+                            <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '800', marginTop: '4px' }}>
+                              {errors.father_husband_name}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
-                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole || field.key === 'emp_name';
+                const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
 
                 return (
                   <div key={field.key} style={{
@@ -1301,34 +1430,27 @@ export default function DocumentsScreen({ onBack }) {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
                       <label style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                        {field.key === 'father_husband_name' 
-                          ? (form.marital_status === 'Married' ? 'Spouse Name' : "Father's Name") 
-                          : field.label} {[
-                          'emp_name', 'dob', 'pan_number', 'aadhar_number', 'contact_no', 'designation', 'official_email_id',
-                          'emergency_contact_no', 'personal_email_id', 'present_address', 'permanent_address', 'state',
-                          'qualification', 'edu_completion_year', 'college', 'university', 'languages_known',
-                          'sslc_percentage', 'puc_percentage', 'ug_pg_percentage', 'sslc_markscard', 'puc_markscard', 'ug_pg_markscard', 'source',
-                          'bank_name', 'bank_account_no', 'ifsc_code', 'bank_branch', 'passbook_photo'
-                        ].includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
+                        {field.label} {REQUIRED_FIELDS.includes(field.key) && <span style={{ color: '#ef4444' }}>*</span>}
                       </label>
-                      {isLockedForRole && <Shield size={10} color="#000000" />}
+                      {(isLockedForRole || field.key === 'emp_name') && <Shield size={10} color="#000000" />}
                     </div>
 
                     {field.type === 'select' ? (
                       <div style={{ position: 'relative', width: '100%' }}>
                         <select
+                          id={`field-${field.key}`}
                           value={form[field.key]}
                           disabled={isDisabled}
                           onChange={e => handleChange(field.key, e.target.value)}
                           style={{
                             width: '100%', padding: isMobile ? '14px 40px 14px 16px' : '16px 45px 16px 20px', borderRadius: isMobile ? '12px' : '16px', fontSize: isMobile ? '14px' : '16px',
                             fontWeight: '700', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
-                            border: !isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0', outline: 'none', cursor: isDisabled ? 'default' : 'pointer', appearance: 'none', boxSizing: 'border-box',
+                            border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'), outline: 'none', cursor: isDisabled ? 'default' : 'pointer', appearance: 'none', boxSizing: 'border-box',
                             transition: 'all 0.2s', opacity: isDisabled ? 0.8 : 1
                           }}
                         >
-                          {field.key === 'gender' && <option value="" disabled hidden>Choose Gender</option>}
-                          {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          {(field.key === 'gender' || field.key === 'category') && <option value="" disabled>{field.key === 'gender' ? 'Choose the gender' : 'Select the category'}</option>}
+                          {field.options.map(o => <option key={o}>{o}</option>)}
                         </select>
                         <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabled ? '#cbd5e1' : '#315A9E' }}>
                           <ChevronDown size={isMobile ? 16 : 18} strokeWidth={3} />
@@ -1369,6 +1491,7 @@ export default function DocumentsScreen({ onBack }) {
                       </div>
                     ) : field.type === 'textarea' ? (
                       <textarea
+                        id={`field-${field.key}`}
                         value={form[field.key]}
                         readOnly={isDisabled}
                         onChange={e => handleChange(field.key, e.target.value)}
@@ -1419,51 +1542,29 @@ export default function DocumentsScreen({ onBack }) {
                       </div>
                     ) : field.type === 'file' ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{
-                          width: '100%', height: '140px', borderRadius: '20px', border: '2.5px dashed #e2e8f0',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                          backgroundColor: '#f8fafc', cursor: 'pointer', position: 'relative',
-                          transition: 'all 0.2s', borderColor: form[field.key] ? '#315A9E' : '#e2e8f0'
-                        }} onClick={() => {
-                          if (isEditing) {
-                            document.getElementById(`upload-${field.key}`).click();
-                          } else if (form[field.key] && form[field.key] !== 'Not Provided') {
-                            const rawVal = form[field.key];
-                            const url = rawVal.startsWith('http') || rawVal.startsWith('data:') ? rawVal : `${BASE_URL}${rawVal.startsWith('/') ? rawVal : '/' + rawVal}`;
-                            const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
-                            if (isPdf) {
-                              if (url.startsWith('data:application/pdf')) {
-                                try {
-                                  const parts = url.split(',');
-                                  const contentType = parts[0].split(':')[1].split(';')[0];
-                                  const byteCharacters = atob(parts[1]);
-                                  const byteNumbers = new Array(byteCharacters.length);
-                                  for (let i = 0; i < byteCharacters.length; i++) {
-                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                  }
-                                  const byteArray = new Uint8Array(byteNumbers);
-                                  const blob = new Blob([byteArray], { type: contentType });
-                                  window.open(URL.createObjectURL(blob), '_blank');
-                                } catch (e) {
-                                  window.open(url, '_blank');
-                                }
-                              } else {
-                                window.open(url, '_blank');
-                              }
-                            } else {
-                              setViewImage(url);
+                        <div
+                          id={`field-${field.key}`}
+                          style={{
+                            width: '100%', height: '140px', borderRadius: '20px', border: '2.5px dashed #e2e8f0',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                            backgroundColor: '#f8fafc', cursor: 'pointer', position: 'relative',
+                            transition: 'all 0.2s', borderColor: errors[field.key] ? '#ef4444' : (form[field.key] ? '#315A9E' : '#e2e8f0')
+                          }} onClick={() => {
+                            if (isEditing) {
+                              document.getElementById(`upload-${field.key}`).click();
+                            } else if (form[field.key]) {
+                              setViewImage(form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`);
                             }
-                          }
-                        }}>
-                          {form[field.key] && form[field.key] !== 'Not Provided' && String(form[field.key]).trim() !== '' ? (
+                          }}>
+                          {form[field.key] && (form[field.key].length > 100 || !form[field.key].startsWith('data:')) ? (
                             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                              {String(form[field.key]).toLowerCase().includes('.pdf') || String(form[field.key]).startsWith('data:application/pdf') ? (
+                              {isPDF(form[field.key]) ? (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
                                   <FileText size={48} color="#ef4444" />
                                   <span style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', marginTop: '8px' }}>PDF DOCUMENT</span>
                                 </div>
                               ) : (
-                                <img src={form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key].startsWith('/') ? form[field.key] : '/' + form[field.key]}`} alt={field.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`} alt={field.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               )}
                               <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, hover: { opacity: 1 }, transition: '0.2s' }}>
                                 <Eye size={24} color="white" />
@@ -1478,11 +1579,14 @@ export default function DocumentsScreen({ onBack }) {
                               }}>
                                 <Camera size={18} /> UPLOAD
                               </div>
-                              <p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', margin: 0 }}>Image or PDF supported</p>
+                              <p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', margin: 0 }}>
+                                {field.onlyImages ? 'Only Images supported' : 'Image or PDF supported'}
+                              </p>
                             </div>
                           )}
                           <input
-                            type="file" id={`upload-${field.key}`} style={{ display: 'none' }} accept="image/*,application/pdf"
+                            type="file" id={`upload-${field.key}`} style={{ display: 'none' }}
+                            accept={field.onlyImages ? "image/*" : "image/*,application/pdf"}
                             onChange={(e) => handleFileUpload(field.key, e.target.files[0])}
                           />
                         </div>
@@ -1509,29 +1613,17 @@ export default function DocumentsScreen({ onBack }) {
                               <Trash2 size={12} /> Remove
                             </button>
                           )}
-                          {form[field.key] && form[field.key] !== 'Not Provided' && String(form[field.key]).trim() !== '' && (
+                          {form[field.key] && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const rawVal = form[field.key];
-                                const url = rawVal.startsWith('http') || rawVal.startsWith('data:') ? rawVal : `${BASE_URL}${rawVal.startsWith('/') ? rawVal : '/' + rawVal}`;
-                                const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
-                                if (isPdf) {
+                                const url = form[field.key].startsWith('http') || form[field.key].startsWith('data:') ? form[field.key] : `${BASE_URL}${form[field.key]}`;
+                                if (isPDF(url)) {
                                   if (url.startsWith('data:application/pdf')) {
-                                    try {
-                                      const parts = url.split(',');
-                                      const contentType = parts[0].split(':')[1].split(';')[0];
-                                      const byteCharacters = atob(parts[1]);
-                                      const byteNumbers = new Array(byteCharacters.length);
-                                      for (let i = 0; i < byteCharacters.length; i++) {
-                                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                      }
-                                      const byteArray = new Uint8Array(byteNumbers);
-                                      const blob = new Blob([byteArray], { type: contentType });
-                                      window.open(URL.createObjectURL(blob), '_blank');
-                                    } catch (err) {
-                                      window.open(url, '_blank');
-                                    }
+                                    fetch(url).then(res => res.blob()).then(blob => {
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      window.open(blobUrl, '_blank');
+                                    });
                                   } else {
                                     window.open(url, '_blank');
                                   }
@@ -1548,6 +1640,7 @@ export default function DocumentsScreen({ onBack }) {
                       </div>
                     ) : field.type === 'textarea' ? (
                       <textarea
+                        id={`field-${field.key}`}
                         value={form[field.key]}
                         readOnly={isDisabled}
                         onChange={e => handleChange(field.key, e.target.value)}
@@ -1563,11 +1656,18 @@ export default function DocumentsScreen({ onBack }) {
                     ) : (
                       <div style={{ position: 'relative', width: '100%' }}>
                         <input
+                          id={`field-${field.key}`}
                           type={field.type === 'date' ? 'date' : 'text'}
+                          max={field.key === 'date_of_birth' ? new Date().toISOString().split('T')[0] : undefined}
                           value={(() => {
-                            let val = form[field.key] || '';
-                            if (typeof val === 'string' && val.includes('T') && val.length > 15) {
-                              val = val.split('T')[0];
+                            let val = (form[field.key] && typeof form[field.key] === 'string' && form[field.key].includes('T') && form[field.key].length > 15) ? form[field.key].split('T')[0] : (form[field.key] || '');
+                            if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(field.key) && typeof val === 'string') {
+                              if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(val)) {
+                                const parts = val.substring(0, 10).split(/[-/]/);
+                                val = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                              } else {
+                                val = val.replace(/-/g, '/');
+                              }
                             }
                             if (field.type === 'date' && val) {
                               if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
@@ -1581,22 +1681,25 @@ export default function DocumentsScreen({ onBack }) {
                             }
                             return val;
                           })()}
-                          readOnly={isDisabled}
+                          readOnly={isDisabled || field.key === 'age' || field.key === 'emp_name'}
                           onChange={e => handleChange(field.key, e.target.value)}
-                          onKeyDown={e => {
-                            // Block numeric keys for department field
-                            if (field.key === 'department' && /^[0-9]$/.test(e.key)) {
-                              e.preventDefault();
+                          onClick={e => {
+                            if (field.type === 'date' && !isDisabled) {
+                              try {
+                                e.target.showPicker?.();
+                              } catch (err) {
+                                console.error("showPicker failed:", err);
+                              }
                             }
                           }}
-                          placeholder={isEditing ? (field.placeholder || `Enter ${field.key === 'father_husband_name' ? (form.marital_status === 'Married' ? 'Spouse Name' : "Father's Name") : field.label}`) : 'Not Provided'}
+                          placeholder={isEditing ? (field.placeholder || `Enter ${field.label}`) : 'Not Provided'}
                           style={{
                             width: '100%', padding: isMobile ? '12px' : '16px 20px',
                             borderRadius: isMobile ? '10px' : '16px', fontSize: isMobile ? '13px' : '16px',
-                            fontWeight: '800', color: '#000000', backgroundColor: isDisabled ? '#f1f5f9' : '#f8fafc',
-                            border: errors[field.key] ? '2px solid #ef4444' : (!isDisabled ? '2px solid #315A9E' : '2px solid #e2e8f0'),
+                            fontWeight: '800', color: '#000000', backgroundColor: (isDisabled || field.key === 'age' || field.key === 'emp_name') ? '#f1f5f9' : '#f8fafc',
+                            border: errors[field.key] ? '2px solid #ef4444' : ((!isDisabled && field.key !== 'emp_name') ? '2px solid #315A9E' : '2px solid #e2e8f0'),
                             outline: 'none', boxSizing: 'border-box',
-                            transition: 'all 0.2s', cursor: isDisabled ? 'default' : 'text'
+                            transition: 'all 0.2s', cursor: (isDisabled || field.key === 'age' || field.key === 'emp_name') ? 'default' : 'text'
                           }}
                         />
                       </div>
@@ -1612,8 +1715,6 @@ export default function DocumentsScreen({ onBack }) {
               })}
             </div>
           </motion.div>
-
-
         </div>
       </div>
 

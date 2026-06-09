@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Send, History, ChevronLeft, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Send, History, ChevronLeft, ShieldCheck, CheckCircle, Info, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../constants/Theme';
 import { API_ENDPOINTS } from '../config';
 import BackButton from './BackButton';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TicketScreen({ onBack }) {
   const { user } = useAuth();
@@ -20,6 +21,13 @@ export default function TicketScreen({ onBack }) {
   const [priority, setPriority] = useState('Medium');
   const [department, setDepartment] = useState('');
   const [departments, setDepartments] = useState([]);
+
+  // Custom Modal Alert State
+  const [modalConfig, setModalConfig] = useState({ show: false, message: '', type: 'success' });
+
+  const showModal = (message, type = 'success') => {
+    setModalConfig({ show: true, message, type });
+  };
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
@@ -41,7 +49,9 @@ export default function TicketScreen({ onBack }) {
     try {
       const token = localStorage.getItem('token');
       const sid = sanitizeId(user.id);
-      const resp = await fetch(`${API_ENDPOINTS.SUPPORT_TICKETS}?userId=${sid}`, {
+      const emailVal = user?.email || '';
+      const resp = await fetch(`${API_ENDPOINTS.SUPPORT_TICKETS}?userId=${sid}&employee_id=${sid}&email=${emailVal}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -64,7 +74,7 @@ export default function TicketScreen({ onBack }) {
       const token = localStorage.getItem('token');
       const resp = await fetch(API_ENDPOINTS.UPDATE_TICKET(id), {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -77,38 +87,42 @@ export default function TicketScreen({ onBack }) {
   };
 
   const handleSubmit = async () => {
-    if (!subject.trim() || !description.trim()) return alert("Please fill all fields");
+    if (!subject.trim() || !description.trim()) return showModal("Please fill all fields", "error");
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const sid = sanitizeId(user.id);
       const resp = await fetch(API_ENDPOINTS.SUPPORT_TICKETS, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           userId: sid,
+          employee_id: user?.employee_id || sid,
+          email: user?.email || '',
+          name: user?.name || user?.employee_name || 'Unknown',
           employee_name: user?.name || user?.employee_name || user?.username || 'Unknown',
           subject,
           description,
           priority,
-          department
+          department,
+          category: department
         })
       });
       if (resp.ok) {
         setSubject('');
         setDescription('');
         fetchTickets();
-        alert("Ticket submitted successfully!");
+        showModal("Ticket submitted successfully!", "success");
       } else {
         const errData = await resp.json().catch(() => ({}));
-        alert(errData.message || "Failed to submit ticket");
+        showModal(errData.message || "Failed to submit ticket", "error");
       }
     } catch (err) {
       console.error("Submit ticket error:", err);
-      alert("Network error occurred while submitting ticket");
+      showModal("Network error occurred while submitting ticket", "error");
     } finally {
       setLoading(false);
     }
@@ -120,18 +134,18 @@ export default function TicketScreen({ onBack }) {
     container: { minHeight: '100vh', backgroundColor: '#F5F6FC', padding: window.innerWidth < 768 ? '20px 15px' : '30px 40px', fontFamily: "'Inter', sans-serif" },
     main: { maxWidth: '100%', margin: '0 auto', padding: '20px' },
     backBtn: { padding: '10px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#0B1E3F', marginBottom: '20px' },
-    
+
     // FORM STYLES
     formCard: { backgroundColor: 'white', borderRadius: '40px', padding: winWidth < 768 ? '25px' : '50px', boxShadow: '0 20px 60px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9', marginBottom: '40px' },
     formHeader: { display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px' },
     iconBox: { width: '56px', height: '56px', borderRadius: '18px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f97316' },
     title: { fontSize: '28px', fontWeight: '900', color: '#0B1E3F', marginBottom: '4px' },
     subtitle: { fontSize: '14px', color: '#64748b', fontWeight: '600' },
-    
+
     label: { fontSize: '11px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '15px', display: 'block' },
     input: { width: '100%', padding: '18px 24px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1.5px solid #f1f5f9', fontSize: '15px', color: '#0B1E3F', fontWeight: '600', outline: 'none', boxSizing: 'border-box', marginBottom: '30px' },
     textarea: { width: '100%', padding: '24px', borderRadius: '25px', backgroundColor: '#f8fafc', border: '1.5px solid #f1f5f9', fontSize: '15px', color: '#0B1E3F', fontWeight: '600', outline: 'none', boxSizing: 'border-box', minHeight: '180px', marginBottom: '30px', resize: 'none' },
-    
+
     priorityGrid: { display: 'grid', gridTemplateColumns: isMobile() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '15px', marginBottom: '40px' },
     priorityTab: (active) => ({
       padding: '16px',
@@ -145,7 +159,7 @@ export default function TicketScreen({ onBack }) {
       cursor: 'pointer',
       transition: 'all 0.2s ease'
     }),
-    
+
     deptGrid: { display: 'flex', gap: '12px', marginBottom: '30px', flexWrap: 'wrap' },
     deptTab: (active) => ({
       padding: '12px 24px',
@@ -160,9 +174,9 @@ export default function TicketScreen({ onBack }) {
       boxShadow: active ? '0 10px 20px rgba(49, 90, 158, 0.2)' : 'none',
       transition: 'all 0.2s ease'
     }),
-    
+
     submitBtn: { width: '100%', padding: '20px', borderRadius: '20px', backgroundColor: '#0B1E3F', color: 'white', border: 'none', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 10px 30px rgba(11, 30, 63, 0.2)', transition: 'transform 0.2s' },
-    
+
     // LIST STYLES
     recentHeader: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '25px' },
     recentTitle: { fontSize: '22px', fontWeight: '900', color: '#0B1E3F' },
@@ -178,7 +192,7 @@ export default function TicketScreen({ onBack }) {
   return (
     <div style={s.container}>
       <div style={s.main}>
-        
+
         {/* BACK BUTTON */}
         <div style={{ display: 'flex', marginBottom: '20px' }}>
           <BackButton onClick={() => onBack ? onBack() : navigate(-1)} />
@@ -214,16 +228,16 @@ export default function TicketScreen({ onBack }) {
             ))}
           </div>
 
-          <button 
-            style={{ ...s.submitBtn, opacity: loading ? 0.7 : 1, pointerEvents: loading ? 'none' : 'auto' }} 
+          <button
+            style={{ ...s.submitBtn, opacity: loading ? 0.7 : 1, pointerEvents: loading ? 'none' : 'auto' }}
             onClick={handleSubmit}
-            onMouseOver={e=>e.currentTarget.style.transform='scale(0.99)'} 
-            onMouseOut={e=>e.currentTarget.style.transform='scale(1)'}
+            onMouseOver={e => e.currentTarget.style.transform = 'scale(0.99)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
           >
             {loading ? "Processing..." : (
-               <>
-                 <Send size={18} /> Submit Issue Securely
-               </>
+              <>
+                <Send size={18} /> Submit Issue Securely
+              </>
             )}
           </button>
         </div>
@@ -237,7 +251,7 @@ export default function TicketScreen({ onBack }) {
         <div style={s.recentList}>
           {tickets.length === 0 ? (
             <div style={{ padding: '60px', textAlign: 'center', backgroundColor: 'white', borderRadius: '30px', color: '#94a3b8', fontWeight: '700', border: '1px solid #f1f5f9' }}>
-               No recent support tickets found in your history.
+              No recent support tickets found in your history.
             </div>
           ) : tickets.map(ticket => (
             <div key={ticket.id} style={s.ticketItem}>
@@ -245,11 +259,25 @@ export default function TicketScreen({ onBack }) {
                 <div style={s.tID}>#{ticket.id || ticket._id}</div>
                 <div style={s.tSubject}>{ticket.subject}</div>
                 <div style={{ ...s.tMeta, display: 'flex', flexDirection: isMobile() ? 'column' : 'row', alignItems: isMobile() ? 'flex-start' : 'center', gap: isMobile() ? '15px' : '30px', marginTop: '10px' }}>
-                  <span style={{ color: '#315A9E', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <span style={{ color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {ticket.department || ticket.category || 'SUPPORT'}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {ticket.time || (() => { const d = new Date(ticket.timestamp || Date.now()); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; })()}
+                    {(() => {
+                      const rawDate = ticket.created_at || ticket.createdAt || ticket.timestamp || ticket.date || ticket.applied_on;
+                      if (!rawDate) return 'N/A';
+                      try {
+                        // Strip time portion before parsing to avoid timezone shifts
+                        const datePart = String(rawDate).split('T')[0].split(' ')[0];
+                        const parts = datePart.split('-');
+                        if (parts.length === 3) {
+                          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        }
+                        return datePart;
+                      } catch (e) {
+                        return 'N/A';
+                      }
+                    })()}
                     <span style={{ color: isMobile() ? '#315A9E' : '#cbd5e1' }}>{isMobile() ? '—' : '|'}</span>
                     {ticket.priority}
                   </span>
@@ -258,26 +286,122 @@ export default function TicketScreen({ onBack }) {
                       <span style={{ fontWeight: '800', marginRight: '4px' }}>ACTION:</span> {ticket.action}
                     </span>
                   )}
-                  {ticket.verify && (
-                    <span style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '800', marginRight: '4px' }}>VERIFY:</span> {ticket.verify}
+                  {(ticket.reply || ticket.hr_reply || ticket.response || ticket.resolution || ticket.remarks) && (
+                    <span style={{ color: '#16a34a', display: 'flex', alignItems: 'center', marginTop: isMobile() ? '5px' : '0' }}>
+                      <span style={{ fontWeight: '800', marginRight: '4px' }}>HR REPLY:</span> 
+                      {ticket.reply || ticket.hr_reply || ticket.response || ticket.resolution || ticket.remarks}
                     </span>
                   )}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                <div style={{ 
-                  ...s.statusBadge, 
-                  backgroundColor: ticket.status === 'RESOLVED' ? '#f0fdf4' : '#fffbeb',
-                  color: ticket.status === 'RESOLVED' ? '#16a34a' : '#d97706'
-                }}>
-                  {ticket.status === 'RESOLVED' ? 'RESOLVED' : 'PENDING'}
-                </div>
+                {(() => {
+                  const statusUp = String(ticket.status || '').toUpperCase();
+                  const isVerified = statusUp === 'APPROVED' || statusUp === 'RESOLVED' || statusUp === 'VERIFIED' ||
+                    String(ticket.verify || '').toLowerCase() === 'verified';
+                  return (
+                    <div style={{
+                      ...s.statusBadge,
+                      backgroundColor: isVerified ? '#f0fdf4' : '#fffbeb',
+                      color: isVerified ? '#16a34a' : '#d97706'
+                    }}>
+                      {isVerified ? 'Resolved' : 'PENDING'}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Custom Alert Modal Popup in Center */}
+      <AnimatePresence>
+        {modalConfig.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(11, 30, 63, 0.4)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 99999
+            }}
+            onClick={() => setModalConfig({ ...modalConfig, show: false })}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              style={{
+                backgroundColor: 'white',
+                width: '90%',
+                maxWidth: '400px',
+                borderRadius: '30px',
+                padding: '40px',
+                textAlign: 'center',
+                position: 'relative',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                boxSizing: 'border-box'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '20px',
+                  backgroundColor: modalConfig.type === 'success' ? '#dcfce7' : '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 25px'
+                }}
+              >
+                {modalConfig.type === 'success' ? (
+                  <CheckCircle size={30} color="#22c55e" />
+                ) : (
+                  <Info size={30} color="#ef4444" />
+                )}
+              </div>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>
+                {modalConfig.type === 'success' ? 'Submitted!' : 'Attention Needed'}
+              </h3>
+              <p style={{ margin: '0 0 25px 0', fontSize: '15px', color: '#64748b', fontWeight: '800', lineHeight: '1.5' }}>
+                {modalConfig.message}
+              </p>
+              <button
+                onClick={() => setModalConfig({ ...modalConfig, show: false })}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '16px',
+                  border: 'none',
+                  backgroundColor: '#0B1E3F',
+                  color: 'white',
+                  fontWeight: '900',
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px rgba(11, 30, 63, 0.15)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = '#1e3a8a'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = '#0B1E3F'}
+              >
+                Okay
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

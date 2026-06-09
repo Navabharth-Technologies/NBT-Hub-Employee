@@ -29,7 +29,7 @@ export default function FocusLogs({ onBack }) {
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  
+
   // Default range: Start of month to now
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -66,12 +66,12 @@ export default function FocusLogs({ onBack }) {
         const data = await resp.json();
         const logsArray = Array.isArray(data) ? data : (data.value || data.data || []);
         // Absolute Personal Isolation Layer: Filter to ensure ZERO data leakage from team reports
-        const personalLogs = logsArray.filter(log => 
-          String(log.userId) === String(uid) || 
+        const personalLogs = logsArray.filter(log =>
+          String(log.userId) === String(uid) ||
           String(log.employeeId) === String(uid) ||
           String(log.employee_id) === String(uid)
         );
-        setLogs(personalLogs.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)));
+        setLogs(personalLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
       }
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -116,9 +116,9 @@ export default function FocusLogs({ onBack }) {
       const ts = log.timestamp || log.created_at || log.date || log.Date || log.CreatedAt;
       const taskTimestamps = (log.tasks || [])
         .map(t => Number(t.id))
-        .filter(id => !isNaN(id) && id > 1000000000000); 
+        .filter(id => !isNaN(id) && id > 1000000000000);
       const d = taskTimestamps.length > 0 ? new Date(Math.max(...taskTimestamps)) : new Date(ts);
-      
+
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
@@ -126,11 +126,11 @@ export default function FocusLogs({ onBack }) {
       const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
       const status = log.overallStatus || "PENDING";
       const tasksStr = (log.tasks || []).map(t => typeof t === 'string' ? t : (t.text || '')).join('; ');
-      
+
       const row = `"${dateStr}","${timeStr}","${status}","${tasksStr}"`;
       csvContent += row + "\n";
     });
-    
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -146,8 +146,8 @@ export default function FocusLogs({ onBack }) {
     if (filteredLogs.length === 0) return alert("No logs to download");
     const doc = new jsPDF();
     const rangeTitle = (startDate && endDate) ? `${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}` : 'All Time';
-    doc.text(`Personal Focus Logs: ${rangeTitle}`, 14, 15);
-    
+    doc.text(` Focus Logs: ${rangeTitle}`, 14, 15);
+
     const tableColumn = ["Date", "Time", "Status", "Tasks"];
     const tableRows = [];
 
@@ -155,7 +155,7 @@ export default function FocusLogs({ onBack }) {
       const ts = log.timestamp || log.created_at || log.date || log.Date || log.CreatedAt;
       const taskTimestamps = (log.tasks || [])
         .map(t => Number(t.id))
-        .filter(id => !isNaN(id) && id > 1000000000000); 
+        .filter(id => !isNaN(id) && id > 1000000000000);
       const d = taskTimestamps.length > 0 ? new Date(Math.max(...taskTimestamps)) : new Date(ts);
 
       const day = String(d.getDate()).padStart(2, '0');
@@ -178,7 +178,7 @@ export default function FocusLogs({ onBack }) {
       styles: { fontSize: 10, cellPadding: 4 },
       columnStyles: { 3: { cellWidth: 100 } }
     });
-    
+
     const fileRange = (startDate && endDate) ? `${startDate}_to_${endDate}` : 'all_time';
     doc.save(`focus_logs_${fileRange}.pdf`);
     setShowDownloadMenu(false);
@@ -187,31 +187,31 @@ export default function FocusLogs({ onBack }) {
   const s = {
     container: { backgroundColor: '#F8FAFC', minHeight: '100vh', padding: winWidth < 768 ? '10px 5px' : '30px 40px', fontFamily: "'Inter', sans-serif" },
     main: { maxWidth: '100%', margin: '0 auto', padding: winWidth < 768 ? '5px' : '20px' },
-    
+
     header: { marginBottom: winWidth < 768 ? '20px' : '40px', padding: winWidth < 768 ? '0 15px' : '0' },
     title: { fontSize: winWidth < 768 ? '20px' : '24px', fontWeight: '900', color: '#0B1E3F', marginBottom: '8px' },
     subtitle: { fontSize: winWidth < 768 ? '13px' : '15px', color: '#64748b', fontWeight: '600' },
 
     /* Filter Bar */
-    filterBar: { 
-      backgroundColor: 'white', 
-      borderRadius: '24px', 
-      padding: winWidth < 768 ? '15px' : '12px 30px', 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: winWidth < 768 ? '12px' : '20px', 
+    filterBar: {
+      backgroundColor: 'white',
+      borderRadius: '24px',
+      padding: winWidth < 768 ? '15px' : '12px 30px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: winWidth < 768 ? '12px' : '20px',
       boxShadow: '0 10px 40px rgba(0,0,0,0.03)',
       marginBottom: '32px',
       flexWrap: 'wrap',
       margin: winWidth < 768 ? '0 10px 32px' : '0 0 32px'
     },
     label: { fontSize: '12px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '10px' },
-    dateInputBox: { 
-      padding: '10px 18px', 
-      backgroundColor: '#f8fafc', 
-      borderRadius: '16px', 
-      display: 'flex', 
-      alignItems: 'center', 
+    dateInputBox: {
+      padding: '10px 18px',
+      backgroundColor: '#f8fafc',
+      borderRadius: '16px',
+      display: 'flex',
+      alignItems: 'center',
       gap: '12px',
       border: '1px solid #f1f5f9',
       flex: winWidth < 768 ? '1' : 'none',
@@ -220,17 +220,17 @@ export default function FocusLogs({ onBack }) {
     input: { border: 'none', backgroundColor: 'transparent', fontSize: '14px', fontWeight: '700', color: '#1e293b', outline: 'none', cursor: 'pointer', width: '100%' },
     toText: { fontSize: '12px', fontWeight: '900', color: '#cbd5e1', width: winWidth < 768 ? '100%' : 'auto', textAlign: winWidth < 768 ? 'center' : 'left' },
     clearBtn: { fontSize: '13px', fontWeight: '800', color: '#3B5998', cursor: 'pointer', border: 'none', backgroundColor: 'transparent', marginLeft: winWidth < 768 ? '0' : 'auto' },
-    downloadBtn: { 
-      backgroundColor: '#1e293b', 
-      color: 'white', 
-      padding: '12px 24px', 
-      borderRadius: '16px', 
-      border: 'none', 
-      fontWeight: '800', 
-      fontSize: '14px', 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '10px', 
+    downloadBtn: {
+      backgroundColor: '#1e293b',
+      color: 'white',
+      padding: '12px 24px',
+      borderRadius: '16px',
+      border: 'none',
+      fontWeight: '800',
+      fontSize: '14px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
       cursor: 'pointer',
       boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
       width: winWidth < 768 ? '100%' : 'auto',
@@ -244,12 +244,12 @@ export default function FocusLogs({ onBack }) {
     countBadge: { padding: '6px 14px', borderRadius: '10px', backgroundColor: '#eff6ff', fontSize: '11px', fontWeight: '900', color: '#2563eb', whiteSpace: 'nowrap' },
 
     /* Entry List - Individual Cards */
-    entry: { 
-      padding: winWidth < 768 ? '20px' : '25px', 
-      marginBottom: '20px', 
-      display: 'flex', 
-      gap: winWidth < 768 ? '20px' : '24px', 
-      alignItems: 'flex-start', 
+    entry: {
+      padding: winWidth < 768 ? '20px' : '25px',
+      marginBottom: '20px',
+      display: 'flex',
+      gap: winWidth < 768 ? '20px' : '24px',
+      alignItems: 'flex-start',
       flexDirection: winWidth < 768 ? 'column' : 'row',
       backgroundColor: 'white',
       borderRadius: '24px',
@@ -257,20 +257,20 @@ export default function FocusLogs({ onBack }) {
       boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
       transition: 'all 0.3s ease'
     },
-    dateBox: { 
-      minWidth: winWidth < 768 ? '100%' : '100px', 
-      display: 'flex', 
-      flexDirection: winWidth < 768 ? 'row' : 'column', 
-      alignItems: 'center', 
-      padding: '16px', 
-      borderRadius: '16px', 
-      backgroundColor: '#f8fafc', 
+    dateBox: {
+      minWidth: winWidth < 768 ? '100%' : '100px',
+      display: 'flex',
+      flexDirection: winWidth < 768 ? 'row' : 'column',
+      alignItems: 'center',
+      padding: '16px',
+      borderRadius: '16px',
+      backgroundColor: '#f8fafc',
       gap: '10px',
       justifyContent: winWidth < 768 ? 'center' : 'center'
     },
     day: { fontSize: winWidth < 768 ? '20px' : '24px', fontWeight: '900', color: '#0B1E3F' },
     month: { fontSize: '12px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' },
-    
+
     content: { flex: 1, width: '100%' },
     timeRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' },
     reportText: { fontSize: winWidth < 768 ? '13px' : '14px', color: '#475569', fontWeight: '600', lineHeight: '1.6' },
@@ -287,21 +287,21 @@ export default function FocusLogs({ onBack }) {
   return (
     <div style={s.container}>
       <main style={s.main}>
-        
-        
 
-        <button 
-          onClick={handleBack} 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            border: 'none', 
-            background: 'none', 
-            cursor: 'pointer', 
-            color: '#64748b', 
-            fontWeight: '800', 
-            fontSize: '14px', 
+
+
+        <button
+          onClick={handleBack}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            color: '#64748b',
+            fontWeight: '800',
+            fontSize: '14px',
             marginBottom: '20px',
             padding: '0',
             transition: 'all 0.2s ease'
@@ -318,51 +318,51 @@ export default function FocusLogs({ onBack }) {
 
         {/* Filter Bar */}
         <div style={s.filterBar}>
-          
-          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
+
+          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch (e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
             <Calendar size={18} color="#3B5998" />
             <span style={{ fontSize: '14px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(startDate)}
             </span>
-            <input 
+            <input
               ref={startDateRef}
-              type="date" 
+              type="date"
               style={{
                 position: 'absolute',
                 width: 0,
                 height: 0,
                 opacity: 0,
                 pointerEvents: 'none'
-              }} 
-              value={startDate} 
-              onChange={e => setStartDate(e.target.value)} 
+              }}
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
             />
           </div>
 
           <span style={s.toText}>TO</span>
 
-          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
+          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch (e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
             <Calendar size={18} color="#3B5998" />
             <span style={{ fontSize: '14px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(endDate)}
             </span>
-            <input 
+            <input
               ref={endDateRef}
-              type="date" 
+              type="date"
               style={{
                 position: 'absolute',
                 width: 0,
                 height: 0,
                 opacity: 0,
                 pointerEvents: 'none'
-              }} 
-              value={endDate} 
-              onChange={e => setEndDate(e.target.value)} 
+              }}
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
             />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>
-            <button style={{...s.clearBtn, marginLeft: '0'}} onClick={() => {
+            <button style={{ ...s.clearBtn, marginLeft: '0' }} onClick={() => {
               setStartDate('');
               setEndDate('');
             }}>
@@ -393,10 +393,10 @@ export default function FocusLogs({ onBack }) {
                 // otherwise fall back to the record's overall timestamp.
                 const taskTimestamps = (log.tasks || [])
                   .map(t => Number(t.id))
-                  .filter(id => !isNaN(id) && id > 1000000000000); 
-                
-                const displayDate = taskTimestamps.length > 0 
-                  ? new Date(Math.max(...taskTimestamps)) 
+                  .filter(id => !isNaN(id) && id > 1000000000000);
+
+                const displayDate = taskTimestamps.length > 0
+                  ? new Date(Math.max(...taskTimestamps))
                   : new Date(ts);
 
                 return (
@@ -408,9 +408,9 @@ export default function FocusLogs({ onBack }) {
                     <div style={s.content}>
                       <div style={s.timeRow}>
                         <Clock size={14} color="#94a3b8" />
-                        <span style={{fontSize: '11px', fontWeight: '800', color: '#94a3b8'}}>{displayDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>{displayDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                         <div style={{
-                          ...s.statusTag, 
+                          ...s.statusTag,
                           backgroundColor: log.overallStatus === 'Completed' ? '#dcfce7' : '#fef9c3',
                           color: log.overallStatus === 'Completed' ? '#16a34a' : '#a16207',
                         }}>
@@ -419,14 +419,14 @@ export default function FocusLogs({ onBack }) {
                       </div>
                       <div style={s.reportText}>
                         {log.tasks?.map((t, i) => {
-                           const taskId = typeof t === 'object' ? Number(t.id) : null;
-                           const tTime = displayDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-                           return (
-                             <div key={i} style={{marginBottom: '4px', display:'flex', gap:'8px', alignItems: 'center'}}>
-                               <CheckCircle2 size={16} color="#3B5998" /> 
-                               <span style={{flex: 1}}>{typeof t === 'string' ? t : (t.text || '')}</span>
-                             </div>
-                           );
+                          const taskId = typeof t === 'object' ? Number(t.id) : null;
+                          const tTime = displayDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+                          return (
+                            <div key={i} style={{ marginBottom: '4px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <CheckCircle2 size={16} color="#3B5998" />
+                              <span style={{ flex: 1 }}>{typeof t === 'string' ? t : (t.text || '')}</span>
+                            </div>
+                          );
                         })}
                       </div>
                     </div>
@@ -435,7 +435,7 @@ export default function FocusLogs({ onBack }) {
               })
             ) : (
               <div style={s.emptyState}>
-                <ShieldCheck size={48} color="#f1f5f9" style={{marginBottom: '20px'}} />
+                <ShieldCheck size={48} color="#f1f5f9" style={{ marginBottom: '20px' }} />
                 <div style={s.emptyTitle}>No logs found for this date range.</div>
               </div>
             )}

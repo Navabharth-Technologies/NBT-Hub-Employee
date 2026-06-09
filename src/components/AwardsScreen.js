@@ -139,7 +139,7 @@ const AwardsScreen = ({ onBack }) => {
         if (!startDate && !endDate) return true;
         const t = robustParseDate(dateString);
         if (t === 0) return true; // fallback if unparseable
-        
+
         if (startDate && endDate) {
             const s = robustParseDate(startDate);
             const e = robustParseDate(endDate) + 86400000 - 1;
@@ -520,13 +520,22 @@ const AwardsScreen = ({ onBack }) => {
                     return isNaN(num) ? 0 : num;
                 };
 
-                const parseDateLocal = robustParseDate;
+                const extractDateStr = (val) => {
+                    if (!val) return null;
+                    const s = String(val).trim();
+                    // ISO UTC format: "2026-06-15T10:30:00.000Z" or "2026-06-15T10:30:00"
+                    if (s.includes('T')) return s.substring(0, 10);
+                    // Already YYYY-MM-DD
+                    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+                    // DD/MM/YYYY or DD-MM-YYYY
+                    const ddmm = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+                    if (ddmm) return `${ddmm[3]}-${ddmm[2]}-${ddmm[1]}`;
+                    return null;
+                };
 
                 const getQuizPointsForPeriod = (qList, start, end) => {
                     if (!qList || !Array.isArray(qList)) return 0;
-                    const startTime = parseDateLocal(start);
-                    const endTime = parseDateLocal(end);
-                    
+
                     return qList
                         .map(q => {
                             const rawDate = q.created_at || q.completion_date || q.date || q.timestamp || q.createdAt || q.updatedAt;
@@ -537,19 +546,16 @@ const AwardsScreen = ({ onBack }) => {
                             } else {
                                 pts = Number(q.points || q.score || q.total_score || q.total_points || q.quiz_score || 0);
                             }
-                            return {
-                                ...q,
-                                points: pts,
-                                rawDateParsed: parseDateLocal(rawDate)
-                            };
+                            return { pts, dateStr: extractDateStr(rawDate) };
                         })
                         .filter(q => {
-                            const d = q.rawDateParsed;
-                            if (start && d < startTime) return false;
-                            if (end && d > endTime + 86400000 - 1) return false;
-                            return true;
+                            if (q.dateStr) {
+                                if (start && q.dateStr < start) return false;
+                                if (end && q.dateStr > end) return false;
+                            }
+                            return true; // include if date unparseable
                         })
-                        .reduce((sum, q) => sum + q.points, 0);
+                        .reduce((sum, q) => sum + q.pts, 0);
                 };
 
                 // Ensure we have a list of employees/users to resolve names properly
@@ -590,38 +596,43 @@ const AwardsScreen = ({ onBack }) => {
                     }));
                 }
 
-                // Fetch rewards logs AND the pre-calculated public leaderboard in parallel
-                const [rRes, publicLeadRes] = await Promise.all([
-                    fetch(`${BASE_URL}/api/rewards`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.REWARDS_LEADERBOARD, { headers }).catch(() => null)
-                ]);
-                const rData = rRes && rRes.ok ? await rRes.json() : [];
-                const rList = Array.isArray(rData) ? rData : (rData?.data || rData?.rewards || []);
+                // Fetch rewards histories in parallel for all employees using raw database IDs
+                const allRewardsList = [];
+                if (allEmployeesList.length > 0) {
+                    await Promise.all(allEmployeesList.map(async (emp) => {
+                        try {
+                            // Send date params to backend so it can pre-filter (client-side is safety net)
+                            const rewardParams = new URLSearchParams();
+                            if (startDate) {
+                                rewardParams.append('start_date', startDate);
+                                rewardParams.append('startDate', startDate);
+                            }
+                            if (endDate) {
+                                rewardParams.append('end_date', endDate);
+                                rewardParams.append('endDate', endDate);
+                            }
+                            const rewardQuery = rewardParams.toString() ? `?${rewardParams.toString()}` : '';
 
-                // Parse the public leaderboard API for pre-calculated totals
-                const publicLeadData = publicLeadRes && publicLeadRes.ok ? await publicLeadRes.json() : [];
-                const publicList = Array.isArray(publicLeadData) ? publicLeadData : (publicLeadData?.data || []);
-                const publicScoreMap = new Map();
-                publicList.forEach(item => {
-                    const id = cleanIdLocal(item.employee_id || item.user_id || item._id || item.id || item.userId);
-                    if (!id) return;
-                    const extractNumPub = (val) => {
-                        if (val === undefined || val === null || val === '') return 0;
-                        const s = String(val).replace(/,/g, '').replace(/[^0-9.-]+/g, '').trim();
-                        const n = Number(s);
-                        return isNaN(n) ? 0 : n;
-                    };
-                    const totalScore = Number(item.totalPointsNum || 0) ||
-                        Number(item.totalRepNum || 0) ||
-                        extractNumPub(item.total_points || item.totalPoints || item.total_rep) ||
-                        extractNumPub(item.score || item.total_score || item.points || 0);
-                    const name = item.employee_name || item.name || item.userName || '';
-                    const rank = Number(item.rank || 0);
-                    const totalAwards = Number(item.total_awards || 0);
-                    if (totalScore > 0) {
-                        publicScoreMap.set(id, { totalScore, name, rank, totalAwards });
-                    }
-                });
+                            const rUrl = API_ENDPOINTS.REWARDS_USER
+                                ? `${API_ENDPOINTS.REWARDS_USER(emp.rawId)}${rewardQuery}`
+                                : `${BASE_URL}/api/rewards/user/${emp.rawId}${rewardQuery}`;
+
+                            const rRes = await fetch(rUrl, { headers });
+                            if (rRes.ok) {
+                                const rData = await rRes.json();
+                                const rListForUser = Array.isArray(rData) ? rData : (rData?.data || rData?.rewards || rData?.history || []);
+                                rListForUser.forEach(r => {
+                                    // Ensure employee_id is set so loop below attributes it to the right person
+                                    if (!r.employee_id && !r.userId) r.employee_id = emp.rawId;
+                                    allRewardsList.push(r);
+                                });
+                            }
+                        } catch (err) {
+                            console.warn(`Failed fetching rewards history for employee ${emp.rawId}:`, err);
+                        }
+                    }));
+                }
+                const rList = allRewardsList;
 
                 const mergedMap = new Map();
 
@@ -644,9 +655,14 @@ const AwardsScreen = ({ onBack }) => {
 
                     // We no longer exclude quizzes here because the quiz history endpoint is returning 404.
                     // All points (including quizzes) from the rewards log must be counted.
-                    const rDate = parseDateLocal(r.created_at || r.date);
-                    if (startDate && rDate < parseDateLocal(startDate)) return;
-                    if (endDate && rDate > parseDateLocal(endDate) + 86400000) return;
+                    const rawRDate = r.created_at || r.date || r.awarded_at || r.createdAt || r.grantedAt || r.grant_date || r.awarded_date || r.timestamp || r.updatedAt;
+                    const rDateStr = extractDateStr(rawRDate);
+                    // YYYY-MM-DD strings are lexicographically comparable — no timezone math needed
+                    if (rDateStr) {
+                        if (startDate && rDateStr < startDate) return;
+                        if (endDate && rDateStr > endDate) return;
+                    }
+                    // If date is null/unparseable → include the record (matches isWithinDateRange behavior)
 
                     if (!mergedMap.has(recipientId)) {
                         const name = r.employee_name || masterEmployeeMap[recipientId] || 'Team Member';
@@ -660,43 +676,17 @@ const AwardsScreen = ({ onBack }) => {
                     }
 
                     const entry = mergedMap.get(recipientId);
-                    
+
                     const extractNumLocal = (val) => {
                         if (val === undefined || val === null || val === '') return 0;
                         const cleanStr = String(val).replace(/,/g, '').replace(/[^0-9.-]+/g, '').trim();
                         const num = Number(cleanStr);
                         return isNaN(num) ? 0 : num;
                     };
-                    entry.reward_points += extractNumLocal(r.points || r.rep || 0);
+                    entry.reward_points += extractNumLocal(r.points || r.rep || r.amount || r.reward_points || 0);
                 });
 
-                // 2b. Merge in pre-calculated public leaderboard totals as fallback
-                // For each employee in the public leaderboard, if the raw-log-based score
-                // is less than the pre-calculated total, use the pre-calculated total instead.
-                // This handles cases where raw reward logs don't capture all points
-                // (e.g., quiz history endpoint returns 404).
-                publicScoreMap.forEach((pubData, pubId) => {
-                    if (mergedMap.has(pubId)) {
-                        const entry = mergedMap.get(pubId);
-                        const rawLogScore = entry.quiz_points + entry.reward_points;
-                        if (pubData.totalScore > rawLogScore) {
-                            // Use the public leaderboard's pre-calculated total
-                            entry.reward_points = pubData.totalScore - entry.quiz_points;
-                            if (pubData.name && (!entry.name || entry.name.startsWith('Employee') || entry.name === 'Team Member')) {
-                                entry.name = pubData.name;
-                            }
-                        }
-                    } else {
-                        // Employee exists in public leaderboard but not in our mergedMap
-                        mergedMap.set(pubId, {
-                            id: pubId,
-                            name: pubData.name || masterEmployeeMap[pubId] || `Employee ${pubId}`,
-                            quiz_points: 0,
-                            reward_points: pubData.totalScore,
-                            score: pubData.totalScore
-                        });
-                    }
-                });
+                // 2b. Merge in pre-calculated public leaderboard totals as fallback REMOVED
 
                 // 3. Final calculations, filter out entries with 0 points, and sort
                 const finalLeaderboard = Array.from(mergedMap.values())
@@ -734,7 +724,7 @@ const AwardsScreen = ({ onBack }) => {
 
     // 1. Unified History & Point Calculation — Session-wise Quiz Logs
     // Display all attempts/sessions individually instead of deduplicating them daily
-    // Remove the current user filter here so that the HR & Game Recognition global feed 
+    // Remove the current user filter here so that the HR & Game Recognition global feed
     // correctly displays EVERY user's quiz completion records from the database.
     const dedupedQuizHistory = quizHistory;
 
@@ -879,8 +869,8 @@ const AwardsScreen = ({ onBack }) => {
 
     // Final total: Find the highest known points value across all endpoints to ensure we never wrongly display 0
     // If a month filter is applied, only trust the filtered local history points since backend stats are all-time totals
-    const finalTotalPoints = (startDate || endDate) 
-        ? totalPointsFromHistory 
+    const finalTotalPoints = (startDate || endDate)
+        ? totalPointsFromHistory
         : (rewardsBackendPoints > 0 ? rewardsBackendPoints : (serverTotalPoints > 0 ? serverTotalPoints : totalPointsFromHistory));
     console.log("=== POINTS DEBUG ===", {
         finalTotalPoints,
@@ -905,9 +895,9 @@ const AwardsScreen = ({ onBack }) => {
         if (!rEmployeeId && !rUserId && !rEmpId) return true;
 
         return (myId && (rEmployeeId === myId || rUserId === myId || rEmpId === myId)) ||
-               (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
-               (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
-               (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
+            (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
+            (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
+            (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
     }).reduce((sum, item) => sum + Number(item.points || item.rep || 0), 0);
 
     const finalQuizPoints = (startDate || endDate)
@@ -915,16 +905,16 @@ const AwardsScreen = ({ onBack }) => {
             const rEmployeeId = String(q.employee_id || '').split(':')[0].trim().toLowerCase();
             const rUserId = String(q.userId || q.user_id || '').split(':')[0].trim().toLowerCase();
             const rEmpId = String(q.empId || '').split(':')[0].trim().toLowerCase();
-    
+
             const myId = String(user?.employee_id || '').split(':')[0].trim().toLowerCase();
             const myUid = String(user?.uid || '').split(':')[0].trim().toLowerCase();
             const myUserId = String(user?.id || user?.userId || '').split(':')[0].trim().toLowerCase();
             const myEmail = String(user?.email || '').trim().toLowerCase();
-    
+
             const isMyReward = (myId && (rEmployeeId === myId || rUserId === myId || rEmpId === myId)) ||
-                   (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
-                   (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
-                   (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
+                (myUid && (rEmployeeId === myUid || rUserId === myUid || rEmpId === myUid)) ||
+                (myUserId && (rEmployeeId === myUserId || rUserId === myUserId || rEmpId === myUserId)) ||
+                (myEmail && (rEmployeeId === myEmail || rUserId === myEmail || rEmpId === myEmail));
 
             if (!isMyReward) return false;
 
@@ -933,10 +923,10 @@ const AwardsScreen = ({ onBack }) => {
         : Math.max(quizUserPoints || 0, localQuizPointsTotal, userEntryIndex >= 0 ? (sortedLeaderboard[userEntryIndex].quiz_points || 0) : 0);
 
     const userName = user?.name || user?.employee_name || 'You';
-    
+
     // Determine active leaderboard (use filtered if dates are set, otherwise all-time)
     const activeLeaderboard = (startDate || endDate) ? filteredLeaderboard : sortedLeaderboard;
-    
+
     let activeUserRank = 0;
     const activeUserEntryIndex = activeLeaderboard.findIndex(e => {
         const cleanEId = String(e.id || '').split(':')[0].trim().toLowerCase();
@@ -955,7 +945,7 @@ const AwardsScreen = ({ onBack }) => {
             return cleanKey && (cleanEId === cleanKey || cleanEName === cleanKey);
         });
     });
-    
+
     if (activeUserEntryIndex >= 0) {
         activeUserRank = activeLeaderboard[activeUserEntryIndex].rank || (activeUserEntryIndex + 1);
     } else if (finalQuizPoints > 0) {
@@ -1205,7 +1195,7 @@ const AwardsScreen = ({ onBack }) => {
         if (cat === 'HR' || cat === 'ADMIN' || cat === 'GAME' || cat === 'HR & GAME' || cat === 'QUIZ' || cat === 'FUN QUIZ GAME' || name.includes('QUIZ')) return 'HR';
         if (cat === 'PM') return 'PM';
         if (cat === 'TL') return 'TL';
-        
+
         if (rCat === 'HR' || rCat === 'ADMIN' || rCat === 'GAME') return 'HR';
         if (rCat === 'PM') return 'PM';
         if (rCat === 'TL') return 'TL';
@@ -1217,8 +1207,8 @@ const AwardsScreen = ({ onBack }) => {
         const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
         const cat = String(r.category || '').toUpperCase();
         const isNotQuiz = !(cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser'));
-        
-        // Strip quizzes out of the standard rewards list so they don't duplicate 
+
+        // Strip quizzes out of the standard rewards list so they don't duplicate
         // when we manually append ...quizItemsForHR into hrList later
         if (!isNotQuiz) return false;
 
@@ -1417,13 +1407,12 @@ const AwardsScreen = ({ onBack }) => {
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {filteredLeaderboard.map((entry, idx) => {
+                            {filteredLeaderboard.map((entry, idx, arr) => {
                                 const isMe = String(entry.id).split(':')[0].trim().toLowerCase() === String(myId).split(':')[0].trim().toLowerCase();
-                                const rank = entry.rank || (idx + 1);
+                                const rank = arr.findIndex(e => e.score === entry.score) + 1;
                                 return (
                                     <motion.div
                                         key={idx}
-                                        onClick={() => openMemberProfile(entry)}
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: idx * 0.03 }}
@@ -1522,19 +1511,19 @@ const AwardsScreen = ({ onBack }) => {
                                         <LeaderboardAvatar entry={entry} employees={employees} isMe={isMe} />
 
                                         <div style={{ flex: 1 }}>
-                                             <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
-                                                 {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
-                                             </div>
-                                             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px', fontWeight: '800' }}>Rank #{rank}</div>
-                                         </div>
-                                         <div style={{ textAlign: 'right' }}>
-                                             <div style={{ fontSize: '18px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
-                                                 {entry.score} <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '2px', fontWeight: '800' }}>REP</span>
-                                             </div>
-                                             <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                                 <span>Quiz: {entry.quiz_points} | Awards: {entry.reward_points}</span>
-                                             </div>
-                                         </div>
+                                            <div style={{ fontSize: '15px', fontWeight: '1000', color: '#0B1E3F' }}>
+                                                {entry.name} {isMe && <span style={{ fontSize: '10px', backgroundColor: '#0284C7', color: 'white', padding: '2px 8px', borderRadius: '8px', marginLeft: '5px' }}>YOU</span>}
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px', fontWeight: '800' }}>Rank #{rank}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '18px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                                                {entry.score} <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '2px', fontWeight: '800' }}>REP</span>
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                <span>Quiz: {entry.quiz_points} | Awards: {entry.reward_points}</span>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 );
                             })}
@@ -1547,54 +1536,7 @@ const AwardsScreen = ({ onBack }) => {
                     )}
                 </div>
 
-                {/* Team member public profile modal container */}
-                <AnimatePresence>
-                    {selectedMember && (
-                        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '500px', overflow: 'hidden' }}>
-                                <div style={{ padding: '40px', background: '#0B1E3F', color: 'white', textAlign: 'center' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '25px', border: '4px solid rgba(255,255,255,0.1)', margin: '0 auto 15px', overflow: 'hidden' }}>
-                                        <img src={`https://ui-avatars.com/api/?name=${selectedMember.name}&background=fff&color=0B1E3F&size=128`} style={{ width: '100%', height: '100%' }} />
-                                    </div>
-                                    <h2 style={{ margin: 0 }}>{selectedMember.name}</h2>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginTop: '8px' }}>
-                                        <p style={{ margin: 0, opacity: 0.7, fontSize: '13px' }}>Global Rank: #{filteredLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
-                                        <div style={{ padding: '4px 12px', borderRadius: '10px', backgroundColor: '#FBBC05', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000' }}>
-                                            {isNaN(memberPoints) || memberPoints === null || memberPoints === undefined ? 0 : memberPoints} REP
-                                        </div>
-                                    </div>
-                                </div>
-                                <div style={{ padding: '30px' }}>
-                                    <h4 style={{ fontSize: '14px', color: '#0B1E3F', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '15px' }}>Achievement Timeline</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
-                                        {memberLoading ? <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div> :
-                                            memberRewards.map((r, i) => (
-                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px', alignItems: 'center' }}>
-                                                    <div>
-                                                        <div style={{ fontSize: '13px', fontWeight: '800' }}>{r.reward_name || r.title}</div>
-                                                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>{formatDate(r.created_at || r.date)}</div>
-                                                    </div>
-                                                    <div style={{
-                                                        fontWeight: '1000',
-                                                        color: '#16a34a',
-                                                        backgroundColor: '#16a34a12',
-                                                        padding: '4px 10px',
-                                                        borderRadius: '8px',
-                                                        border: '1.5px solid #16a34a30',
-                                                        height: 'fit-content',
-                                                        alignSelf: 'center'
-                                                    }}>+{r.points || r.rep} REP</div>
-                                                </div>
-                                            ))
-                                        }
-                                        {!memberLoading && memberRewards.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>No history found.</div>}
-                                    </div>
-                                    <button onClick={() => setSelectedMember(null)} style={{ width: '100%', marginTop: '20px', padding: '15px', borderRadius: '15px', border: 'none', backgroundColor: '#f1f5f9', color: '#0B1E3F', fontWeight: '1000', cursor: 'pointer' }}>Close Profile</button>
-                                </div>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
+                {/* Team member public profile modal removed as requested */}
             </motion.div>
         );
     }
@@ -1646,7 +1588,7 @@ const AwardsScreen = ({ onBack }) => {
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px 14px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch(e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch (e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
                             <Calendar size={14} color="#3B5998" />
                             <span style={{ fontSize: '12px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
                                 {formatDisplayDate(startDate)}
@@ -1660,7 +1602,7 @@ const AwardsScreen = ({ onBack }) => {
                             />
                         </div>
                         <span style={{ fontSize: '10px', fontWeight: '900', color: '#cbd5e1' }}>TO</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch(e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch (e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
                             <Calendar size={14} color="#3B5998" />
                             <span style={{ fontSize: '12px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
                                 {formatDisplayDate(endDate)}
@@ -1944,53 +1886,7 @@ const AwardsScreen = ({ onBack }) => {
                 )}
             </AnimatePresence>
 
-            <AnimatePresence>
-                {selectedMember && (
-                    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ backgroundColor: 'white', borderRadius: '35px', width: '100%', maxWidth: '500px', overflow: 'hidden' }}>
-                            <div style={{ padding: '40px', background: '#0B1E3F', color: 'white', textAlign: 'center' }}>
-                                <div style={{ width: '80px', height: '80px', borderRadius: '25px', border: '4px solid rgba(255,255,255,0.1)', margin: '0 auto 15px', overflow: 'hidden' }}>
-                                    <img src={`https://ui-avatars.com/api/?name=${selectedMember.name}&background=fff&color=0B1E3F&size=128`} style={{ width: '100%', height: '100%' }} />
-                                </div>
-                                <h2 style={{ margin: 0 }}>{selectedMember.name}</h2>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginTop: '8px' }}>
-                                    <p style={{ margin: 0, opacity: 0.7, fontSize: '13px' }}>Global Rank: #{sortedLeaderboard.findIndex(e => String(e.id || '').split(':')[0] === String(selectedMember.id || '').split(':')[0]) + 1 || 'N/A'}</p>
-                                    <div style={{ padding: '4px 12px', borderRadius: '10px', backgroundColor: '#FBBC05', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000' }}>
-                                        {isNaN(memberPoints) || memberPoints === null || memberPoints === undefined ? 0 : memberPoints} REP
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={{ padding: '30px' }}>
-                                <h4 style={{ fontSize: '14px', color: '#0B1E3F', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '15px' }}>Achievement Timeline</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
-                                    {memberLoading ? <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div> :
-                                        memberRewards.map((r, i) => (
-                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '15px', alignItems: 'center' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '13px', fontWeight: '800' }}>{r.reward_name || r.title}</div>
-                                                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>{formatDate(r.created_at || r.date)}</div>
-                                                </div>
-                                                <div style={{
-                                                    fontWeight: '1000',
-                                                    color: '#16a34a',
-                                                    backgroundColor: '#16a34a12',
-                                                    padding: '4px 10px',
-                                                    borderRadius: '8px',
-                                                    border: '1.5px solid #16a34a30',
-                                                    height: 'fit-content',
-                                                    alignSelf: 'center'
-                                                }}>+{r.points || r.rep} REP</div>
-                                            </div>
-                                        ))
-                                    }
-                                    {!memberLoading && memberRewards.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>No history found.</div>}
-                                </div>
-                                <button onClick={() => setSelectedMember(null)} style={{ width: '100%', marginTop: '20px', padding: '15px', borderRadius: '15px', border: 'none', backgroundColor: '#f1f5f9', color: '#0B1E3F', fontWeight: '1000', cursor: 'pointer' }}>Close Profile</button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* Duplicate Team member public profile modal removed as requested */}
 
 
         </motion.div>

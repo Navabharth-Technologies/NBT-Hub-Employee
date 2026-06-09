@@ -32,6 +32,7 @@ export default function ResignationScreen({ onBack }) {
   // Detail Overlay State
   const [selectedResignation, setSelectedResignation] = useState(null);
   const [previewLetter, setPreviewLetter] = useState(null);
+  const [errorModal, setErrorModal] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
@@ -72,12 +73,12 @@ export default function ResignationScreen({ onBack }) {
 
   const handleSubmit = async () => {
     if (!lastWorkingDay || !reason || !detailedReason.trim()) {
-      return alert('Please fill in all required fields.');
+      return setErrorModal('Please fill in all required fields.');
     }
     // Built-in deduplication: prevent double submission
     const alreadyActive = myHistory.find(r => (r.status || '').toUpperCase() === 'PENDING');
     if (alreadyActive) {
-      return alert('You already have a pending resignation. Please revoke it before submitting a new one.');
+      return setErrorModal('You already have a pending resignation. Please revoke it before submitting a new one.');
     }
     const sid = sanitizeId(user?.id || user?.employee_id || user?.empId);
     const mId = Number(user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || 0) || 0;
@@ -489,6 +490,19 @@ export default function ResignationScreen({ onBack }) {
                 <button onClick={() => setShowRevokeModal(false)} style={{ flex: 1, padding: '15px', borderRadius: '15px', background: '#f1f5f9', border: 'none', fontWeight: '800', cursor: 'pointer' }}>Cancel</button>
                 <button onClick={handleRevoke} style={{ flex: 2, ...s.submitBtn, backgroundColor: '#0B1E3F', padding: '15px' }}>{loading ? "Revoking..." : "Confirm Revoke"}</button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {errorModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: 'white', borderRadius: '30px', padding: '40px', maxWidth: '400px', width: '100%', boxShadow: '0 30px 60px rgba(0,0,0,0.2)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '30px', backgroundColor: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <AlertCircle size={30} />
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#0B1E3F', marginBottom: '15px' }}>Notice</h2>
+            <p style={{ fontSize: '14px', color: '#64748b', fontWeight: '600', marginBottom: '30px', lineHeight: '1.5' }}>{errorModal}</p>
+            <button onClick={() => setErrorModal(null)} style={{ ...s.submitBtn, backgroundColor: '#0B1E3F', padding: '15px', width: '100%' }}>Okay</button>
           </motion.div>
         </div>
       )}

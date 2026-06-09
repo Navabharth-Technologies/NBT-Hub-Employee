@@ -1,4 +1,4 @@
-export const BASE_URL = 'http://192.168.1.15:5000';
+export const BASE_URL = 'http://192.168.1.6:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
 export const cleanId = (id) => {
@@ -135,7 +135,7 @@ export const API_ENDPOINTS = {
   REWARDS_MY: `${BASE_URL}/api/rewards/my`,
   REWARDS_ALL: `${BASE_URL}/api/rewards`,
   REWARDS_USER: (userId) => `${BASE_URL}/api/rewards/user/${String(userId || '').split(':')[0]}`,
-
+  REWARDS_GRANT: `${BASE_URL}/api/rewards/grant`,
 
 
   // Resignation System

@@ -60,7 +60,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
   const distance = (coords?.lat && coords?.lon) ? getDistance(coords.lat, coords.lon, OFFICE_COORDS.lat, OFFICE_COORDS.lon) : null;
   const isAtOffice = true;
   const OFFICE_ADDRESS = "NAVABHARATH TECHNOLOGIES, 2nd Floor, 667/B, Chitrabhanu Road, Kuvempu Nagara, Mysuru, Karnataka 570023";
-  const displayAddress = currentLocation || OFFICE_ADDRESS;
+  const displayAddress = OFFICE_ADDRESS;
 
   const getDefaultDates = () => {
     const today = new Date();
@@ -243,7 +243,7 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           timestamp: new Date().toISOString(),
           status,
           work_time,
-          remark: !isAtOffice ? 'Home Checkout' : (status === 'HALF DAY' ? 'Auto Half Day (<4hrs)' : ''),
+          remark: action === 'checkin' ? 'Office Check-in' : (status === 'HALF DAY' ? 'Auto Half Day (<4hrs)' : 'Office Checkout'),
           location: displayAddress || 'Office Zone'
         })
       });
@@ -436,36 +436,37 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     }
   };
 
-  const filteredLogs = logs.filter(log => {
-    const rawDate = log.punch_date || log.date;
-    if (!rawDate) return false;
+  const dateFilteredLogs = useMemo(() => {
+    return logs.filter(log => {
+      const rawDate = log.punch_date || log.date;
+      if (!rawDate) return false;
 
-    // Normalize log date to start of day
-    const d = new Date(rawDate);
-    const logTime = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      // Normalize log date to start of day
+      const d = new Date(rawDate);
+      const logTime = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
-    // Check Start Date
-    if (startDate) {
-      const s = new Date(startDate);
-      const startTime = new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime();
-      if (logTime < startTime) return false;
-    }
+      // Check Start Date
+      if (startDate) {
+        const s = new Date(startDate);
+        const startTime = new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime();
+        if (logTime < startTime) return false;
+      }
 
-    // Check End Date
-    if (endDate) {
-      const e = new Date(endDate);
-      const endTime = new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
-      if (logTime > endTime) return false;
-    }
+      // Check End Date
+      if (endDate) {
+        const e = new Date(endDate);
+        const endTime = new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
+        if (logTime > endTime) return false;
+      }
 
-    const matchesFilter = filterStatus === 'ALL' || log.status === filterStatus;
-    return matchesFilter;
-  });
+      return true;
+    });
+  }, [logs, startDate, endDate]);
 
   const stats = useMemo(() => {
-    const s = { present: 0, leaves: 0, halfDays: 0, totalLogs: filteredLogs.length };
+    const s = { present: 0, leaves: 0, halfDays: 0, totalLogs: dateFilteredLogs.length };
     
-    filteredLogs.forEach(log => {
+    dateFilteredLogs.forEach(log => {
       const config = getStatusConfig(log);
       const label = config.label.toUpperCase();
       
@@ -479,7 +480,19 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
     });
     
     return s;
-  }, [filteredLogs]);
+  }, [dateFilteredLogs]);
+
+  const filteredLogs = useMemo(() => {
+    return dateFilteredLogs.filter(log => {
+      if (filterStatus === 'ALL') return true;
+      const config = getStatusConfig(log);
+      const label = config.label.toUpperCase();
+      if (filterStatus === 'PRESENT' && label === 'PRESENT') return true;
+      if (filterStatus === 'LEAVE' && (label === 'ABSENT' || label === 'LEAVE' || label === 'L')) return true;
+      if (filterStatus === 'HALF DAY' && label === 'HALF DAY') return true;
+      return false;
+    });
+  }, [dateFilteredLogs, filterStatus]);
 
   const s = {
     container: { minHeight: '100vh', backgroundColor: '#f4f7fa', padding: '30px', fontFamily: "'Outfit', sans-serif" },
@@ -642,7 +655,13 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       </motion.div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '32px' }} className="attendance-stats-grid">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          whileHover={{ y: -2, boxShadow: '0 10px 20px rgba(0,0,0,0.04)' }}
+          onClick={() => setFilterStatus(filterStatus === 'PRESENT' ? 'ALL' : 'PRESENT')}
+          style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: filterStatus === 'PRESENT' ? '2px solid #22c55e' : s.card.border }}
+        >
           <div style={{ backgroundColor: '#f0fdf4', padding: '10px', borderRadius: '12px' }}><CheckCircle size={18} color="#22c55e" /></div>
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PRESENT</div>
@@ -652,7 +671,13 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          whileHover={{ y: -2, boxShadow: '0 10px 20px rgba(0,0,0,0.04)' }}
+          onClick={() => setFilterStatus(filterStatus === 'LEAVE' ? 'ALL' : 'LEAVE')}
+          style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: filterStatus === 'LEAVE' ? '2px solid #ef4444' : s.card.border }}
+        >
           <div style={{ backgroundColor: '#fef2f2', padding: '10px', borderRadius: '12px' }}><CalendarDays size={18} color="#ef4444" /></div>
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LEAVE</div>
@@ -662,7 +687,13 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          whileHover={{ y: -2, boxShadow: '0 10px 20px rgba(0,0,0,0.04)' }}
+          onClick={() => setFilterStatus(filterStatus === 'HALF DAY' ? 'ALL' : 'HALF DAY')}
+          style={{ ...s.card, padding: '15px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', border: filterStatus === 'HALF DAY' ? '2px solid #f97316' : s.card.border }}
+        >
           <div style={{ backgroundColor: '#fff7ed', padding: '10px', borderRadius: '12px' }}><Clock3 size={18} color="#f97316" /></div>
           <div>
             <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>HALF DAYS</div>

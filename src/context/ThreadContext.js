@@ -594,6 +594,18 @@ export const ThreadProvider = ({ children }) => {
             userId: Number(currentUserId),
             user_id: Number(currentUserId)
         };
+
+        // OPTIMISTIC UPDATE for immediate UI reflection
+        setThreads(prev => prev.map(t => {
+            if (t.id === id) {
+                return {
+                    ...t,
+                    content: payload.content !== undefined ? payload.content : t.content,
+                    tagline: payload.tagline !== undefined ? payload.tagline : t.tagline
+                };
+            }
+            return t;
+        }));
         
         if (payload.file) {
            body.media = mediaData;

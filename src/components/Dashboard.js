@@ -1014,7 +1014,24 @@ const Dashboard = ({ setActiveTab }) => {
                     ) : (
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button style={{ ...s.editBtn, background: '#f8fafc', color: '#64748b' }} onClick={() => setIsEditing(false)}>Cancel</button>
-                        <button style={{ ...s.editBtn, background: '#1e40af', color: 'white', border: 'none' }} onClick={handleSaveTasks}>Save</button>
+                        {(() => {
+                          const hasValidTask = editBuffer.some(t => t.text && t.text.trim() !== '');
+                          return (
+                            <button 
+                              style={{ 
+                                ...s.editBtn, 
+                                background: hasValidTask ? '#1e40af' : '#cbd5e1', 
+                                color: 'white', 
+                                border: 'none',
+                                cursor: hasValidTask ? 'pointer' : 'not-allowed'
+                              }} 
+                              onClick={hasValidTask ? handleSaveTasks : undefined}
+                              disabled={!hasValidTask}
+                            >
+                              Save
+                            </button>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1022,20 +1039,22 @@ const Dashboard = ({ setActiveTab }) => {
                   {!isEditing ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                       {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
-                      {todayTasks.length > 0 ? (
-                        todayTasks.map((t, i) => {
-                          return (
-                            <div key={i} style={s.taskItem}>
-                              <CheckCircle2 size={14} color="#3b82f6" />
-                              <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
-                          <AlertCircle size={16} /> Update ur todays task
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px' }}>
+                        {todayTasks.length > 0 ? (
+                          todayTasks.map((t, i) => {
+                            return (
+                              <div key={i} style={s.taskItem}>
+                                <CheckCircle2 size={14} color="#3b82f6" />
+                                <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
+                            <AlertCircle size={16} /> Update ur todays task
+                          </div>
+                        )}
+                      </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
                         <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
                           {todayStatus && todayStatus !== 'No Data' ? todayStatus : 'PENDING'}
@@ -1043,29 +1062,31 @@ const Dashboard = ({ setActiveTab }) => {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-                      {editBuffer.map((t, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input
-                            type="text"
-                            value={t.text}
-                            onChange={(e) => {
-                              const nb = [...editBuffer];
-                              nb[i].text = e.target.value;
-                              setEditBuffer(nb);
-                            }}
-                            style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
-                            placeholder="Type task details..."
-                          />
-                          <button onClick={() => setEditBuffer(editBuffer.filter((_, idx) => idx !== i))} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                            <Trash2 size={16} color="#ef4444" />
-                          </button>
-                        </div>
-                      ))}
-                      <button onClick={() => setEditBuffer([...editBuffer, { text: '', id: Date.now() }])} style={{ padding: '8px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '5px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '150px', overflowY: 'auto', paddingRight: '5px' }}>
+                        {editBuffer.map((t, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="text"
+                              value={t.text}
+                              onChange={(e) => {
+                                const nb = [...editBuffer];
+                                nb[i].text = e.target.value;
+                                setEditBuffer(nb);
+                              }}
+                              style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
+                              placeholder="Type task details..."
+                            />
+                            <button onClick={() => setEditBuffer(editBuffer.filter((_, idx) => idx !== i))} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                              <Trash2 size={16} color="#ef4444" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => setEditBuffer([...editBuffer, { text: '', id: Date.now() }])} style={{ padding: '8px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '10px' }}>
                         + Add Task
                       </button>
-                      <div style={{ marginTop: '15px' }}>
+                      <div style={{ marginTop: 'auto', paddingTop: '15px' }}>
                         <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '8px' }}>End of day status override</div>
                         <select
                           value={editStatus}
@@ -1213,7 +1234,7 @@ const Dashboard = ({ setActiveTab }) => {
           <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{ fontSize: '16px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={24} color="#f59e0b" /> Team Suggestions
+                <FileText size={24} color="#f59e0b" /> Saturday Suggestions
               </div>
             </div>
 
