@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, Download, ChevronLeft, Search, Filter, Clock, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
+import BackButton from './BackButton';
 import { API_ENDPOINTS } from '../config';
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
@@ -287,30 +288,7 @@ export default function FocusLogs({ onBack }) {
   return (
     <div style={s.container}>
       <main style={s.main}>
-
-
-
-        <button
-          onClick={handleBack}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            color: '#64748b',
-            fontWeight: '800',
-            fontSize: '14px',
-            marginBottom: '20px',
-            padding: '0',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = '#3B5998'}
-          onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-        >
-          <ChevronLeft size={20} strokeWidth={3} /> Back to Dashboard
-        </button>
+        <BackButton onClick={handleBack} />
 
         <header style={s.header}>
           <h1 style={s.title}>Your Focus Logs</h1>
@@ -319,8 +297,13 @@ export default function FocusLogs({ onBack }) {
         {/* Filter Bar */}
         <div style={s.filterBar}>
 
-          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { startDateRef.current?.showPicker(); } catch (e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }}>
-            <Calendar size={18} color="#3B5998" />
+          <div style={{ ...s.dateInputBox, border: '1.5px solid #cbd5e1' }}>
+            <Calendar 
+                size={18} 
+                color="#3B5998" 
+                style={{ cursor: 'pointer' }}
+                onClick={() => { try { startDateRef.current?.showPicker(); } catch (e) { startDateRef.current?.focus(); startDateRef.current?.click(); } }} 
+            />
             <span style={{ fontSize: '14px', fontWeight: '800', color: startDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(startDate)}
             </span>
@@ -341,8 +324,13 @@ export default function FocusLogs({ onBack }) {
 
           <span style={s.toText}>TO</span>
 
-          <div style={{ ...s.dateInputBox, cursor: 'pointer', border: '1.5px solid #cbd5e1' }} onClick={() => { try { endDateRef.current?.showPicker(); } catch (e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}>
-            <Calendar size={18} color="#3B5998" />
+          <div style={{ ...s.dateInputBox, border: '1.5px solid #cbd5e1' }}>
+            <Calendar 
+                size={18} 
+                color="#3B5998" 
+                style={{ cursor: 'pointer' }}
+                onClick={() => { try { endDateRef.current?.showPicker(); } catch (e) { endDateRef.current?.focus(); endDateRef.current?.click(); } }}
+            />
             <span style={{ fontSize: '14px', fontWeight: '800', color: endDate ? '#1e293b' : '#94a3b8' }}>
               {formatDisplayDate(endDate)}
             </span>
@@ -359,15 +347,17 @@ export default function FocusLogs({ onBack }) {
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
             />
+
           </div>
+          <button style={{ ...s.clearBtn, marginLeft: '0' }} onClick={() => {
+            setStartDate('');
+            setEndDate('');
+          }}>
+            Clear Filter
+          </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>
-            <button style={{ ...s.clearBtn, marginLeft: '0' }} onClick={() => {
-              setStartDate('');
-              setEndDate('');
-            }}>
-              Clear Filter
-            </button>
+
             <div style={{ position: 'relative', width: winWidth < 768 ? '100%' : 'auto' }}>
               <button style={s.downloadBtn} onClick={downloadPDF}>
                 <Download size={18} /> Download PDF

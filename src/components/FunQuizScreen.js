@@ -473,7 +473,7 @@ const FunQuizScreen = ({ onBack }) => {
   const currentQ = questions[currentIdx];
 
   const s = {
-    container: { minHeight: '100vh', backgroundColor: '#F8F9FA', padding: isMobile ? '15px' : '30px', fontFamily: '"Nunito", "Segoe UI", sans-serif' },
+    container: { minHeight: 'auto', backgroundColor: '#F8F9FA', padding: isMobile ? '15px' : '30px', fontFamily: '"Nunito", "Segoe UI", sans-serif' },
     layout: { display: 'flex', gap: '25px', flexDirection: isTablet ? 'column' : 'row', marginBottom: '25px' },
     hero: {
       flex: 2, backgroundColor: '#B2DCE2', borderRadius: '24px', padding: isMobile ? '40px 20px' : '60px 50px',

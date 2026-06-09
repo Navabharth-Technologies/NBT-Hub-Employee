@@ -45,6 +45,7 @@ export default function ThreadScreen() {
     const [loadingReactors, setLoadingReactors] = useState(false);
     const [fullscreenMedia, setFullscreenMedia] = useState(null);
     const [errorNotif, setErrorNotif] = useState(null);
+    const [deleteConfirm, setDeleteConfirm] = useState({ type: null, postId: null, commentId: null });
     const [showRemoveFirstModal, setShowRemoveFirstModal] = useState(false);
     const [showEditRemoveFirstModal, setShowEditRemoveFirstModal] = useState(false);
     const [pendingEditPost, setPendingEditPost] = useState(null);
@@ -55,7 +56,7 @@ export default function ThreadScreen() {
     const [editRemoveMedia, setEditRemoveMedia] = useState(false);
     const editFileInputRef = useRef(null);
 
-    // Track optimistic media overrides per post so edits reflect immediately
+    // ✅ FIX: Track optimistic media overrides per post so edits reflect immediately
     const [postMediaOverrides, setPostMediaOverrides] = useState({});
 
     const showError = (message) => {
@@ -246,22 +247,22 @@ export default function ThreadScreen() {
         mediaBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '8px 12px' : '10px 18px', borderRadius: '12px', border: '1.5px solid #eef2f6', background: 'white', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: '800', color: '#64748b' },
         postBtn: { padding: isMobile ? '10px 15px' : '12px 30px', backgroundColor: '#315A9E', color: 'white', border: 'none', borderRadius: '15px', fontWeight: '1000', cursor: 'pointer', fontSize: isMobile ? '10px' : '13px', textTransform: 'uppercase' },
         threadCard: { backgroundColor: 'white', borderRadius: isMobile ? '25px' : '40px', padding: isMobile ? '15px 20px' : '24px 30px', border: '1.5px solid #CBD5E1', position: 'relative', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '20px', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
-        taglineBadge: { display: 'inline-block', padding: '6px 12px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '13px' : '15px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', marginTop: '12px', border: '1px solid #e0f2fe' },
+        taglineBadge: { display: 'inline-block', padding: '4px 10px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '8px' : '9px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', border: '1px solid #e0f2fe' },
         postMedia: { marginTop: '20px', borderRadius: '25px', overflow: 'hidden', border: '1.5px solid #f8fafc', maxHeight: isMobile ? '300px' : '380px', maxWidth: '100%', width: 'fit-content', backgroundColor: '#fdfdfd', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' },
         footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '15px', marginTop: '15px', gap: isMobile ? '5px' : '10px', flexWrap: isMobile ? 'wrap' : 'nowrap' },
-        action: (active, color) => ({
-            display: 'flex',
-            alignItems: 'center',
-            gap: isMobile ? '4px' : '8px',
-            color: active ? 'white' : color,
-            backgroundColor: active ? color : '#f8fafc',
+        action: (active, activeColor, inactiveColor = '#64748b') => ({ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: isMobile ? '4px' : '8px', 
+            color: active ? 'white' : inactiveColor, 
+            backgroundColor: active ? activeColor : '#f8fafc',
             padding: isMobile ? '6px 8px' : '8px 16px',
             borderRadius: '12px',
             fontSize: isMobile ? '9px' : (isTablet ? '11px' : '12px'),
             fontWeight: '900',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
-            border: active ? `1.5px solid ${color}` : '1.5px solid #f1f5f9',
+            border: active ? `1.5px solid ${activeColor}` : '1.5px solid #f1f5f9',
             position: 'relative',
             flex: isMobile ? '1 1 auto' : 'none',
             justifyContent: 'center'
@@ -413,7 +414,6 @@ export default function ThreadScreen() {
                 const isAuthor = authorIdMatch || nameMatch;
 
                 const isLead = user?.role === 'TEAMLEADER' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
-                const hasMedia = !!(post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path);
                 const canManage = isAuthor;
                 const isEditing = editingPostId === post.id;
                 const pLiked = post.userHasLiked || false;
@@ -465,7 +465,9 @@ export default function ThreadScreen() {
                                         <Edit3 size={16} />
                                     </button>
                                     <button
-                                        onClick={() => deletePost(post.id)}
+                                        onClick={() => {
+                                            setDeleteConfirm({ type: 'thread', postId: post.id, commentId: null });
+                                        }}
                                         style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         title="Delete post"
                                     >
@@ -491,7 +493,14 @@ export default function ThreadScreen() {
                                         onChange={(e) => setEditContent(e.target.value)}
                                     />
 
-                                    {(() => {
+                                    {(editMediaPreview && !editRemoveMedia) && (
+                                        <div style={{ marginTop: '10px', position: 'relative', borderRadius: '15px', overflow: 'hidden', maxWidth: '300px' }}>
+                                            <XCircle size={24} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', zIndex: 10 }} onClick={() => { setEditMediaFile(null); setEditMediaPreview(null); }} />
+                                            {editMediaType === 'video' ? (<video src={editMediaPreview} controls style={{ width: '100%', display: 'block' }} />) : (<img src={editMediaPreview} alt="" style={{ width: '100%', display: 'block' }} />)}
+                                        </div>
+                                    )}
+
+                                    {(!editMediaPreview && !editRemoveMedia) && (() => {
                                         const mediaPath = post.media_url || post.mediaUrl || post.media || post.image || post.media_path || post.file_path;
                                         if (!mediaPath || typeof mediaPath !== 'string') return null;
                                         const isVideo = post.media_type === 'video' || post.mediaType === 'video' || mediaPath.toLowerCase().includes('video') || mediaPath.toLowerCase().endsWith('.mp4');
@@ -518,7 +527,7 @@ export default function ThreadScreen() {
                                                     removeMedia: editRemoveMedia
                                                 });
                                                 if (success) {
-                                                    // Optimistically update media display immediately after save
+                                                    // ✅ FIX: Optimistically update media display immediately after save
                                                     if (editRemoveMedia) {
                                                         // User removed media — set override to null to hide it
                                                         setPostMediaOverrides(prev => ({ ...prev, [post.id]: null }));
@@ -529,13 +538,12 @@ export default function ThreadScreen() {
                                                             [post.id]: { src: editMediaPreview, type: editMediaType }
                                                         }));
                                                     }
+                                                    // If no media change, keep existing (override stays undefined = use post data)
                                                     setEditingPostId(null);
                                                     setEditTagline('');
                                                     setEditMediaFile(null);
                                                     setEditMediaPreview(null);
                                                     setEditRemoveMedia(false);
-                                                } else {
-                                                    showError('Failed to save changes. Please try again.');
                                                 }
                                             }}
                                             style={{ backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '10px', fontWeight: '900', cursor: 'pointer' }}
@@ -561,7 +569,7 @@ export default function ThreadScreen() {
                             )}
                         </div>
 
-                        {/* Media rendering checks postMediaOverrides first for instant post-edit reflection */}
+                        {/* ✅ FIX: Media rendering now checks postMediaOverrides first for instant post-edit reflection */}
                         {!isEditing && (() => {
                             const override = postMediaOverrides[post.id];
 
@@ -637,7 +645,7 @@ export default function ThreadScreen() {
                                         {activeReaction}
                                     </span>
                                 ) : (
-                                    <Heart size={isMobile ? 16 : 18} fill="none" stroke="#ef4444" strokeWidth={2.5} />
+                                    <Heart size={isMobile ? 16 : 18} fill="none" stroke="#64748b" strokeWidth={2.5} />
                                 )}
                                 {likeCount > 0 && (
                                     <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '900' }}>{likeCount}</span>
@@ -721,12 +729,8 @@ export default function ThreadScreen() {
                                                                 {isMyComment && (
                                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                                         <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
-                                                                        <button onClick={async () => {
-                                                                            const success = await deleteComment(post.id, c.id);
-                                                                            if (success) {
-                                                                                const comments = await fetchComments(post.id);
-                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
-                                                                            }
+                                                                        <button onClick={() => {
+                                                                            setDeleteConfirm({ type: 'comment', postId: post.id, commentId: c.id });
                                                                         }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
                                                                     </div>
                                                                 )}
@@ -739,31 +743,26 @@ export default function ThreadScreen() {
                                                                         value={editCommentContent}
                                                                         onChange={e => setEditCommentContent(e.target.value)}
                                                                         autoFocus
+                                                                        onFocus={(e) => {
+                                                                            const val = e.target.value;
+                                                                            e.target.value = '';
+                                                                            e.target.value = val;
+                                                                        }}
                                                                     />
-                                                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                                                        <button
-                                                                            onClick={async () => {
-                                                                                const success = await updateComment(post.id, c.id, editCommentContent);
-                                                                                if (success) {
-                                                                                    setEditingCommentId(null);
-                                                                                    const comments = await fetchComments(post.id);
-                                                                                    setPostComments(prev => ({ ...prev, [post.id]: comments }));
-                                                                                }
-                                                                            }}
-                                                                            style={{ border: 'none', background: '#315A9E', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}
-                                                                        >
-                                                                            Save
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => setEditingCommentId(null)}
-                                                                            style={{ border: '1.5px solid #e2e8f0', background: 'white', color: '#64748b', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '900' }}
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
+                                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                                        <button onClick={async () => {
+                                                                            const success = await updateComment(post.id, c.id, editCommentContent);
+                                                                            if (success) {
+                                                                                const comments = await fetchComments(post.id);
+                                                                                setPostComments(prev => ({ ...prev, [post.id]: comments }));
+                                                                                setEditingCommentId(null);
+                                                                            }
+                                                                        }} style={{ fontSize: '11px', fontWeight: '900', color: 'white', background: '#315A9E', border: 'none', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>UPDATE</button>
+                                                                        <button onClick={() => setEditingCommentId(null)} style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', background: 'none', border: '1.5px solid #e2e8f0', padding: '6px 15px', borderRadius: '8px', cursor: 'pointer' }}>CANCEL</button>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <span style={{ fontSize: '13px', color: '#334155', fontWeight: '500' }}>{cText}</span>
+                                                                <div style={{ fontSize: '13px', color: '#475569', fontWeight: '600', lineHeight: '1.5' }}>{cText}</div>
                                                             )}
                                                         </div>
                                                     </div>
@@ -771,7 +770,9 @@ export default function ThreadScreen() {
                                             })}
                                         </>
                                     ) : (
-                                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', padding: '10px' }}>No conversations yet. Start one!</div>
+                                        <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8', fontSize: '12px', fontWeight: '800', border: '1.5px dashed #eef2f6', borderRadius: '20px' }}>
+                                            No comments yet. Start the conversation!
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -780,70 +781,248 @@ export default function ThreadScreen() {
                 );
             })}
 
-            {/* FULLSCREEN ZOOM PORTAL */}
-            {fullscreenMedia && (
-                <div style={styles.modalOverlay} onClick={() => setFullscreenMedia(null)}>
-                    <div style={{ position: 'relative', width: '90%', height: '90%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <X size={28} color="white" style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer' }} onClick={() => setFullscreenMedia(null)} />
-                        {fullscreenMedia.type === 'image' && (
-                            <img src={fullscreenMedia.src} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '15px' }} alt="" />
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* ERROR NOTIFICATION OVERLAY */}
-            {errorNotif && (
-                <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#ef4444', color: 'white', padding: '12px 24px', borderRadius: '15px', boxShadow: '0 10px 30px rgba(239, 68, 68, 0.3)', zIndex: 9999, fontWeight: '800', fontSize: '13px' }}>
-                    {errorNotif.message}
-                </div>
-            )}
-
-            {/* REMOVE FIRST WARNING OVERLAY (CREATE THREAD) */}
-            {showRemoveFirstModal && (
-                <div style={styles.modalOverlay}>
-                    <div style={styles.modalContent}>
-                        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Media Already Attached</h3>
-                        <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>
-                            You cannot attach multiple photos or videos to a post. Please remove your current attached file first.
-                        </p>
+            {/* ERROR NOTIFICATION POPUP */}
+            <AnimatePresence>
+                {errorNotif && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.85, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.85, y: 30 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        style={{
+                            position: 'fixed',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 99999,
+                            backgroundColor: 'white',
+                            borderRadius: '24px',
+                            padding: '28px 36px',
+                            boxShadow: '0 20px 60px rgba(239,68,68,0.2), 0 4px 20px rgba(0,0,0,0.12)',
+                            border: '1.5px solid #fecaca',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '12px',
+                            maxWidth: '340px',
+                            width: '90%',
+                            textAlign: 'center'
+                        }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '22px' }}>⚠️</span>
+                        </div>
+                        <div style={{ fontSize: '15px', fontWeight: '900', color: '#0B1E3F' }}>Connection Error</div>
+                        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>{errorNotif.message}</div>
                         <button
-                            onClick={() => setShowRemoveFirstModal(false)}
-                            style={{ width: '100%', backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '12px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}
+                            onClick={() => setErrorNotif(null)}
+                            style={{ marginTop: '4px', padding: '8px 24px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '900', fontSize: '12px', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                         >
-                            Got it
+                            Dismiss
                         </button>
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {/* REMOVE FIRST WARNING OVERLAY (EDIT THREAD) */}
-            {showEditRemoveFirstModal && (
-                <div style={styles.modalOverlay}>
-                    <div style={styles.modalContent}>
-                        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '1000', color: '#0B1E3F' }}>Remove Media</h3>
-                        <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: '1.5' }}>
-                            To upload new photo or video files, you must click <span style={{ color: '#ef4444', fontWeight: '800' }}>Remove Media</span> first to clear the existing media.
-                        </p>
-                        <button
-                            onClick={() => {
-                                setShowEditRemoveFirstModal(false);
-                                setPendingEditPost(null);
-                            }}
-                            style={{ width: '100%', backgroundColor: '#315A9E', color: 'white', border: 'none', padding: '12px', borderRadius: '15px', fontWeight: '900', cursor: 'pointer' }}
+            {/* REMOVE FIRST MODAL */}
+            <AnimatePresence>
+                {showRemoveFirstModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={styles.modalOverlay}
+                        onClick={() => setShowRemoveFirstModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.85, y: 30 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.85, y: 30 }}
+                            style={{ ...styles.modalContent, textAlign: 'center' }}
+                            onClick={e => e.stopPropagation()}
                         >
-                            Got it
-                        </button>
-                    </div>
-                </div>
-            )}
+                            {/* <div style={{ fontSize: '48px', marginBottom: '12px' }}>🖼️</div> */}
+                            <div style={{ fontSize: '17px', fontWeight: '900', color: '#0B1E3F', marginBottom: '10px' }}>Remove Existing Media First</div>
+                            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: 1.6 }}>
+                                Please remove the current image or video before adding a new one.
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {/* FLYING EMOJI PORTAL */}
-            {flyingEmoji && (
-                <div style={{ position: 'fixed', left: flyingEmoji.x, top: flyingEmoji.y, pointerEvents: 'none', zIndex: 9999, fontSize: '40px', animation: 'flyUp 3.5s forwards' }}>
-                    {flyingEmoji.emoji}
-                </div>
-            )}
+            {/* EDIT - REMOVE FIRST MODAL */}
+            <AnimatePresence>
+                {showEditRemoveFirstModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={styles.modalOverlay}
+                        onClick={() => setShowEditRemoveFirstModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.85, y: 30 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.85, y: 30 }}
+                            style={{ ...styles.modalContent, textAlign: 'center' }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🖼️</div>
+                            <div style={{ fontSize: '17px', fontWeight: '900', color: '#0B1E3F', marginBottom: '10px' }}>Remove Existing Media First</div>
+                            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', lineHeight: 1.6 }}>
+                                Please remove the current image or video before adding a new one.
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {flyingEmoji && (
+                    <motion.div initial={{ left: flyingEmoji.x, top: flyingEmoji.y, opacity: 0 }} animate={{ y: [0, -100, -200], x: [0, 50, -50], opacity: [0, 1, 0], scale: [1, 2, 1] }} transition={{ duration: 2 }} style={{ position: 'fixed', fontSize: '50px', zIndex: 999 }}>{flyingEmoji.emoji}</motion.div>
+                )}
+
+                {reactorModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={styles.modalOverlay}
+                        onClick={() => setReactorModal(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            style={styles.modalContent}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <div style={{ fontSize: '18px', fontWeight: '1000', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '24px' }}>{reactorModal.emoji}</span>
+                                    <span style={{ background: '#f0f9ff', color: '#315A9E', borderRadius: '8px', padding: '2px 10px', fontSize: '14px' }}>
+                                        {reactorModal.users.length > 0 ? reactorModal.users.length : reactorModal.count}
+                                    </span>
+                                </div>
+                                <X size={24} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setReactorModal(null)} />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
+                                {loadingReactors ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#e2e8f0', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                                                <div style={{ height: '14px', width: '120px', backgroundColor: '#e2e8f0', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : reactorModal.users && reactorModal.users.length > 0 ? reactorModal.users.map((reactor, idx) => {
+                                    const name = typeof reactor === 'string' ? reactor
+                                        : (reactor?.name || reactor?.userName || reactor?.user_name
+                                            || reactor?.username || reactor?.fullName || reactor?.full_name
+                                            || reactor?.displayName || reactor?.display_name
+                                            || reactor?.emp_name || reactor?.employee_name || 'Unknown');
+                                    const role = typeof reactor === 'object'
+                                        ? (reactor?.role || reactor?.designation || reactor?.userRole || '') : '';
+                                    return (
+                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '15px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#315A9E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '13px', flexShrink: 0 }}>
+                                                {name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '14px', fontWeight: '700', color: '#0B1E3F' }}>{name}</div>
+                                                {role && <div style={{ fontSize: '11px', color: '#315A9E', fontWeight: '700', textTransform: 'uppercase' }}>{role}</div>}
+                                            </div>
+                                        </div>
+                                    );
+                                }) : (
+                                    <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8', fontSize: '13px' }}>
+                                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>{reactorModal.emoji}</div>
+                                        <div style={{ fontWeight: '700', color: '#64748b' }}>{reactorModal.count} {reactorModal.count === 1 ? 'person' : 'people'} reacted</div>
+                                        <div style={{ marginTop: '4px', fontSize: '12px' }}>Detailed list not available from server</div>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+
+                {fullscreenMedia && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setFullscreenMedia(null)}
+                        style={{
+                            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)',
+                            zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'zoom-out', padding: '20px'
+                        }}
+                    >
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setFullscreenMedia(null)}
+                            style={{ position: 'absolute', top: '30px', right: '30px', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}
+                        >
+                            <X size={24} />
+                        </motion.button>
+
+                        <motion.img
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            src={fullscreenMedia.src}
+                            alt="Fullscreen"
+                            style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: '12px', boxShadow: '0 30px 100px rgba(0,0,0,0.5)', objectFit: 'contain' }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </motion.div>
+                )}
+
+                {deleteConfirm.type && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            style={{ backgroundColor: 'white', padding: '30px', borderRadius: '24px', width: '90%', maxWidth: '360px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
+                        >
+                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                <Trash2 size={24} color="#ef4444" />
+                            </div>
+                            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>Delete {deleteConfirm.type === 'thread' ? 'Thread' : 'Comment'}</h3>
+                            <p style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Are you sure you want to delete this {deleteConfirm.type}? This action cannot be undone.</p>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    onClick={() => setDeleteConfirm({ type: null, postId: null, commentId: null })}
+                                    style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1.5px solid #e2e8f0', backgroundColor: 'white', color: '#64748b', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (deleteConfirm.type === 'thread') {
+                                            deletePost(deleteConfirm.postId);
+                                        } else if (deleteConfirm.type === 'comment') {
+                                            const success = await deleteComment(deleteConfirm.postId, deleteConfirm.commentId);
+                                            if (success) {
+                                                const comments = await fetchComments(deleteConfirm.postId);
+                                                setPostComments(prev => ({ ...prev, [deleteConfirm.postId]: comments }));
+                                            }
+                                        }
+                                        setDeleteConfirm({ type: null, postId: null, commentId: null });
+                                    }}
+                                    style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: '#ef4444', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.3)' }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

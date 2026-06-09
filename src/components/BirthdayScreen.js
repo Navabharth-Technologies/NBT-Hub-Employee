@@ -346,8 +346,14 @@ const BirthdayScreen = ({ onBack }) => {
                         const d = parseSafe(person.date);
                         const day = String(d.getDate()).padStart(2, '0');
                         const month = String(d.getMonth() + 1).padStart(2, '0');
-                        const year = d.getFullYear();
-                        return `${day}/${month}/${year}`;
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        let birthdayYear = today.getFullYear();
+                        const thisYearBday = new Date(birthdayYear, d.getMonth(), d.getDate());
+                        thisYearBday.setHours(0, 0, 0, 0);
+                        // If this year's birthday has already passed, show next year
+                        if (thisYearBday < today) birthdayYear += 1;
+                        return `${day}/${month}/${birthdayYear}`;
                       })()}
                     </div>
                   </div>

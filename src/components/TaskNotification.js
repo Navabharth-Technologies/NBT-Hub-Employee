@@ -139,7 +139,18 @@ const TaskNotification = ({ onOpenTask }) => {
         };
       });
 
-      const sortedNotifications = mappedGlobal.sort((a, b) => b.rawDate - a.rawDate);
+      // Deduplicate: remove entries with same message content AND same timestamp (within 2s)
+      const seen = new Set();
+      const deduped = mappedGlobal.filter(n => {
+        // Create a fingerprint from title + description + rounded timestamp (2s bucket)
+        const timeBucket = Math.floor(n.rawDate.getTime() / 2000);
+        const fingerprint = `${n.title}|${n.description}|${timeBucket}`;
+        if (seen.has(fingerprint)) return false;
+        seen.add(fingerprint);
+        return true;
+      });
+
+      const sortedNotifications = deduped.sort((a, b) => b.rawDate - a.rawDate);
 
       setNotifications(sortedNotifications);
 

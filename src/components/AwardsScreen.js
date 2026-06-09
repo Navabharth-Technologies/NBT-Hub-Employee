@@ -1421,7 +1421,6 @@ const AwardsScreen = ({ onBack }) => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             padding: '18px 24px',
-                                            cursor: 'pointer',
                                             background: rank === 1 ? 'linear-gradient(135deg, #FFFDF5 0%, #FFF9D6 100%)' :
                                                 rank === 2 ? 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' :
                                                     rank === 3 ? 'linear-gradient(135deg, #FFFBF9 0%, #FFF5ED 100%)' :

@@ -41,6 +41,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     String(user?.role || '').toUpperCase().includes('JOINEE')
   );
   const [activeTab, setActiveTab] = useState('My Profile');
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [hoverSecurity, setHoverSecurity] = useState(false);
   const [hoverTicket, setHoverTicket] = useState(false);
   const [winWidth, setWinWidth] = useState(window.innerWidth);
@@ -993,7 +994,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                           </div>
                           {f.key === 'new' && (
                             <div style={{ fontSize: '11px', color: '#3863a8', marginTop: '6px', fontWeight: '800', paddingLeft: '4px', lineHeight: '1.4' }}>
-                              Password must be exactly 6 characters.
+                              Password must be and more than 6 characters.
                             </div>
                           )}
                         </div>
@@ -1242,7 +1243,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutModal(true)}
             style={{ padding: '12px 40px', borderRadius: '15px', border: '2px solid #ef4444', color: '#ef4444', backgroundColor: 'transparent', fontWeight: '800', cursor: 'pointer', transition: '0.2s' }}
           >
             Logout Securely
@@ -1250,6 +1251,38 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         </div>
 
       </div>
+
+      {showLogoutModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            style={{ backgroundColor: 'white', padding: '30px', borderRadius: '24px', width: '90%', maxWidth: '360px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
+          >
+            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <LogOut size={24} color="#ef4444" />
+            </div>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>Log Out</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Are you sure you want to log out of your session securely?</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1.5px solid #e2e8f0', backgroundColor: 'white', color: '#64748b', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowLogoutModal(false); logout(); }}
+                style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: '#ef4444', color: 'white', fontSize: '13px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.3)' }}
+              >
+                Log Out
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
     </div>
   );
 }

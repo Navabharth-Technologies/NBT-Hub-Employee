@@ -1017,14 +1017,14 @@ const Dashboard = ({ setActiveTab }) => {
                         {(() => {
                           const hasValidTask = editBuffer.some(t => t.text && t.text.trim() !== '');
                           return (
-                            <button 
-                              style={{ 
-                                ...s.editBtn, 
-                                background: hasValidTask ? '#1e40af' : '#cbd5e1', 
-                                color: 'white', 
+                            <button
+                              style={{
+                                ...s.editBtn,
+                                background: hasValidTask ? '#1e40af' : '#cbd5e1',
+                                color: 'white',
                                 border: 'none',
                                 cursor: hasValidTask ? 'pointer' : 'not-allowed'
-                              }} 
+                              }}
                               onClick={hasValidTask ? handleSaveTasks : undefined}
                               disabled={!hasValidTask}
                             >
@@ -1241,17 +1241,27 @@ const Dashboard = ({ setActiveTab }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {suggestions.slice(0, 3).map((sug, i) => (
                 <div key={i} style={{ padding: '14px 18px', borderRadius: '18px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F', marginBottom: '4px' }}>
-                    {sug.employee_name || 'Anonymous'}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F' }}>
+                      {sug.employee_name || 'Anonymous'}
+                    </div>
+                    {(sug.created_at || sug.timestamp || sug.date || sug.createdAt) && (
+                      <div style={{ fontSize: '10px', color: '#161718ff', fontWeight: '800' }}>
+                        {(() => {
+                          const d = new Date(sug.created_at || sug.timestamp || sug.date || sug.createdAt);
+                          return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                        })()}
+                      </div>
+                    )}
                   </div>
                   {sug.requirement && (
-                    <div style={{ fontSize: '12px', color: '#475569', marginBottom: '4px' }}>
-                      <strong>Req:</strong> {sug.requirement}
+                    <div style={{ fontSize: '12px', color: '#141415ff', marginBottom: '4px' }}>
+                      <strong>Requirements:</strong> {sug.requirement}
                     </div>
                   )}
                   {sug.suggestion && (
-                    <div style={{ fontSize: '12px', color: '#475569' }}>
-                      <strong>Idea:</strong> {sug.suggestion}
+                    <div style={{ fontSize: '12px', color: '#141415ff' }}>
+                      <strong>Suggestions:</strong> {sug.suggestion}
                     </div>
                   )}
                 </div>
