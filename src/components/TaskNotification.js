@@ -157,8 +157,12 @@ const TaskNotification = ({ onOpenTask }) => {
       if (sortedNotifications.length > 0) {
         const latestId = String(sortedNotifications[0].id);
         const savedId = localStorage.getItem(`last_seen_task_${uid}`);
-        if (latestId !== savedId && (addedNew || lastIds.size === 0)) {
+        const hasActualUnread = sortedNotifications.some(n => n.isNew);
+
+        if (hasActualUnread && latestId !== savedId && (addedNew || lastIds.size === 0)) {
           setHasUnread(true);
+        } else if (!hasActualUnread) {
+          setHasUnread(false);
         }
       }
       setLastIds(newIds);

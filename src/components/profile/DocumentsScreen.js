@@ -853,6 +853,8 @@ export default function DocumentsScreen({ onBack }) {
         }
       });
 
+      sanitizedForm.dob = sanitizedForm.date_of_birth;
+
       const res = await fetch(API_ENDPOINTS.UPDATE_EMPLOYEE_PROFILE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -882,6 +884,7 @@ export default function DocumentsScreen({ onBack }) {
             if (originalDob) {
               syncBody.date_of_birth = originalDob;
               syncBody.dateOfBirth = originalDob;
+              syncBody.dob = originalDob;
 
               console.log(`[SYNC DEBUG] Target Email: ${targetEmail}`);
               console.log(`[SYNC DEBUG] Target DOB: ${originalDob}`);
@@ -1381,7 +1384,9 @@ export default function DocumentsScreen({ onBack }) {
                   );
                 }
 
-                const isLockedForRole = LOCKED_FIELDS.includes(field.key) && !isAdmin;
+                const currentUserId = String(user?.employee_id || user?.id || '');
+                const isLockedDob = field.key === 'date_of_birth' && !currentUserId.includes('202521');
+                const isLockedForRole = (LOCKED_FIELDS.includes(field.key) && !isAdmin) || isLockedDob;
                 const isDisabled = (activeSection === 'assets') || !isEditing || isLockedForRole;
 
                 return (

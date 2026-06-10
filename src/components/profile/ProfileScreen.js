@@ -811,7 +811,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
                 {winWidth >= 1024 && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#14161aff', fontSize: '13px', fontWeight: '700' }}>
                   <Phone size={14} />
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {phone}
@@ -820,7 +820,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
                 {winWidth >= 1024 && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: '700' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#181b1fff', fontSize: '13px', fontWeight: '700' }}>
                   <Calendar size={14} />
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {dob}
@@ -834,7 +834,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                     {reportingManager.name[0]}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', lineHeight: 1 }}>RM NAME</div>
+                    <div style={{ fontSize: '10px', color: '#2b3f5bff', fontWeight: '700', textTransform: 'uppercase', lineHeight: 1 }}>RM NAME</div>
                     <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '800' }}>{reportingManager.name} {reportingManager.id && `(${reportingManager.id})`}</div>
                   </div>
                 </div>

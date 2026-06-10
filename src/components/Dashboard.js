@@ -586,7 +586,7 @@ const Dashboard = ({ setActiveTab }) => {
           }, []).sort((a, b) => {
             const idA = typeof a === 'object' ? Number(a.id || 0) : 0;
             const idB = typeof b === 'object' ? Number(b.id || 0) : 0;
-            return idB - idA; // Newest first
+            return idA - idB; // Chronological order to preserve manual index order
           });
         };
 
@@ -972,22 +972,21 @@ const Dashboard = ({ setActiveTab }) => {
                   </div>
 
                   {yesterdayTasks.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0', flex: 1 }}>
-                      {yesterdayTasks.slice(0, 3).map((t, i) => {
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px', flex: 1 }}>
+                      {yesterdayTasks.map((t, i) => {
                         const taskId = typeof t === 'object' ? Number(t.id) : null;
                         const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
                           ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
                           : '';
                         return (
                           <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
-                            <CheckCircle2 size={12} color="#16a34a" />
+                            <CheckCircle2 size={12} color="#16a34a" flexShrink={0} />
                             <span style={{ fontSize: '12px', color: '#475569' }}>
                               {typeof t === 'string' ? t : t.text}
                             </span>
                           </div>
                         );
                       })}
-                      {yesterdayTasks.length > 3 && <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '800' }}>+ {yesterdayTasks.length - 3} more</div>}
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#64748b', fontWeight: '600', fontSize: '16px' }}>
@@ -995,11 +994,13 @@ const Dashboard = ({ setActiveTab }) => {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
-                    <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
-                      {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : 'Pending'}
+                  {yesterdayTasks.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
+                      <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
+                        {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : 'Pending'}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
