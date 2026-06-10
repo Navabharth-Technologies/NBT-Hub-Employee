@@ -542,51 +542,6 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
             // 1. Download to local machine
             pdf.save(`${courseName.replace(/\s+/g, '_')}_Certificate.pdf`);
-
-            // 2. Send to employee email ID
-            const emailAlreadySent = progressData?.emailSent || progressData?.email_sent;
-
-            if (sendEmail) {
-                const userEmail = user?.email || user?.email_id || user?.emailId || 'imsha@navabharathtechnologie.com';
-
-                if (emailAlreadySent) {
-                    alert(`🎉 Certificate downloaded successfully!\n\n(Note: The email copy has already been sent to your registered email address.)`);
-                } else {
-                    const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-                    if (userEmail) {
-                        // Always show success to user — email delivery happens in background
-                        alert(`🎉 Certificate downloaded successfully!\n\nA copy will be sent to your registered email: ${userEmail}`);
-
-                        // Attempt email delivery silently — if backend isn't ready, just log it
-                        try {
-                            const token = localStorage.getItem('token');
-                            const response = await fetch(`${BASE_URL}/api/send-certificate`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify({
-                                    email: userEmail,
-                                    userName: userName,
-                                    courseName: courseName,
-                                    certificateData: pdfBase64
-                                })
-                            });
-
-                            if (response.ok) {
-                                console.log(`Certificate email sent successfully to ${userEmail}`);
-                                updateCourseProgress(selectedCourse, { emailSent: true });
-                            } else {
-                                console.warn(`Certificate email API returned ${response.status} — backend may not be ready yet.`);
-                            }
-                        } catch (e) {
-                            console.warn("Certificate email API not reachable — backend endpoint pending:", e.message);
-                        }
-                    }
-                }
-            }
         } catch (error) {
             console.error("Error downloading certificate:", error);
             alert('Error generating certificate. Please try again.');
