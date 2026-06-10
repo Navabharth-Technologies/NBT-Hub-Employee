@@ -455,7 +455,7 @@ export default function DocumentsScreen({ onBack }) {
                     lwd: prev.lwd || formatDate(latest.last_working_day || latest.lastWorkingDay),
                     reason: prev.reason || latest.reason,
                     detailed_reason: prev.detailed_reason || latest.letter_content || latest.detailedReason || latest.detailed_reason,
-                    attrition_bucket: (prev.attrition_bucket && prev.attrition_bucket !== 'N/A') ? prev.attrition_bucket : ((latest.status === 'PENDING' || latest.status === 'Approved') ? 'Resignation' : prev.attrition_bucket)
+                    attrition_bucket: prev.attrition_bucket !== 'N/A' && prev.attrition_bucket ? prev.attrition_bucket : ((latest.status === 'PENDING' || latest.status === 'Approved') ? 'Resignation' : prev.attrition_bucket)
                   }));
                 }
               }
@@ -617,8 +617,8 @@ export default function DocumentsScreen({ onBack }) {
       if (/[A-Z]/.test(value)) {
         error = 'Email ID must be in lowercase only';
       } else {
-        const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
-        if (!emailRegex.test(value)) error = 'Invalid email format (lowercase only, e.g. user@domain.com)';
+        const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.com$/;
+        if (!emailRegex.test(value)) error = 'Invalid email format (lowercase only, must end with .com)';
       }
     }
 
@@ -677,12 +677,6 @@ export default function DocumentsScreen({ onBack }) {
       // Do not force lowercase or alter text during typing to avoid cursor reset.
       // Spaces are removed, other uppercase/format checks are performed in validateField.
       cleanValue = value.replace(/\s/g, '');
-      if (key === 'personal_email_id') {
-        const lastComIndex = cleanValue.toLowerCase().lastIndexOf('.com');
-        if (lastComIndex !== -1) {
-          cleanValue = cleanValue.substring(0, lastComIndex + 4);
-        }
-      }
     } else if (key === 'pan_number' || key === 'ifsc_code' || key === 'voter_id') {
       // Alphanumeric only, forced uppercase
       cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -703,42 +697,15 @@ export default function DocumentsScreen({ onBack }) {
     if (key === 'age' && cleanValue.length > 3) return;
     if (key === 'edu_completion_year' && cleanValue.length > 4) return;
 
-    // 3. Date Formatting (DD/MM/YYYY) - Auto-insert slashes and strict validation
-    if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(key)) {
-      const isTyping = cleanValue.length > (form[key]?.length || 0);
-      let raw = cleanValue.replace(/\D/g, '');
-      
-      if (raw.length > 0) {
-        let dd = parseInt(raw.substring(0, 2), 10);
-        if (raw.length === 1 && dd > 3) raw = '0' + raw;
-        if (raw.length >= 2 && dd > 31) raw = '31' + raw.substring(2);
-        
-        if (raw.length > 2) {
-          let mm = parseInt(raw.substring(2, 4), 10);
-          if (raw.length === 3 && raw[2] > '1') raw = raw.substring(0, 2) + '0' + raw[2];
-          if (raw.length >= 4 && mm > 12) raw = raw.substring(0, 2) + '12' + raw.substring(4);
-        }
+    // 3. Date Formatting (DD/MM/YYYY) - Auto-insert slashes
+    if ((key === 'date_of_birth' || key === 'doj' || key === 'separation' || key === 'lwd') && cleanValue.length > (form[key]?.length || 0)) {
+      // If typing and not deleting
+      if (cleanValue.length === 2 || cleanValue.length === 5) {
+        cleanValue += '/';
       }
-      
-      let formatted = '';
-      if (raw.length > 0) formatted += raw.substring(0, 2);
-      
-      if (raw.length > 2) {
-        formatted += '/' + raw.substring(2, 4);
-      } else if (raw.length === 2 && isTyping) {
-        formatted += '/';
-      }
-      
-      if (raw.length > 4) {
-        formatted += '/' + raw.substring(4, 8);
-      } else if (raw.length === 4 && isTyping) {
-        formatted += '/';
-      }
-      
-      cleanValue = formatted;
     }
     // Limit date length
-    if (['date_of_birth', 'doj', 'separation', 'lwd'].includes(key) && cleanValue.length > 10) return;
+    if ((key === 'date_of_birth' || key === 'doj' || key === 'separation' || key === 'lwd') && cleanValue.length > 10) return;
 
     let updates = { [key]: cleanValue };
 
@@ -779,6 +746,7 @@ export default function DocumentsScreen({ onBack }) {
     const reader = new FileReader();
     reader.onloadend = () => {
       setForm(prev => ({ ...prev, [key]: reader.result }));
+      setErrors(prev => ({ ...prev, [key]: null }));
     };
     reader.readAsDataURL(file);
 

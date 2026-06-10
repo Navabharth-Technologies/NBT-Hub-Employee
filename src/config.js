@@ -59,6 +59,7 @@ export const API_ENDPOINTS = {
   UPDATE_PASSWORD: `${BASE_URL}/api/profile/update-password`,
   NEW_JOINEES_GET: `${BASE_URL}/api/new-joinees`,
   NEW_JOINEE: `${BASE_URL}/api/new-joinee`,
+  BANK_IFSC: (code) => `${BASE_URL}/api/bank/ifsc/${code}`,
 
   TEAMS: `${BASE_URL}/api/teams`,
   USERS: `${BASE_URL}/api/users`,

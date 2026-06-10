@@ -1351,7 +1351,7 @@ const AwardsScreen = ({ onBack }) => {
                         <BackButton onClick={() => setShowLeaderboard(false)} />
                         <div>
                             <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '1000', color: '#0B1E3F' }}>Global Leaderboard</h1>
-                            <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Top performers across all departments</p>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '13px', fontWeight: '800' }}>Top Performers Across All Departments</p>
                         </div>
                     </div>
                     {/* Date filter inputs removed */}

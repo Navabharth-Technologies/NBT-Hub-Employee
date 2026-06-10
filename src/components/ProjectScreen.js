@@ -801,11 +801,11 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
                         const isActive = pStatus.toLowerCase() === st.toLowerCase();
                         // Lock logic:
                         // 1. Fully locked if Approved by manager.
-                        // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert, UNLESS it was Rejected by manager.
+                        // 2. If Completed (or 100%), lock Pending/In Progress so user can't revert.
                         const isTaskDone = pStatus === 'Completed' || pProg === 100;
                         // 3. For team projects, lock all buttons. Only TLs should edit team projects directly.
                         const isLocked = isApproved || 
-                                         (isTaskDone && st !== 'Completed' && !isRejected) || 
+                                         (isTaskDone && st !== 'Completed') || 
                                          (activeView === 'TEAM');
                         
                         // Keep all buttons visible so they are never removed from the UI
@@ -901,7 +901,7 @@ const ProjectScreen = ({ onBack, defaultView, defaultStatus }) => {
 
       <AnimatePresence>
         {notificationFeedback && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} style={{ position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#3B5998', color: 'white', padding: '12px 30px', borderRadius: '15px', fontWeight: '900', boxShadow: '0 15px 30px rgba(0,0,0,0.1)', zIndex: 10000 }}>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} style={{ position: 'fixed', top: '40px', left: '42%', transform: 'translateX(-50%)', backgroundColor: '#3B5998', color: 'white', padding: '12px 30px', borderRadius: '15px', fontWeight: '900', boxShadow: '0 15px 30px rgba(0,0,0,0.1)', zIndex: 10000 }}>
             {notificationFeedback}
           </motion.div>
         )}
