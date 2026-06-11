@@ -250,11 +250,11 @@ export default function ThreadScreen() {
         taglineBadge: { display: 'inline-block', padding: '4px 10px', borderRadius: '8px', background: '#f0f9ff', color: '#315A9E', fontSize: isMobile ? '8px' : '9px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '12px', border: '1px solid #e0f2fe' },
         postMedia: { marginTop: '20px', borderRadius: '25px', overflow: 'hidden', border: '1.5px solid #f8fafc', maxHeight: isMobile ? '300px' : '380px', maxWidth: '100%', width: 'fit-content', backgroundColor: '#fdfdfd', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' },
         footer: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '15px', marginTop: '15px', gap: isMobile ? '5px' : '10px', flexWrap: isMobile ? 'wrap' : 'nowrap' },
-        action: (active, activeColor, inactiveColor = '#64748b') => ({ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: isMobile ? '4px' : '8px', 
-            color: active ? 'white' : inactiveColor, 
+        action: (active, activeColor, inactiveColor = '#64748b') => ({
+            display: 'flex',
+            alignItems: 'center',
+            gap: isMobile ? '4px' : '8px',
+            color: active ? 'white' : inactiveColor,
             backgroundColor: active ? activeColor : '#f8fafc',
             padding: isMobile ? '6px 8px' : '8px 16px',
             borderRadius: '12px',
@@ -635,7 +635,6 @@ export default function ThreadScreen() {
 
                         <div style={styles.footer}>
                             <div
-                                onClick={() => onToggleLike(post.id)}
                                 onMouseEnter={() => setActiveEmojiPicker(post.id)}
                                 onMouseLeave={() => setActiveEmojiPicker(null)}
                                 style={{ ...styles.action(!!activeReaction, '#ef4444'), gap: '6px', minWidth: isMobile ? '44px' : '56px' }}
@@ -727,11 +726,11 @@ export default function ThreadScreen() {
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                                                                 <span style={{ fontSize: '12px', fontWeight: '1000', color: '#0B1E3F' }}>{cUser}</span>
                                                                 {isMyComment && (
-                                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit3 size={13} /></button>
+                                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentContent(cText); }} style={{ border: 'none', background: 'none', color: '#17181aff', cursor: 'pointer', padding: '2px' }}><Edit3 size={14} /></button>
                                                                         <button onClick={() => {
                                                                             setDeleteConfirm({ type: 'comment', postId: post.id, commentId: c.id });
-                                                                        }} style={{ border: 'none', background: 'none', color: '#fda4af', cursor: 'pointer', padding: '2px' }}><Trash2 size={13} /></button>
+                                                                        }} style={{ border: 'none', background: 'none', color: '#be1e30ff', cursor: 'pointer', padding: '2px' }}><Trash2 size={14} /></button>
                                                                     </div>
                                                                 )}
                                                             </div>

@@ -429,10 +429,12 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
       case 'NH':
       case 'HL':
         return { label: 'NH', color: '#64748b', bg: '#f1f5f9', icon: <Clock size={12} /> };
+      case 'HOLIDAY':
+        return { label: 'HOLIDAY', color: '#64748b', bg: '#f1f5f9', icon: <Palmtree size={12} /> };
       default:
         // Final fallback: If remark says late, show Late, else show status
         if (isLate) return { label: 'LATE', color: '#f97316', bg: '#fff7ed', icon: <Clock3 size={12} /> };
-        return { label: status || 'N/A', color: '#64748b', bg: '#f1f5f9', icon: <Clock size={12} /> };
+        return { label: (status || 'N/A').toUpperCase(), color: '#64748b', bg: '#f1f5f9', icon: <Clock size={12} /> };
     }
   };
 

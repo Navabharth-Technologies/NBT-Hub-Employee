@@ -292,11 +292,35 @@ export const ThreadProvider = ({ children }) => {
           delete reactions[textName];
         }
 
+        let newUserHasLiked = type === 'like' ? !userState : false;
+        let newUserReactions = {};
+        let updatedLikeCount = t.likeCount || 0;
+        
+        if (!userState) {
+            newUserReactions[normType] = true;
+            if (t.userHasLiked && type !== 'like') {
+                reactions['❤️'] = Math.max(0, (reactions['❤️'] || updatedLikeCount) - 1);
+                updatedLikeCount = Math.max(0, updatedLikeCount - 1);
+            }
+            Object.keys(t.userReactions || {}).forEach(k => {
+                if (t.userReactions[k] && k !== normType) {
+                    reactions[k] = Math.max(0, (reactions[k] || 0) - 1);
+                }
+            });
+        } else {
+            // Toggling off the current reaction
+            newUserReactions = {};
+        }
+
+        if (type === 'like') {
+            updatedLikeCount = newCount;
+        }
+
         return { 
             ...t, 
-            userHasLiked: type === 'like' ? !userState : t.userHasLiked, 
-            userReactions: { ...(t.userReactions || {}), [normType]: !userState },
-            likeCount: type === 'like' ? newCount : (t.likeCount || 0),
+            userHasLiked: newUserHasLiked, 
+            userReactions: newUserReactions,
+            likeCount: updatedLikeCount,
             reactions: { ...reactions, [normType]: newCount }
         };
       }

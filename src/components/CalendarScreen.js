@@ -68,14 +68,15 @@ const CalendarScreen = ({ onBack }) => {
     headerCard: {
       backgroundColor: 'white',
       borderRadius: '45px',
-      padding: isMobile ? '40px 20px' : '60px',
+      padding: isMobile ? '20px' : '30px 40px',
       textAlign: 'center',
       boxShadow: '0 20px 60px rgba(0,0,0,0.02)',
       border: '1px solid #f1f5f9',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: '15px'
+      gap: '8px',
+      position: 'relative'
     },
     iconBox: {
       width: '80px',
@@ -92,7 +93,7 @@ const CalendarScreen = ({ onBack }) => {
       fontSize: isMobile ? '24px' : '32px',
       fontWeight: '1000',
       color: '#0B1E3F',
-      marginBottom: '5px'
+      marginBottom: '2px'
     },
     subtitle: {
       fontSize: '11px',
@@ -153,13 +154,9 @@ const CalendarScreen = ({ onBack }) => {
   };
   return (
     <div style={s.container}>
-      <div>
-        <BackButton onClick={onBack} />
-      </div>
-
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
-        <div style={s.iconBox}>
-          <CalendarIcon size={40} strokeWidth={1.5} />
+        <div style={{ position: 'absolute', top: isMobile ? '20px' : '30px', left: isMobile ? '20px' : '30px', zIndex: 10 }}>
+          <BackButton onClick={onBack} />
         </div>
         <h1 style={s.title}>NBT Calendar</h1>
         <div style={s.subtitle}>OFFICIAL CORPORATE HOLIDAYS 2026</div>
@@ -167,7 +164,7 @@ const CalendarScreen = ({ onBack }) => {
         {loading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>Fetching Calendar Data...</div>
         ) : (
-            <div style={{ ...s.grid, width: '100%', marginTop: '40px' }}>
+            <div style={{ ...s.grid, width: '100%', marginTop: '20px' }}>
             {holidays.map((h, i) => {
                 const date = new Date(h.date);
                 if (isNaN(date.getTime())) return null; // Skip invalid dates

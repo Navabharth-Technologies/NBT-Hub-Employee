@@ -302,8 +302,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('nbt_active_tab_state');
     localStorage.removeItem('quiz_user_answers');
     resetAuthState();
-    // Hard reload kills all background polling intervals instantly
-    window.location.replace(window.location.pathname + '#/login');
+    // Forces a hard refresh, killing old token polling
+    window.location.href = '/login';
   };
 
   const updateProfile = async (field, value, targetOptions = null) => {

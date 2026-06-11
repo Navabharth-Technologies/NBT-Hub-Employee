@@ -104,7 +104,7 @@ export default function TicketScreen({ onBack }) {
           email: user?.email || '',
           name: user?.name || user?.employee_name || 'Unknown',
           employee_name: user?.name || user?.employee_name || user?.username || 'Unknown',
-          subject,
+          subject: `[${department}] ${subject}`,
           description,
           priority,
           department,
@@ -253,14 +253,26 @@ export default function TicketScreen({ onBack }) {
             <div style={{ padding: '60px', textAlign: 'center', backgroundColor: 'white', borderRadius: '30px', color: '#94a3b8', fontWeight: '700', border: '1px solid #f1f5f9' }}>
               No recent support tickets found in your history.
             </div>
-          ) : tickets.map(ticket => (
+          ) : tickets.map(ticket => {
+            let displayCategory = ticket.category || ticket.department || 'SUPPORT';
+            let displaySubject = ticket.subject;
+
+            if (displaySubject && displaySubject.startsWith('[')) {
+              const closeBracketIndex = displaySubject.indexOf(']');
+              if (closeBracketIndex !== -1) {
+                displayCategory = displaySubject.substring(1, closeBracketIndex);
+                displaySubject = displaySubject.substring(closeBracketIndex + 1).trim();
+              }
+            }
+
+            return (
             <div key={ticket.id} style={s.ticketItem}>
               <div>
                 <div style={s.tID}>#{ticket.id || ticket._id}</div>
-                <div style={s.tSubject}>{ticket.subject}</div>
+                <div style={s.tSubject}>{displaySubject}</div>
                 <div style={{ ...s.tMeta, display: 'flex', flexDirection: isMobile() ? 'column' : 'row', alignItems: isMobile() ? 'flex-start' : 'center', gap: isMobile() ? '15px' : '30px', marginTop: '10px' }}>
                   <span style={{ color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {ticket.department || ticket.category || 'SUPPORT'}
+                    {displayCategory}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {(() => {
@@ -311,7 +323,8 @@ export default function TicketScreen({ onBack }) {
                 })()}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -857,7 +857,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
 
                             {/* Course Name */}
                             <div style={{ position: 'absolute', top: '60.5%', left: '50%', transform: 'translate(-50%, -50%)', width: '100%', textAlign: 'center', color: '#1e3a8a', fontSize: 'clamp(16px, 2.5vw, 24px)', fontWeight: '900', fontFamily: 'Georgia, "Times New Roman", serif', letterSpacing: '1px' }}>
-                                {selectedCourse?.title || 'COURSE'}
+                                {selectedCourse?.title || 'Course'}
                             </div>
 
                             {/* Date */}
@@ -880,7 +880,7 @@ export default function CourseScreen({ resumeCourseId, clearState }) {
         <div style={s.container}>
             <div style={s.main}>
                 <div style={s.headerSection}>
-                    <h1 style={s.title}>Course</h1>
+                    <h1 style={s.title}>Knowledge Hub</h1>
                 </div>
                 <div style={s.grid}>
                     {courses.map(course => {
