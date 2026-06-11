@@ -195,7 +195,7 @@ export default function DocumentsScreen({ onBack }) {
   const { employeeId } = useParams();
 
   const [form, setForm] = useState({
-    emp_name: '', gender: '', date_of_birth: '', age: '', religion: '', blood_group: '', marital_status: 'Single', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: '',
+    emp_name: '', gender: '', date_of_birth: '', age: '', religion: '', blood_group: '', marital_status: '', nationality: 'Indian', father_husband_name: '', pan_number: '', aadhar_number: '', category: '',
     designation: '', department: '', process: '', supervisor_l1: '', supervisor_l2: '', doj: '', ft_pt: 'Full Time', status: 'Active', place: '', moved: '', official_email_id: '',
     dailyGoal: '',
     contact_no: '', emergency_contact_no: '', personal_email_id: '', present_address: '', permanent_address: '', state: '',
@@ -890,18 +890,18 @@ export default function DocumentsScreen({ onBack }) {
       // Preserve original DD/MM/YYYY values before SQL conversion (needed for users table sync)
       let originalDob = sanitizedForm.date_of_birth;
 
-      // Convert DD/MM/YYYY to YYYY-MM-DD for backend SQL Date compatibility
+      // Format DD/MM/YYYY for backend SQL Date compatibility and users table
       const dateFields = ['date_of_birth', 'doj', 'separation', 'lwd'];
       dateFields.forEach(field => {
         const dateVal = sanitizedForm[field];
         if (dateVal && typeof dateVal === 'string') {
           if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(dateVal)) {
             const parts = dateVal.split(/[\/\-]/);
-            sanitizedForm[field] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            sanitizedForm[field] = `${parts[0]}/${parts[1]}/${parts[2]}`;
             if (field === 'date_of_birth') originalDob = `${parts[0]}/${parts[1]}/${parts[2]}`;
           } else if (/^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(dateVal)) {
             const parts = dateVal.split(/[\/\-]/);
-            sanitizedForm[field] = `${parts[0]}-${parts[1]}-${parts[2]}`;
+            sanitizedForm[field] = `${parts[2]}/${parts[1]}/${parts[0]}`;
             if (field === 'date_of_birth') originalDob = `${parts[2]}/${parts[1]}/${parts[0]}`;
           } else {
             // Prevent invalid strings like "Add Date of Birth" from crashing SQL server
@@ -938,9 +938,9 @@ export default function DocumentsScreen({ onBack }) {
               syncBody.emp_name = sanitizedForm.emp_name;
             }
 
-            // Send YYYY-MM-DD format universally to prevent any regional datetime parsing errors
+            // Send DD/MM/YYYY format for users table storage
             if (originalDob) {
-              const formattedDob = sanitizedForm.date_of_birth || originalDob.replace(/\//g, '-');
+              const formattedDob = originalDob.replace(/-/g, '/');
               syncBody.date_of_birth = formattedDob;
               syncBody.dateOfBirth = formattedDob;
               syncBody.dob = formattedDob;
@@ -1391,6 +1391,7 @@ export default function DocumentsScreen({ onBack }) {
                               transition: 'all 0.2s', opacity: isDisabledMS ? 0.8 : 1
                             }}
                           >
+                            <option value="" disabled>Select Marital Status</option>
                             {field.options.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
                           <div style={{ position: 'absolute', right: isMobile ? '14px' : '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: isDisabledMS ? '#cbd5e1' : '#315A9E' }}>

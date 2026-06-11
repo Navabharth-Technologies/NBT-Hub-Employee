@@ -1163,8 +1163,8 @@ const Dashboard = ({ setActiveTab }) => {
                         <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>{b.name}</div>
                         <div style={{ fontSize: '11px', fontWeight: '600', color: '#000000', marginTop: '4px', lineHeight: '1.2' }}>
                           {(() => {
-                            const dob = parseSafe(b.date);
-                            return `${String(dob.getDate()).padStart(2, '0')}/${String(dob.getMonth() + 1).padStart(2, '0')}/${dob.getFullYear()}`;
+                            const nextDob = getNextOccurrence(b.date || b.dob);
+                            return `${String(nextDob.getDate()).padStart(2, '0')}/${String(nextDob.getMonth() + 1).padStart(2, '0')}/${nextDob.getFullYear()}`;
                           })()}
                         </div>
                       </div>
