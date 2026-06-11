@@ -167,10 +167,10 @@ export const API_ENDPOINTS = {
   USER_SEARCH: (query) => `${BASE_URL}/api/users/search?query=${query}`,
   SUGGESTIONS: `${BASE_URL}/api/suggestions`,
   MY_PAYSLIPS: (userId) => `${BASE_URL}/api/pay-slips/my${userId ? `?userId=${String(userId).split(':')[0]}` : ''}`,
-  REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`,
-  VERIFY_OTP: `${BASE_URL}/api/auth/verify-otp`,
-  RESET_PASSWORD_OTP: `${BASE_URL}/api/auth/reset-password`,
-  CHANGE_PASSWORD: `${BASE_URL}/api/profile/update-password`,
+  PASSWORD_REQUEST_OTP: `${BASE_URL}/api/password/request-otp`,
+  PASSWORD_VERIFY_OTP: `${BASE_URL}/api/password/verify-otp`,
+  PASSWORD_RESET: `${BASE_URL}/api/password/reset-with-otp`,
+  CHANGE_PASSWORD: `${BASE_URL}/api/password/change-password`,
   QUIZ_USER_POINTS: `${BASE_URL}/api/quizzes/user-points`,
   QUIZ_LEADERBOARD: `${BASE_URL}/api/quizzes/leaderboard`
 };

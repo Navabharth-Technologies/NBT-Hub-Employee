@@ -419,7 +419,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const handleRequestOTP = async () => {
     setModalError(null);
     try {
-      const res = await fetch(API_ENDPOINTS.REQUEST_OTP, {
+      const res = await fetch(API_ENDPOINTS.PASSWORD_REQUEST_OTP, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email })
@@ -452,7 +452,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         setOtpVerified(true);
         triggerToast('Authorization code accepted. Proceed to reset.');
       } else {
-        const fallbackUrl = `${BASE_URL}/api/password/verify-otp`;
+        const fallbackUrl = API_ENDPOINTS.PASSWORD_VERIFY_OTP;
         const fbRes = await fetch(fallbackUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -490,7 +490,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     }
 
     try {
-      const res = await fetch(API_ENDPOINTS.RESET_PASSWORD_OTP, {
+      const res = await fetch(API_ENDPOINTS.PASSWORD_RESET, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, otp: passData.otp, newPassword: passData.new })
