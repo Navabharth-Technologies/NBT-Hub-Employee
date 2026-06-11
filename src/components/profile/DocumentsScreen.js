@@ -805,11 +805,16 @@ export default function DocumentsScreen({ onBack }) {
       if (res.ok) {
         let displayLabel = key.replace(/_/g, ' ').toUpperCase();
         if (displayLabel.includes('UG PG')) displayLabel = displayLabel.replace('UG PG', 'UG / PG');
+        
+        if (file.type === 'application/pdf') {
+          displayLabel = displayLabel.replace('PHOTO', 'PDF');
+        }
+        
         setToast({ type: 'success', msg: `${displayLabel} uploaded successfully!` });
       } else {
         if (res.status === 404) {
           console.warn('Backend upload endpoint not found. Image kept in local state for preview.');
-          setToast({ type: 'info', msg: 'Photo saved locally (Backend endpoint missing)' });
+          setToast({ type: 'info', msg: 'Document saved locally (Backend endpoint missing)' });
         } else {
           setToast({ type: 'error', msg: 'Failed to upload document.' });
         }
@@ -817,7 +822,7 @@ export default function DocumentsScreen({ onBack }) {
     } catch (err) {
       console.error('Upload Error:', err);
       // Fallback to local state if server is down
-      setToast({ type: 'info', msg: 'Photo updated locally (Network error)' });
+      setToast({ type: 'info', msg: 'Document updated locally (Network error)' });
     } finally {
       setTimeout(() => setToast(null), 3000);
     }
@@ -883,15 +888,26 @@ export default function DocumentsScreen({ onBack }) {
       });
 
       // Preserve original DD/MM/YYYY values before SQL conversion (needed for users table sync)
-      const originalDob = sanitizedForm.date_of_birth;
+      let originalDob = sanitizedForm.date_of_birth;
 
       // Convert DD/MM/YYYY to YYYY-MM-DD for backend SQL Date compatibility
       const dateFields = ['date_of_birth', 'doj', 'separation', 'lwd'];
       dateFields.forEach(field => {
         const dateVal = sanitizedForm[field];
-        if (dateVal && typeof dateVal === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) {
-          const [d, m, y] = dateVal.split('/');
-          sanitizedForm[field] = `${y}-${m}-${d}`;
+        if (dateVal && typeof dateVal === 'string') {
+          if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(dateVal)) {
+            const parts = dateVal.split(/[\/\-]/);
+            sanitizedForm[field] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            if (field === 'date_of_birth') originalDob = `${parts[0]}/${parts[1]}/${parts[2]}`;
+          } else if (/^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(dateVal)) {
+            const parts = dateVal.split(/[\/\-]/);
+            sanitizedForm[field] = `${parts[0]}-${parts[1]}-${parts[2]}`;
+            if (field === 'date_of_birth') originalDob = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          } else {
+            // Prevent invalid strings like "Add Date of Birth" from crashing SQL server
+            sanitizedForm[field] = null;
+            if (field === 'date_of_birth') originalDob = null;
+          }
         }
       });
 
@@ -922,9 +938,9 @@ export default function DocumentsScreen({ onBack }) {
               syncBody.emp_name = sanitizedForm.emp_name;
             }
 
-            // Send DD/MM/YYYY format for users table storage (compatibility with style 103 parsing)
+            // Send YYYY-MM-DD format universally to prevent any regional datetime parsing errors
             if (originalDob) {
-              const formattedDob = originalDob.replace(/-/g, '/');
+              const formattedDob = sanitizedForm.date_of_birth || originalDob.replace(/\//g, '-');
               syncBody.date_of_birth = formattedDob;
               syncBody.dateOfBirth = formattedDob;
               syncBody.dob = formattedDob;
