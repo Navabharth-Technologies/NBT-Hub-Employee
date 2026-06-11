@@ -26,7 +26,7 @@ const CalendarScreen = ({ onBack }) => {
       }
 
       const resp = await fetch(API_ENDPOINTS.HOLIDAYS, { headers }).catch(() => null);
-      
+
       let data = [];
       if (resp && resp.ok) {
         data = await resp.json();
@@ -35,7 +35,7 @@ const CalendarScreen = ({ onBack }) => {
       }
 
       const holidayList = Array.isArray(data) ? data : (data?.value || data?.data || []);
-      const sorted = holidayList.sort((a,b) => new Date(a.date) - new Date(b.date));
+      const sorted = holidayList.sort((a, b) => new Date(a.date) - new Date(b.date));
       setHolidays(sorted);
     } catch (err) {
       console.error("Holiday Fetch Error:", err);
@@ -46,7 +46,7 @@ const CalendarScreen = ({ onBack }) => {
 
   const isPassed = (dateStr) => {
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const holidayDate = new Date(dateStr);
     return holidayDate < today;
   };
@@ -69,12 +69,12 @@ const CalendarScreen = ({ onBack }) => {
       backgroundColor: 'white',
       borderRadius: '45px',
       padding: isMobile ? '20px' : '30px 40px',
-      textAlign: 'center',
+      textAlign: 'left',
       boxShadow: '0 20px 60px rgba(0,0,0,0.02)',
       border: '1px solid #f1f5f9',
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
+      alignItems: 'left',
       gap: '8px',
       position: 'relative'
     },
@@ -162,35 +162,35 @@ const CalendarScreen = ({ onBack }) => {
         <div style={s.subtitle}>OFFICIAL CORPORATE HOLIDAYS 2026</div>
 
         {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>Fetching Calendar Data...</div>
+          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>Fetching Calendar Data...</div>
         ) : (
-            <div style={{ ...s.grid, width: '100%', marginTop: '20px' }}>
+          <div style={{ ...s.grid, width: '100%', marginTop: '20px' }}>
             {holidays.map((h, i) => {
-                const date = new Date(h.date);
-                if (isNaN(date.getTime())) return null; // Skip invalid dates
-                const passed = isPassed(h.date);
-                return (
-                <motion.div 
-                    key={h.id || i} 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.03 }}
-                    style={s.holidayCard(passed)}
-                    whileHover={{ y: -5, boxShadow: passed ? '0 10px 25px rgba(0,0,0,0.05)' : '0 15px 40px rgba(16, 185, 129, 0.15)' }}
+              const date = new Date(h.date);
+              if (isNaN(date.getTime())) return null; // Skip invalid dates
+              const passed = isPassed(h.date);
+              return (
+                <motion.div
+                  key={h.id || i}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.03 }}
+                  style={s.holidayCard(passed)}
+                  whileHover={{ y: -5, boxShadow: passed ? '0 10px 25px rgba(0,0,0,0.05)' : '0 15px 40px rgba(16, 185, 129, 0.15)' }}
                 >
-                    <div style={s.dateBox}>
+                  <div style={s.dateBox}>
                     <div style={s.month}>{date.toLocaleString('default', { month: 'short' })}</div>
                     <div style={s.day}>{date.getDate()}</div>
-                    </div>
-                    <div style={s.info}>
+                  </div>
+                  <div style={s.info}>
                     <div style={s.holidayName}>{h.name}</div>
                     <div style={s.dayOfWeek}>{date.toLocaleString('default', { weekday: 'long' })}</div>
-                    </div>
-                    <div style={s.badge(passed)}>{passed ? 'PASSED' : 'UPCOMING'}</div>
+                  </div>
+                  <div style={s.badge(passed)}>{passed ? 'PASSED' : 'UPCOMING'}</div>
                 </motion.div>
-                );
+              );
             })}
-            </div>
+          </div>
         )}
       </motion.div>
     </div>

@@ -803,11 +803,12 @@ export default function DocumentsScreen({ onBack }) {
       });
 
       if (res.ok) {
-        let displayLabel = key.replace(/_/g, ' ').toUpperCase();
-        if (displayLabel.includes('UG PG')) displayLabel = displayLabel.replace('UG PG', 'UG / PG');
+        let displayLabel = key.replace(/_/g, ' ');
+        displayLabel = displayLabel.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        if (displayLabel.includes('Ug Pg')) displayLabel = displayLabel.replace('Ug Pg', 'UG / PG');
         
         if (file.type === 'application/pdf') {
-          displayLabel = displayLabel.replace('PHOTO', 'PDF');
+          displayLabel = displayLabel.replace('Photo', 'PDF');
         }
         
         setToast({ type: 'success', msg: `${displayLabel} uploaded successfully!` });
