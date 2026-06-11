@@ -373,16 +373,16 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
       // Validate date order (To date cannot be earlier than From date)
       const sDateObj = new Date(formData.start_date);
       const eDateObj = new Date(formData.end_date);
-      sDateObj.setHours(0,0,0,0);
-      eDateObj.setHours(0,0,0,0);
+      sDateObj.setHours(0, 0, 0, 0);
+      eDateObj.setHours(0, 0, 0, 0);
       if (eDateObj < sDateObj) {
         setModalConfig({
           show: true,
           message: "The 'To date' cannot be earlier than the 'From date'.",
           type: 'error'
         });
-          setIsSubmitting(false);
-          return;
+        setIsSubmitting(false);
+        return;
       }
 
       // Half Day specific validations
@@ -780,7 +780,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: winWidth < 768 ? '12px' : '20px' }}>
             <div>
               <h1 style={{ margin: 0, fontSize: winWidth < 768 ? '18px' : '22px', fontWeight: '1000', color: '#0B1E3F', letterSpacing: '-0.3px' }}>Leave Management</h1>
-              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: winWidth < 768 ? '11px' : '13px', fontWeight: '800' }}>Balance, history & holiday calendar</p>
+              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: winWidth < 768 ? '11px' : '13px', fontWeight: '800' }}>Balance, History & Holiday calendar</p>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -980,7 +980,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                         <div style={{ display: 'flex', gap: '10px' }}>
                           <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
-                            📅 {(req.start_date || '').split('T')[0]} {(req.is_half_day === true || String(req.is_half_day) === 'true' || Number(req.no_of_days) === 0.5 || req.half_day_slot) ? '' : `to ${(req.end_date || '').split('T')[0]}`}
+                            📅 {(req.start_date || '').split('T')[0].split('-').reverse().join('-')} {(req.is_half_day === true || String(req.is_half_day) === 'true' || Number(req.no_of_days) === 0.5 || req.half_day_slot) ? '' : `to ${(req.end_date || '').split('T')[0].split('-').reverse().join('-')}`}
                           </span>
                         </div>
                         {(req.reason || req.remark) && (
@@ -1047,7 +1047,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                             <div style={{ display: 'flex', gap: '10px' }}>
                               <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', backgroundColor: '#fff', padding: '4px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
-                                📅 {(req.start_date || '').split('T')[0]} {isHalf ? '' : `to ${(req.end_date || '').split('T')[0]}`}
+                                📅 {(req.start_date || '').split('T')[0].split('-').reverse().join('-')} {isHalf ? '' : `to ${(req.end_date || '').split('T')[0].split('-').reverse().join('-')}`}
                               </span>
                             </div>
                             {(req.reason || req.remark) && (

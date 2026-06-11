@@ -372,7 +372,8 @@ const TaskNotification = ({ onOpenTask }) => {
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          transition: 'all 0.3s ease'
+                          transition: 'all 0.3s ease',
+                          textTransform: 'capitalize'
                         }}>{notif.title}</h4>
                         <p style={{ 
                           margin: 0, 
@@ -384,7 +385,8 @@ const TaskNotification = ({ onOpenTask }) => {
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
-                          transition: 'all 0.3s ease'
+                          transition: 'all 0.3s ease',
+                          textTransform: 'capitalize'
                         }}>{notif.description}</p>
                         {/* Assignee chip for task notifications */}
                         {(String(notif.title || '').toLowerCase().includes('task') || String(notif.title || '').toLowerCase().includes('assigned')) && (() => {
