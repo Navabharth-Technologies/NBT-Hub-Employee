@@ -12,6 +12,36 @@ import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
 import BackButton from '../BackButton';
 
+const cleanDisplayId = (id) => {
+  if (!id) return 'N/A';
+  let s = String(id).trim();
+
+  // Handle comma-separated IDs (e.g., "20255,20255,20255" → "20255")
+  if (s.includes(',')) {
+    const parts = s.split(',').map(p => p.trim()).filter(Boolean);
+    s = parts[0];
+  }
+
+  // Handle triple repetition (e.g., "202516202516202516" → "202516")
+  if (s.length >= 6 && s.length % 3 === 0) {
+    const partLen = s.length / 3;
+    const p1 = s.substring(0, partLen);
+    const p2 = s.substring(partLen, partLen * 2);
+    const p3 = s.substring(partLen * 2);
+    if (p1 === p2 && p1 === p3) return p1;
+  }
+
+  // Handle double repetition (e.g., "2025120251" → "20251")
+  if (s.length >= 4 && s.length % 2 === 0) {
+    const partLen = s.length / 2;
+    const p1 = s.substring(0, partLen);
+    const p2 = s.substring(partLen);
+    if (p1 === p2) return p1;
+  }
+
+  return s;
+};
+
 const ExperienceLetter = ({ onBack }) => {
   const { user } = useAuth();
   const { employeeId } = useParams();
@@ -24,7 +54,7 @@ const ExperienceLetter = ({ onBack }) => {
   const [requestStatus, setRequestStatus] = useState('idle'); // idle, success, error
   const [profileData, setProfileData] = useState({
     name: user?.name || 'User',
-    empId: user?.employee_id || user?.id || 'N/A',
+    empId: cleanDisplayId(user?.employee_id || user?.id),
     designation: user?.designation || user?.role || 'Member',
     role: user?.role || ''
   });
@@ -302,8 +332,8 @@ const ExperienceLetter = ({ onBack }) => {
     setIsAssetSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES(assetRecordId), {
-        method: 'PUT',
+      const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES(), {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -342,9 +372,17 @@ const ExperienceLetter = ({ onBack }) => {
         setShowSuccessPopup(true);
         setTimeout(() => setShowSuccessPopup(false), 3000);
         fetchHistory(); // Refresh history list since it's now in the same table
+      } else {
+        let errMsg = 'Failed to submit hardware declaration.';
+        try {
+          const errData = await resp.json();
+          errMsg = errData.message || errMsg;
+        } catch(e) {}
+        alert(errMsg);
       }
     } catch (err) {
       console.error('Asset Submission Error:', err);
+      alert('Network error or server is down. Please try again.');
     } finally {
       setIsAssetSubmitting(false);
     }
