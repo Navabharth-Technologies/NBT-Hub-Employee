@@ -921,8 +921,8 @@ export default function DocumentsScreen({ onBack }) {
       });
 
       if (res.ok) {
-        // SYNC TO USERS TABLE IF CORE INFO CHANGED
-        if (sanitizedForm.emp_name || originalDob || sanitizedForm.contact_no) {
+        // SYNC TO USERS AND INTERNS TABLE IF CORE INFO CHANGED
+        if (sanitizedForm.emp_name || originalDob || sanitizedForm.contact_no || sanitizedForm.personal_email_id || sanitizedForm.doj || sanitizedForm.designation || sanitizedForm.supervisor_l1 || sanitizedForm.status) {
           try {
             // Use a very robust email resolution for the users table sync
             const targetEmail = (form.official_email_id || form.email || form.personal_email_id || user?.email || user?.official_email_id || localStorage.getItem('user_email') || '').toLowerCase();
@@ -931,8 +931,19 @@ export default function DocumentsScreen({ onBack }) {
               email: targetEmail,
               userId: uid,
               user_id: uid,
-              emp_id: uid
+              emp_id: uid,
+              intern_id: uid, // Specifically for interns table mapping
             };
+
+            if (sanitizedForm.designation) syncBody.role = sanitizedForm.designation;
+            if (sanitizedForm.status) syncBody.status = sanitizedForm.status;
+            if (sanitizedForm.doj) syncBody.joining_date = sanitizedForm.doj;
+            if (sanitizedForm.personal_email_id) syncBody.personal_email = sanitizedForm.personal_email_id;
+            if (sanitizedForm.supervisor_l1) {
+              syncBody.reporting_manager_name = sanitizedForm.supervisor_l1;
+              syncBody.rm_name = sanitizedForm.supervisor_l1;
+            }
+
 
             if (sanitizedForm.emp_name) {
               syncBody.name = sanitizedForm.emp_name;

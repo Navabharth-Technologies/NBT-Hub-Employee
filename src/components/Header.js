@@ -275,7 +275,14 @@ export default function AppHeader({ setActiveTab, isNewJoinee }) {
                             }}
                         >
                             <div
-                                onClick={() => setActiveTab('DOCUMENTS')}
+                                onClick={() => {
+                                    const isIntern = String(user?.role || '').toUpperCase().includes('INTERN') || String(user?.designation || '').toUpperCase().includes('INTERN');
+                                    if (isNewJoinee || isIntern) {
+                                        setActiveTab('PROFILE');
+                                    } else {
+                                        setActiveTab('DOCUMENTS');
+                                    }
+                                }}
                                 style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                                 {profilePicUrl ? (

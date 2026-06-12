@@ -94,7 +94,15 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee }) => {
     { id: 'FUN', icon: <Gamepad2 className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Fun' },
     { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Leave' },
     { id: 'PROFILE', icon: <User className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Profile' },
-  ].filter(item => isNewJoinee ? (item.id === 'HOME' || item.id === 'PROFILE') : true);
+  ].filter(item => {
+    if (isNewJoinee) return item.id === 'HOME' || item.id === 'PROFILE';
+    const isIntern = !!(
+      String(user?.role || '').toUpperCase().includes('INTERN') ||
+      String(user?.designation || '').toUpperCase().includes('INTERN')
+    );
+    if (isIntern && item.id === 'LEAVE') return false;
+    return true;
+  });
 
   return (
     <AnimatePresence>

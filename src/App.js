@@ -19,6 +19,10 @@ import TaskNotification from './components/TaskNotification';
 import ScrollToTop from './components/ScrollToTop';
 import ProjectScreen from './components/ProjectScreen';
 import TraineeDashboard from './components/TraineeDashboard';
+import InternDashboard from './components/intern/InternDashboard';
+import InternProfileScreen from './components/intern/InternProfileScreen';
+import InternFunQuizScreen from './components/intern/InternFunQuizScreen';
+import InternAwardsScreen from './components/intern/InternAwardsScreen';
 import LeaveScreen from './components/LeaveScreen';
 import AttendanceDashboard from './components/AttendanceDashboard';
 import FunQuizScreen from './components/FunQuizScreen';
@@ -257,8 +261,15 @@ function App() {
   };
 
   const renderTab = () => {
+    const isIntern = !!(
+      String(user?.role || '').toUpperCase().includes('INTERN') ||
+      String(user?.designation || '').toUpperCase().includes('INTERN')
+    );
+
     switch (activeTab) {
-      case 'HOME': return (isNewJoinee || user.isNewJoinee) ? <TraineeDashboard /> : <Dashboard setActiveTab={handleTabChange} />;
+      case 'HOME': 
+        if (isIntern) return <InternDashboard setActiveTab={handleTabChange} />;
+        return (isNewJoinee || user.isNewJoinee) ? <TraineeDashboard /> : <Dashboard setActiveTab={handleTabChange} />;
       case 'PROJECTS': return <ProjectScreen onBack={() => setActiveTab('HOME')} defaultView={activeTabState?.view} defaultStatus={activeTabState?.status} />;
       case 'COURSES': return <Courses resumeCourseId={activeTabState?.resumeCourseId} clearState={() => { setActiveTabState(null); handleTabChange('HOME'); }} />;
       case 'THREAD': return <ThreadScreen onBack={() => setActiveTab('HOME')} />;
@@ -266,18 +277,30 @@ function App() {
       case 'LEAVE': return <LeaveScreen onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} startWithForm={activeTabState?.showForm} />;
       case 'ATTENDANCE': return <AttendanceDashboard onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} />;
 
-      case 'FUN': return <FunQuizScreen onBack={() => handleTabChange('HOME')} />;
-      case 'PROFILE': return <ProfileScreen isNewJoinee={isNewJoinee} onNavigate={handleTabChange} />;
+      case 'FUN': 
+        if (isIntern) return <InternFunQuizScreen onBack={() => handleTabChange('HOME')} />;
+        return <FunQuizScreen onBack={() => handleTabChange('HOME')} />;
+      case 'PROFILE': 
+        if (isIntern) return <InternProfileScreen onNavigate={handleTabChange} />;
+        return <ProfileScreen isNewJoinee={isNewJoinee} onNavigate={handleTabChange} />;
       case 'BIRTHDAYS': return <BirthdayScreen onBack={() => handleTabChange('HOME')} />;
       case 'CALENDAR': return <CalendarScreen onBack={() => handleTabChange('HOME')} />;
       case 'FOCUS_LOGS': return <FocusLogs onBack={() => handleTabChange('HOME')} />;
-      case 'AWARDS': return <AwardsScreen onBack={() => handleTabChange('HOME')} />;
+      case 'AWARDS': 
+        if (isIntern) return <InternAwardsScreen onBack={() => handleTabChange('HOME')} />;
+        return <AwardsScreen onBack={() => handleTabChange('HOME')} />;
       case 'REPORTS': return <Reports onBack={() => handleTabChange('HOME')} onNavigate={handleTabChange} />;
       case 'PAYSLIP': return <PayslipScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'EXPERIENCE_LETTER': return <ServiceCertificateScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'RESIGNATION':
       case 'RESIGNATION_LETTER': return <ResignationScreen onBack={() => handleTabChange('PROFILE')} />;
-      case 'DOCUMENTS': return <DocumentsScreen onBack={() => handleTabChange('PROFILE')} />;
+      case 'DOCUMENTS': 
+        const isInternOrJoinee = isNewJoinee || isIntern;
+        if (isInternOrJoinee) {
+          if (isIntern) return <InternProfileScreen onNavigate={handleTabChange} />;
+          return <ProfileScreen isNewJoinee={isNewJoinee} onNavigate={handleTabChange} />;
+        }
+        return <DocumentsScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'SERVICE_CERTIFICATE': return <ServiceCertificateScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'ATTENDANCE_DETAIL': return <EmployeeAttendanceDetail employeeId={activeTabState?.employeeId} onBack={() => handleTabChange('ATTENDANCE')} />;
 

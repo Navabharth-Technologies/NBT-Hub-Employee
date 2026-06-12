@@ -106,8 +106,9 @@ export const API_ENDPOINTS = {
   UPDATE_TICKET: (id) => `${BASE_URL}/api/support-tickets/${id}`,
   SUPPORT_AGENTS: `${BASE_URL}/api/support-agents`,
   COURSES: `${BASE_URL}/api/courses`,
-  USER_COURSES: `${BASE_URL}/api/user-courses`,
   COURSE_PROGRESS: `${BASE_URL}/api/courses/progress`,
+  USER_COURSES: `${BASE_URL}/api/user-courses`,
+  COURSE_COMPLETE: (id) => `${BASE_URL}/api/courses/${id}/complete`,
   NEW_JOINEE_DETAIL: (id) => `${BASE_URL}/api/new-joinees/${String(id || '').split(':')[0]}`,
   NEW_JOINEE_COURSES: (id) => `${BASE_URL}/api/newjoinee-courses?joineeId=${String(id || '').split(':')[0]}`,
   NEW_JOINEE_COURSES_BASE: `${BASE_URL}/api/newjoinee-courses`,
@@ -173,4 +174,12 @@ export const API_ENDPOINTS = {
   CHANGE_PASSWORD: `${BASE_URL}/api/password/change-password`,
   QUIZ_USER_POINTS: `${BASE_URL}/api/quizzes/user-points`,
   QUIZ_LEADERBOARD: `${BASE_URL}/api/quizzes/leaderboard`
+};
+
+export const INTERN_API_ENDPOINTS = {
+  ...API_ENDPOINTS,
+  USERS: `${BASE_URL}/api/interns`,
+  EMPLOYEES: `${BASE_URL}/api/interns`,
+  MANAGERS: `${BASE_URL}/api/users`,
+  INTERN_UPDATE: (id) => `${BASE_URL}/api/interns/update/${String(id || '').split(':')[0]}`
 };

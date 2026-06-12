@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'; // Force Recompile for AwardsScreen Points Fix
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Star, Medal, ArrowLeft, Trophy, Calendar, Users, Zap, X, ChevronRight } from 'lucide-react';
-import { BASE_URL, API_ENDPOINTS } from '../config';
-import { useAuth } from '../context/AuthContext';
-import BackButton from './BackButton';
+import { BASE_URL, INTERN_API_ENDPOINTS as API_ENDPOINTS } from '../../config';
+import { useAuth } from '../../context/AuthContext';
+import BackButton from '../BackButton';
 
 const LeaderboardAvatar = ({ entry, employees, isMe }) => {
     const [imgFailed, setImgFailed] = useState(false);
@@ -51,7 +51,7 @@ const LeaderboardAvatar = ({ entry, employees, isMe }) => {
     );
 };
 
-const AwardsScreen = ({ onBack }) => {
+const InternAwardsScreen = ({ onBack }) => {
     const { user } = useAuth();
     const formatDate = (d) => {
         if (!d) return '--';
@@ -1901,4 +1901,4 @@ const AwardsScreen = ({ onBack }) => {
     );
 };
 
-export default AwardsScreen;
+export default InternAwardsScreen;

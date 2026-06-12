@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trophy, Zap, ArrowLeft, CheckCircle, ChevronRight, Check as CheckIcon, X as XIcon, Loader2
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { BASE_URL, API_ENDPOINTS } from '../config';
-import BackButton from './BackButton'; // Clear dev-server compile cache
+import { useAuth } from '../../context/AuthContext';
+import { BASE_URL, INTERN_API_ENDPOINTS as API_ENDPOINTS } from '../../config';
+import BackButton from '../BackButton'; // Clear dev-server compile cache
 
 const checkIfCorrect = (optObj, currentQ) => {
   if (!currentQ || !currentQ.correct_answer || !optObj) return false;
@@ -70,7 +70,7 @@ const cleanNum = (val) => {
   return isNaN(num) ? 0 : num;
 };
 
-const FunQuizScreen = ({ onBack }) => {
+const InternFunQuizScreen = ({ onBack }) => {
   const { user } = useAuth();
 
   const [questions, setQuestions] = useState([]);
@@ -1020,5 +1020,4 @@ const FunQuizScreen = ({ onBack }) => {
     </div>
   );
 };
-
-export default FunQuizScreen;
+export default InternFunQuizScreen;

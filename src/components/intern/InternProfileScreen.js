@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL } from '../../config';
-import { API_ENDPOINTS } from '../../config';
+import { INTERN_API_ENDPOINTS as API_ENDPOINTS } from '../../config';
 import {
   MapPin, Building2, Clock, Globe, Mail, User,
   ChevronRight, Calendar, Bell, Shield, LogOut,
@@ -31,7 +31,7 @@ const formatDOB = (val) => {
   return s;
 };
 
-export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
+export default function InternProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
   const hideForJoinees = !!(
@@ -58,9 +58,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   });
   const [teamName, setTeamName] = useState(user?.team || user?.team_name || user?.process || 'Loading...');
   const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
-  const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
-    let strId = String(user?.employee_id || user?.id || 'N/A').trim();
-    if (!strId || strId === 'N/A') return 'N/A';
+    const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
+      let strId = String(user?.intern_id || user?.employee_id || user?.id || 'N/A').trim();
+      if (!strId || strId === 'N/A') return 'N/A';
 
     // 1. Split by comma/spaces and take the first unique part
     if (strId.includes(',') || strId.includes(' ')) {
@@ -232,6 +232,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       const uResp = await fetch(API_ENDPOINTS.USERS, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      const mResp = await fetch(API_ENDPOINTS.MANAGERS || BASE_URL + '/api/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
       // 3. Fetch Teams API to perfectly map RM based on Team Leader
       let teamsData = [];
@@ -275,6 +278,11 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
       if (uResp.ok) {
         const usersList = await uResp.json();
+        let managersList = [];
+        if (mResp.ok) managersList = await mResp.json();
+        
+        const combinedUsers = [...usersList, ...managersList];
+        
         const currentUser = usersList.find(u =>
           (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
           (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
@@ -293,16 +301,24 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           }
 
           // Fetch Team Name from Users table
-          const fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
-          if (fetchedTeam) setTeamName(fetchedTeam);
+          let fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
 
           // Reporting Manager Lookup in users list
           const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
           if (targetRmId) {
             mId = targetRmId;
-            const mgr = usersList.find(u => String(u.id || u.employee_id) === String(targetRmId));
-            if (mgr) mName = mgr.name || mgr.emp_name;
+            const mgr = combinedUsers.find(u => String(u.id || u.employee_id) === String(targetRmId));
+            if (mgr) {
+              mName = mgr.name || mgr.emp_name;
+              // Inherit team from Reporting Manager if intern doesn't have one explicitly
+              if (!fetchedTeam) {
+                fetchedTeam = mgr.team || mgr.process || mgr.department || mgr.team_name;
+              }
+            }
           }
+
+          if (fetchedTeam) setTeamName(fetchedTeam);
+          else setTeamName('Unassigned');
 
           // Fallback to Team Leader dynamically if no explicit reporting manager is set
           if (!mName && fetchedTeam) {
@@ -315,7 +331,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
               mName = matchingTeam.leader || matchingTeam.lead;
             } else {
               // Fallback to user list
-              const teamLeader = usersList.find(u =>
+              const teamLeader = combinedUsers.find(u =>
                 (String(u.role || '').toLowerCase().includes('teamleader') ||
                   String(u.role || '').toLowerCase() === 'team_leader' ||
                   String(u.designation || '').toLowerCase().includes('team leader')) &&
@@ -744,14 +760,8 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         'Authorization': `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_ENDPOINTS.UPDATE_PROFILE}?email=${encodeURIComponent(targetEmail)}`, {
+      const res = await fetch(API_ENDPOINTS.INTERN_UPDATE(uid), {
         method: 'PUT',
-        headers: syncHeaders,
-        body: JSON.stringify(payload)
-      });
-
-      await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
-        method: 'POST',
         headers: syncHeaders,
         body: JSON.stringify(payload)
       });
@@ -875,59 +885,6 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                 </div>
 
                 {winWidth >= 1024 && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#14161aff', fontSize: '13px', fontWeight: '700' }}>
-                  <Phone size={14} />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {isEditingPhone ? (
-                      <input
-                        autoFocus
-                        value={phone === 'Add Phone Number' ? '' : phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        onBlur={() => handleUpdateField('phone', phone)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateField('phone', phone); if (e.key === 'Escape') setIsEditingPhone(false); }}
-                        style={{ fontSize: '13px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '120px' }}
-                      />
-                    ) : (
-                      <>
-                        {phone}
-                        <Edit3 size={12} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={() => setIsEditingPhone(true)} />
-                      </>
-                    )}
-                  </span>
-                </div>
-
-                {winWidth >= 1024 && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#181b1fff', fontSize: '13px', fontWeight: '700' }}>
-                  <Calendar size={14} />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {isEditingDob ? (
-                      <input
-                        type="date"
-                        autoFocus
-                        value={dob === 'Add Date of Birth' ? '' : (() => {
-                          if (dob.includes('/')) {
-                            const p = dob.split('/');
-                            return `${p[2]}-${p[1]}-${p[0]}`;
-                          }
-                          return dob;
-                        })()}
-                        onChange={(e) => setDob(e.target.value)}
-                        onBlur={() => handleUpdateField('dob', dob)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateField('dob', dob); if (e.key === 'Escape') setIsEditingDob(false); }}
-                        style={{ fontSize: '13px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '130px' }}
-                      />
-                    ) : (
-                      <>
-                        {dob}
-                        <Edit3 size={12} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={() => setIsEditingDob(true)} />
-                      </>
-                    )}
-                  </span>
-                </div>
-
-                {!isMobile && !isTablet && <div style={{ width: '1.5px', height: '14px', backgroundColor: '#e2e8f0' }} />}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#3863a8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>
@@ -1201,21 +1158,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         </AnimatePresence>
 
 
-        {/* ────── HR DOCUMENTS SECTION ────── */}
-        {!hideForJoinees && (
-          <div style={{ marginTop: '25px', marginBottom: '40px' }}>
-            <div style={{ ...styles.sectionTitle, marginBottom: '20px' }}>HR Documents</div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'), gap: isMobile ? '15px' : '25px' }}>
-              {[
-                { id: 'slip', title: 'MONTHLY PAY SLIP', desc: 'Download salary statement', icon: <FileText size={22} />, color: '#16a34a', darkBorder: true },
-                { id: 'exp', title: 'EXPERIENCE LETTER', desc: 'Apply for service certificate', icon: <Fingerprint size={22} />, color: '#2563eb', highlight: true },
-                { id: 'res', title: 'RESIGNATION LETTER', desc: 'Submit formal exit notice', icon: <LogOut size={22} />, color: '#dc2626', darkBorder: true }
-              ].map((doc, idx) => (
-                <DocCard key={idx} doc={doc} onNavigate={onNavigate} />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ────── HR DOCUMENTS SECTION REMOVED FOR INTERNS ────── */}
 
         <div style={styles.aboutSection}>
           <div style={styles.sectionTitle}>
