@@ -453,6 +453,31 @@ export const AuthProvider = ({ children }) => {
       if (detailRes.status === 'fulfilled' && detailRes.value.ok) {
         const detail = await detailRes.value.json();
         joiningDateStr = detail?.joining_date || detail?.created_at || joiningDateStr;
+        
+        // Sync role and name directly from new_joinees table into context
+        if (detail) {
+          setUser(prev => {
+            if (!prev) return prev;
+            const newRole = detail.role || detail.designation || prev.role;
+            const newName = detail.name || detail.employee_name || prev.name;
+            const newImg = detail.profile_image || detail.profileImage || prev.profileImage;
+            
+            if (newRole !== prev.role || newName !== prev.name || newImg !== prev.profileImage) {
+              const updated = {
+                ...prev,
+                role: newRole,
+                name: newName,
+                profileImage: newImg,
+                profile_image: newImg,
+                joining_date: joiningDateStr,
+                isNewJoinee: true
+              };
+              safeSetItem('user', JSON.stringify(updated));
+              return updated;
+            }
+            return prev;
+          });
+        }
       }
 
       let courses = [];
@@ -481,7 +506,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateProfile, refreshUser, loading, isBlocked, setIsBlocked, checkBlockedStatus }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, updateProfile, refreshUser, loading, isBlocked, setIsBlocked, checkBlockedStatus }}>
       {children}
     </AuthContext.Provider>
   );

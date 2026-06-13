@@ -276,8 +276,9 @@ export default function AppHeader({ setActiveTab, isNewJoinee }) {
                         >
                             <div
                                 onClick={() => {
+                                    if (isNewJoinee) return; // Do nothing for new joinees
                                     const isIntern = String(user?.role || '').toUpperCase().includes('INTERN') || String(user?.designation || '').toUpperCase().includes('INTERN');
-                                    if (isNewJoinee || isIntern) {
+                                    if (isIntern) {
                                         setActiveTab('PROFILE');
                                     } else {
                                         setActiveTab('DOCUMENTS');

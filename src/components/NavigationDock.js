@@ -95,7 +95,7 @@ const NavigationDock = ({ activeTab, onTabChange, isNewJoinee }) => {
     { id: 'LEAVE', icon: <CalendarDays className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Leave' },
     { id: 'PROFILE', icon: <User className="nav-icon" style={{ strokeWidth: '2.5px' }} />, label: 'Profile' },
   ].filter(item => {
-    if (isNewJoinee) return item.id === 'HOME' || item.id === 'PROFILE';
+    if (isNewJoinee) return item.id === 'HOME';
     const isIntern = !!(
       String(user?.role || '').toUpperCase().includes('INTERN') ||
       String(user?.designation || '').toUpperCase().includes('INTERN')

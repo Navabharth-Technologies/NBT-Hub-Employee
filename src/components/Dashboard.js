@@ -1233,10 +1233,29 @@ const Dashboard = ({ setActiveTab }) => {
         {/* Team Suggestions */}
         {suggestions.length > 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div style={{ fontSize: '16px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileText size={24} color="#f59e0b" /> Saturday Suggestions
               </div>
+              <button
+                onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('SATURDAY_SUGGESTIONS'); }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  border: '1.2px solid #e2e8f0',
+                  backgroundColor: 'transparent',
+                  color: '#2563eb',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                View More &rarr;
+              </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

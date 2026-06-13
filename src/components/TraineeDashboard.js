@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { 
+import { motion, AnimatePresence } from 'framer-motion';
+import {
   PlayCircle, FileText, AlertCircle, Calendar, Video
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -11,11 +11,11 @@ import { API_ENDPOINTS, BASE_URL } from '../config';
 const resolveMediaUrl = (url) => {
   if (!url) return null;
   let finalUrl = String(url).replace(/\\/g, '/');
-  
+
   // If backend saved 'localhost' but app is running on a network IP
   if (finalUrl.includes('localhost') && BASE_URL && !BASE_URL.includes('localhost')) {
-      const baseIp = BASE_URL.replace(/https?:\/\//, '').split(':')[0];
-      finalUrl = finalUrl.replace('localhost', baseIp);
+    const baseIp = BASE_URL.replace(/https?:\/\//, '').split(':')[0];
+    finalUrl = finalUrl.replace('localhost', baseIp);
   }
 
   if (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) return finalUrl;
@@ -32,13 +32,30 @@ const cleanMediaUrl = (url) => {
 };
 
 const TraineeDashboard = () => {
-  const { user, logout, isBlocked } = useAuth();
+  const { user, setUser, logout, isBlocked, refreshUser, updateProfile } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activePdfUrl, setActivePdfUrl] = useState(null);
   const [activeCourse, setActiveCourse] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const fileInputRef = useRef(null);
   // Redundant showBlocked removed — now using global isBlocked from AuthContext
   const fetchDataRef = useRef(null); // stable ref so BroadcastChannel closure always calls latest
+
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      if (e.target.closest('[title="Logout Securely"]')) return;
+      const photoContainer = e.target.closest('[title="My Documents & Profile"]');
+      if (photoContainer) {
+        setShowProfileMenu(prev => !prev);
+      } else if (!e.target.closest('#joinee-profile-menu')) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -77,7 +94,7 @@ const TraineeDashboard = () => {
     // Attempt multiple ID sources: user.id (preferred), user.employee_id, etc.
     const resolvedUid = user?.empId || user?.employee_id || user?.id || user?.userId || 1;
     console.log("[TraineeDash] UID resolution:", resolvedUid);
-    
+
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -94,27 +111,35 @@ const TraineeDashboard = () => {
 
       let detail = null;
       if (detailRes.status === 'fulfilled' && detailRes.value.ok) {
-         detail = await detailRes.value.json();
+        detail = await detailRes.value.json();
+        if (detail && setUser) {
+          setUser(prev => {
+            if (!prev) return prev;
+            const updated = { ...prev, role: detail.role || detail.designation || prev.role, name: detail.name || prev.name };
+            localStorage.setItem('user', JSON.stringify(updated));
+            return updated;
+          });
+        }
       }
 
       let enrollmentArr = [];
       if (enrollmentRes.status === 'fulfilled' && enrollmentRes.value.ok) {
-         const raw = await enrollmentRes.value.json();
-         enrollmentArr = Array.isArray(raw) ? raw : (raw.value || raw.data || []);
-         console.log("[TraineeDash] Specific enrollment count:", enrollmentArr.length);
+        const raw = await enrollmentRes.value.json();
+        enrollmentArr = Array.isArray(raw) ? raw : (raw.value || raw.data || []);
+        console.log("[TraineeDash] Specific enrollment count:", enrollmentArr.length);
       }
 
       let globalArr = [];
       if (masterRes.status === 'fulfilled' && masterRes.value.ok) {
-         const raw = await masterRes.value.json();
-         globalArr = Array.isArray(raw) ? raw : (raw.value || raw.data || []);
-         console.log("[TraineeDash] Global onboarding courses found:", globalArr.length);
+        const raw = await masterRes.value.json();
+        globalArr = Array.isArray(raw) ? raw : (raw.value || raw.data || []);
+        console.log("[TraineeDash] Global onboarding courses found:", globalArr.length);
       }
 
       // Merge Logic: Prioritize specific enrollment, then global list
       let finalArr = [];
       const sourceArr = enrollmentArr.length > 0 ? enrollmentArr : globalArr;
-      
+
       finalArr = sourceArr.map(item => {
         const rawPdf = item.pdf_url || item.pdf || item.pdfUrl || item.pdf_path || item.file || item.document || item.file_url || item.document_url || item.doc_url || null;
         const rawVideo = item.video_url || item.video || item.videoUrl || item.video_link || item.link || item.video_path || item.media_url || null;
@@ -175,6 +200,82 @@ const TraineeDashboard = () => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('userId', user?.id || user?.empId || user?.employee_id);
+    formData.append('email', user?.email);
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/profile/upload-image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        let newImg = null;
+        try {
+           const data = await res.json();
+           newImg = data.profileImage || data.profile_pic || data.profile_picture || data.avatar;
+        } catch(e) {}
+        
+        if (newImg) {
+           updateProfile('profileImage', newImg);
+        } else {
+           if (refreshUser) refreshUser();
+        }
+        alert('Profile picture updated successfully!');
+      } else {
+        alert('Failed to upload image.');
+      }
+    } catch (err) {
+      console.error('Upload Error:', err);
+      alert('Network error during upload.');
+    }
+    // Clear the input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setShowProfileMenu(false);
+  };
+
+  const handleRemoveImage = async () => {
+    try {
+      const targetEmail = (user?.email || '').toLowerCase();
+      const uid = user?.employee_id || user?.id || user?.userId;
+      const payload = { 
+        email: targetEmail, 
+        userId: uid,
+        profile_image: null,
+        profileImage: null
+      };
+
+      const syncHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      };
+
+      await fetch(`${API_ENDPOINTS.UPDATE_PROFILE}?email=${encodeURIComponent(targetEmail)}`, {
+        method: 'PUT',
+        headers: syncHeaders,
+        body: JSON.stringify(payload)
+      });
+      await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
+        method: 'POST',
+        headers: syncHeaders,
+        body: JSON.stringify(payload)
+      });
+
+      updateProfile('profileImage', null);
+      alert('Profile picture removed!');
+    } catch (e) {
+      console.error(e);
+      alert('Network error while removing image.');
+    }
+    setShowProfileMenu(false);
+  };
+
   // Keep ref in sync so BroadcastChannel & visibilitychange always call the latest version
   fetchDataRef.current = fetchData;
 
@@ -209,22 +310,22 @@ const TraineeDashboard = () => {
         if (coursesResp.ok) {
           const raw = await coursesResp.json();
           const list = Array.isArray(raw) ? raw : (raw.data || []);
-          
-          if (list.length > 0) {
-             const completedCount = list.filter(c => c.status === 'Completed').length;
-             // Add 1 if the current update hasn't reflected in the list yet (safety)
-             const totalCount = list.length;
-             const newPercentage = Math.round((completedCount / totalCount) * 100);
 
-             // 3. Update the main Joinee record with the overall percentage
-             await fetch(API_ENDPOINTS.NEW_JOINEE_DETAIL(uid), {
-               method: 'PUT',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ course_completion: newPercentage })
-             });
+          if (list.length > 0) {
+            const completedCount = list.filter(c => c.status === 'Completed').length;
+            // Add 1 if the current update hasn't reflected in the list yet (safety)
+            const totalCount = list.length;
+            const newPercentage = Math.round((completedCount / totalCount) * 100);
+
+            // 3. Update the main Joinee record with the overall percentage
+            await fetch(API_ENDPOINTS.NEW_JOINEE_DETAIL(uid), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ course_completion: newPercentage })
+            });
           }
         }
-        
+
         // 4. Finally, refresh the dashboard UI
         fetchData();
       }
@@ -232,7 +333,7 @@ const TraineeDashboard = () => {
       console.error("[TraineeDash] handleComplete update failed:", e);
     }
   };
-  
+
   const handleClosePdf = async () => {
     if (activeCourse) {
       if (String(activeCourse.status).toLowerCase() !== 'completed') {
@@ -250,12 +351,12 @@ const TraineeDashboard = () => {
     const uid = user?.empId || user?.employee_id || user?.id || user?.userId || 1;
     const videoSrc = resolveMediaUrl(course.video_url || course.video);
     const params = new URLSearchParams({
-      url:      videoSrc,
+      url: videoSrc,
       courseId: course.id,
-      title:    course.title || '',
-      desc:     course.description || '',
-      apiBase:  BASE_URL,
-      uid:      uid
+      title: course.title || '',
+      desc: course.description || '',
+      apiBase: BASE_URL,
+      uid: uid
     });
     const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
     window.open(`${basePath}video-player.html?${params.toString()}`, '_blank');
@@ -265,30 +366,30 @@ const TraineeDashboard = () => {
     return (
       <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
         {/* Header bar */}
-        <div style={{ 
-          height: '70px', 
-          backgroundColor: 'white', 
-          borderBottom: '1px solid #e2e8f0', 
-          display: 'flex', 
-          alignItems: 'center', 
-          padding: '0 20px', 
+        <div style={{
+          height: '70px',
+          backgroundColor: 'white',
+          borderBottom: '1px solid #e2e8f0',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 20px',
           justifyContent: 'space-between',
           boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
           zIndex: 10
         }}>
-          <button 
+          <button
             onClick={handleClosePdf}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px', 
-              backgroundColor: '#0f172a', 
-              border: 'none', 
-              padding: '10px 20px', 
-              borderRadius: '12px', 
-              color: 'white', 
-              fontWeight: '900', 
-              fontSize: '13px', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#0f172a',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              color: 'white',
+              fontWeight: '900',
+              fontSize: '13px',
               cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
               transition: 'all 0.2s'
@@ -304,8 +405,8 @@ const TraineeDashboard = () => {
 
         {/* PDF Iframe */}
         <div style={{ flex: 1, backgroundColor: '#525659' }}>
-          <iframe 
-            src={activePdfUrl} 
+          <iframe
+            src={activePdfUrl}
             title={activeCourse?.title || 'PDF Document'}
             style={{ width: '100%', height: '100%', border: 'none' }}
           />
@@ -324,22 +425,22 @@ const TraineeDashboard = () => {
   if (isBlocked) return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ maxWidth: '500px', textAlign: 'center', background: 'white', padding: '50px', borderRadius: '40px', boxShadow: '0 20px 50px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
-         <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 30px auto' }}>
-            <AlertCircle size={40} />
-         </div>
-         <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', marginBottom: '15px' }}>Access Blocked</h1>
-         <p style={{ color: '#64748b', fontSize: '15px', lineHeight: '1.6', marginBottom: '35px' }}>
-            Your 10-day training window has expired. Workforce security protocols have automatically restricted your access until the assigned curriculum is mastered.
-         </p>
-         <button 
-           onClick={() => window.location.href = 'mailto:hr@nbthub.com'}
-           style={{ width: '100%', padding: '18px', borderRadius: '18px', background: '#0f172a', color: 'white', border: 'none', fontWeight: '900', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s' }}
-         >
-            Contact HR for reactivation
-         </button>
-         <button onClick={logout} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#94a3b8', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
-            Log Out Account
-         </button>
+        <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 30px auto' }}>
+          <AlertCircle size={40} />
+        </div>
+        <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', marginBottom: '15px' }}>Access Blocked</h1>
+        <p style={{ color: '#64748b', fontSize: '15px', lineHeight: '1.6', marginBottom: '35px' }}>
+          Your 10-day training window has expired. Workforce security protocols have automatically restricted your access until the assigned curriculum is mastered.
+        </p>
+        <button
+          onClick={() => window.location.href = 'mailto:hr@nbthub.com'}
+          style={{ width: '100%', padding: '18px', borderRadius: '18px', background: '#0f172a', color: 'white', border: 'none', fontWeight: '900', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s' }}
+        >
+          Contact HR for reactivation
+        </button>
+        <button onClick={logout} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#94a3b8', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
+          Log Out Account
+        </button>
       </motion.div>
     </div>
   );
@@ -358,14 +459,102 @@ const TraineeDashboard = () => {
 
   return (
     <div style={{ padding: window.innerWidth < 768 ? '20px 15px' : '30px 40px', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
+      <AnimatePresence>
+        {showProfileMenu && (
+          <motion.div
+            id="joinee-profile-menu"
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            style={{
+              position: 'fixed',
+              top: window.innerWidth < 768 ? '65px' : '90px',
+              right: window.innerWidth < 768 ? '15px' : '30px',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+              border: '1px solid #e2e8f0',
+              padding: '10px',
+              zIndex: 9999,
+              width: '200px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          >
+            <button onClick={() => { setShowProfileMenu(false); setShowProfileModal(true); }} style={{ padding: '12px', background: 'none', border: 'none', textAlign: 'left', fontWeight: '800', color: '#0f172a', cursor: 'pointer', borderRadius: '10px', transition: 'all 0.2s', fontSize: '13px' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>View Profile</button>
+            <button onClick={() => fileInputRef.current?.click()} style={{ padding: '12px', background: 'none', border: 'none', textAlign: 'left', fontWeight: '800', color: '#0f172a', cursor: 'pointer', borderRadius: '10px', transition: 'all 0.2s', fontSize: '13px' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>Add Profile</button>
+            <button onClick={handleRemoveImage} style={{ padding: '12px', background: 'none', border: 'none', textAlign: 'left', fontWeight: '800', color: '#ef4444', cursor: 'pointer', borderRadius: '10px', transition: 'all 0.2s', fontSize: '13px' }} onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>Remove Profile</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        accept="image/png, image/jpeg, image/jpg"
+        onChange={handleImageUpload}
+      />
+
+      {/* Profile Modal */}
+      <AnimatePresence>
+        {showProfileModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)'
+          }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px'
+              }}
+            >
+              <button 
+                onClick={() => setShowProfileModal(false)}
+                style={{ 
+                  position: 'absolute', top: '-15px', right: '-15px', 
+                  background: 'white', border: 'none', width: '36px', height: '36px', 
+                  borderRadius: '50%', cursor: 'pointer', display: 'flex', 
+                  alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)', color: '#333', zIndex: 10
+                }}
+              >✕</button>
+
+              <div style={{ 
+                width: '300px', height: '300px', borderRadius: '50%', 
+                overflow: 'hidden', border: '5px solid white',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.3)', background: '#e2e8f0',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {user?.profileImage || user?.profile_image ? (
+                  <img src={resolveMediaUrl(user.profileImage || user.profile_image)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ fontSize: '100px', color: '#94a3b8', fontWeight: 'bold' }}>
+                    {(user?.name || 'U')[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div style={{ maxWidth: '100%', margin: '0 auto' }}>
-        
+
         {/* Progress Overview Section */}
         {!loading && courses.length > 0 && (
-          <div style={{ 
-            background: 'white', 
-            borderRadius: '32px', 
-            padding: '35px 50px', 
+          <div style={{
+            background: 'white',
+            borderRadius: '32px',
+            padding: '35px 50px',
             marginBottom: '40px',
             boxShadow: '0 10px 40px rgba(0,0,0,0.02)',
             border: '1px solid #f1f5f9',
@@ -378,10 +567,9 @@ const TraineeDashboard = () => {
             <div style={{ flex: '1', minWidth: '300px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
                 <div>
-                  <h3 style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', margin: '0 0 8px 0' }}>Overall progress</h3>
-                  <h2 style={{ fontSize: '32px', fontWeight: '900', color: '#0f172a', margin: 0 }}>
-                    {Math.round((courses.filter(c => String(c.status).toLowerCase() === 'completed').length / courses.length) * 100)}% <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '700' }}>Mastered</span>
-                  </h2>
+                  <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#081e3cff', letterSpacing: '0.5px', margin: '0 0 8px 0' }}>
+                    Overall Progress <span style={{ color: '#3b82f6', marginLeft: '8px' }}>{Math.round((courses.filter(c => String(c.status).toLowerCase() === 'completed').length / (courses.length || 1)) * 100)}%</span>
+                  </h3>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ fontSize: '13px', fontWeight: '800', color: '#3b82f6' }}>
@@ -390,7 +578,7 @@ const TraineeDashboard = () => {
                 </div>
               </div>
               <div style={{ width: '100%', height: '12px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
-                <motion.div 
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${(courses.filter(c => String(c.status).toLowerCase() === 'completed').length / courses.length) * 100}%` }}
                   transition={{ duration: 1, ease: "easeOut" }}
@@ -398,7 +586,7 @@ const TraineeDashboard = () => {
                 />
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '20px' }}>
               <div style={{ textAlign: 'center', padding: '0 20px', borderRight: '1px solid #f1f5f9' }}>
                 <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{courses.length}</div>
@@ -412,8 +600,8 @@ const TraineeDashboard = () => {
           </div>
         )}
 
-        <h1 style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', marginBottom: '30px', letterSpacing: '0.5px' }}>
-          Assigned to <span style={{ color: '#3b82f6' }}>You</span>
+        <h1 style={{ fontSize: '18px', fontWeight: '800', color: '#041835ff', marginBottom: '30px', }}>
+          Assigned to <span style={{ color: '#051d43ff' }}>You</span>
         </h1>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '30px' }}>
@@ -424,19 +612,19 @@ const TraineeDashboard = () => {
                 <div style={{ background: course.category === 'TECHNICAL' ? '#fee2e2' : '#eff6ff', color: course.category === 'TECHNICAL' ? '#ef4444' : '#3b82f6', padding: '4px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: '800' }}>
                   {course.category || 'Technical'}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11px', fontWeight: '700' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#121822ff', fontSize: '11px', fontWeight: '700' }}>
                   <Calendar size={13} /> Deadline: {course.deadline ? (() => { const p = String(course.deadline).split('T')[0].split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : course.deadline; })() : 'No Date'}
                 </div>
               </div>
               {/* Course Title and Status */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin:0 }}>{course.title}</h2>
+                <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: 0 }}>{course.title}</h2>
                 <div style={{
-                  background: String(course.status).toLowerCase() === 'completed' ? '#dcfce7' : 
-                              String(course.status).toLowerCase() === 'in progress' ? '#dbeafe' : '#fef3c7',
-                  color:      String(course.status).toLowerCase() === 'completed' ? '#16a34a' : 
-                              String(course.status).toLowerCase() === 'in progress' ? '#2563eb' : '#d97706',
-                  padding: '2px 10px', borderRadius: '10px', fontSize: '9px', fontWeight: '800',
+                  background: String(course.status).toLowerCase() === 'completed' ? '#dcfce7' :
+                    String(course.status).toLowerCase() === 'in progress' ? '#dbeafe' : '#fef3c7',
+                  color: String(course.status).toLowerCase() === 'completed' ? '#063e1bff' :
+                    String(course.status).toLowerCase() === 'in progress' ? '#2563eb' : '#d97706',
+                  padding: '2px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '800',
                   transition: 'all 0.4s'
                 }}>
                   {course.status || 'Not started'}
@@ -444,13 +632,13 @@ const TraineeDashboard = () => {
               </div>
 
               {/* Course Description */}
-              <p style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.4', margin: '5px 0' }}>
+              <p style={{ fontSize: '13px', color: '#394d69ff', margin: '5px 0' }}>
                 {course.description}
               </p>
 
               {/* Uploader Metadata */}
-              <div style={{ color: '#94a3b8', fontSize: '10px', fontWeight: '800', marginTop: '5px' }}>
-                 Upload by {course.uploaderName || course.uploaded_by || 'HR'}
+              <div style={{ color: '#0e1722ff', fontSize: '13px', fontWeight: '800', marginTop: '5px' }}>
+                Upload by {course.uploaderName || course.uploaded_by || 'HR'}
               </div>
 
               {/* Media Button Content */}
@@ -458,11 +646,22 @@ const TraineeDashboard = () => {
                 {(() => {
                   const hasVideo = !!(course.video_url || course.video);
                   const hasPdf = !!(course.pdf_url || course.pdf);
+                  const statusStr = String(course.status).toLowerCase();
+                  const isCompleted = statusStr === 'completed';
+                  const isInProgress = statusStr === 'in progress' || statusStr === 'inprogress';
+
+                  const getStyle = (defaultColor, defaultHover) => {
+                    if (isCompleted) return { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0', hover: '#bbf7d0' };
+                    if (isInProgress) return { color: '#d97706', bg: '#fef3c7', border: '#fde68a', hover: '#fde68a' };
+                    return { color: defaultColor, bg: 'white', border: '#f1f5f9', hover: defaultHover };
+                  };
 
                   if (hasVideo && hasPdf) {
+                    const pStyle = getStyle('#3b82f6', '#eff6ff');
+                    const vStyle = getStyle('#3b82f6', '#eff6ff');
                     return (
                       <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-                        <button 
+                        <button
                           onClick={() => {
                             const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
                             if (pdfUrl) {
@@ -475,40 +674,42 @@ const TraineeDashboard = () => {
                               console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
                             }
                           }}
-                          style={{ flex: 1, padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                          style={{ flex: 1, padding: '14px', borderRadius: '16px', background: pStyle.bg, border: `1.5px solid ${pStyle.border}`, color: pStyle.color, fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = pStyle.hover; e.currentTarget.style.borderColor = pStyle.hover; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = pStyle.bg; e.currentTarget.style.borderColor = pStyle.border; }}
                         >
-                          <FileText size={18} /> PDF
+                          <FileText size={18} /> {isCompleted ? 'Viewed PDF' : isInProgress ? 'Viewing PDF' : 'View PDF'}
                         </button>
-                        <button 
+                        <button
                           onClick={() => openVideoInNewTab(course)}
-                          style={{ flex: 1, padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                          style={{ flex: 1, padding: '14px', borderRadius: '16px', background: vStyle.bg, border: `1.5px solid ${vStyle.border}`, color: vStyle.color, fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = vStyle.hover; e.currentTarget.style.borderColor = vStyle.hover; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = vStyle.bg; e.currentTarget.style.borderColor = vStyle.border; }}
                         >
-                          <Video size={18} /> Video
+                          <Video size={18} /> {isCompleted ? 'Watched Video' : isInProgress ? 'Watching Video' : 'Watch Video'}
                         </button>
                       </div>
                     );
                   }
 
                   if (hasVideo) {
+                    const vStyle = getStyle('#ef4444', '#fef2f2');
                     return (
-                      <button 
+                      <button
                         onClick={() => openVideoInNewTab(course)}
-                        style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#ef4444', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fee2e2'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                        style={{ width: '100%', padding: '14px', borderRadius: '16px', background: vStyle.bg, border: `1.5px solid ${vStyle.border}`, color: vStyle.color, fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = vStyle.hover; e.currentTarget.style.borderColor = vStyle.hover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = vStyle.bg; e.currentTarget.style.borderColor = vStyle.border; }}
                       >
-                         <PlayCircle size={18} /> Watch Video
+                        <PlayCircle size={18} /> {isCompleted ? 'Watched Video' : isInProgress ? 'Watching Video' : 'Watch Video'}
                       </button>
                     );
                   }
 
                   if (hasPdf) {
+                    const pStyle = getStyle('#3b82f6', '#eff6ff');
                     return (
-                      <button 
+                      <button
                         onClick={() => {
                           const pdfUrl = resolveMediaUrl(course.pdf_url || course.pdf);
                           if (pdfUrl) {
@@ -521,18 +722,18 @@ const TraineeDashboard = () => {
                             console.warn('[TraineeDash] No valid PDF URL found for course:', course.id);
                           }
                         }}
-                        style={{ width: '100%', padding: '14px', borderRadius: '16px', background: 'white', border: '1.5px solid #f1f5f9', color: '#3b82f6', fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                        style={{ width: '100%', padding: '14px', borderRadius: '16px', background: pStyle.bg, border: `1.5px solid ${pStyle.border}`, color: pStyle.color, fontWeight: '900', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = pStyle.hover; e.currentTarget.style.borderColor = pStyle.hover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = pStyle.bg; e.currentTarget.style.borderColor = pStyle.border; }}
                       >
-                         <FileText size={18} /> View PDF Content
+                        <FileText size={18} /> {isCompleted ? 'Viewed PDF' : isInProgress ? 'Viewing PDF Content' : 'View PDF Content'}
                       </button>
                     );
                   }
 
                   return (
                     <div style={{ width: '100%', padding: '14px', borderRadius: '16px', background: '#f8fafc', border: '1.5px dashed #e2e8f0', color: '#94a3b8', fontWeight: '800', fontSize: '12px', textAlign: 'center' }}>
-                       No Materials Available
+                      No Materials Available
                     </div>
                   );
                 })()}

@@ -36,6 +36,7 @@ import ServiceCertificateScreen from './components/profile/ServiceCertificateScr
 import EmployeeAttendanceDetail from './components/EmployeeAttendanceDetail';
 import Reports from './components/Reports';
 import SaturdayRequirementsPopover from './components/SaturdayRequirementsPopover';
+import SaturdaySuggestionsScreen from './components/SaturdaySuggestionsScreen';
 
 
 const pathToTab = {
@@ -66,7 +67,7 @@ function App() {
       // Fallback for paths not in the map
       if (path && path.startsWith('/')) {
         const legacyTab = path.substring(1).toUpperCase().replace(/-/g, '_');
-        const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
+        const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL', 'SATURDAY_SUGGESTIONS'];
         if (validTabs.includes(legacyTab)) {
           return legacyTab;
         }
@@ -204,7 +205,7 @@ function App() {
         targetTab = pathToTab[path];
       } else if (path && path.startsWith('/')) {
         const legacyTab = path.substring(1).toUpperCase().replace(/-/g, '_');
-        const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL'];
+        const validTabs = ['HOME', 'PROJECTS', 'COURSES', 'THREAD', 'TICKET', 'LEAVE', 'ATTENDANCE', 'FUN', 'PROFILE', 'BIRTHDAYS', 'CALENDAR', 'FOCUS_LOGS', 'AWARDS', 'REPORTS', 'PAYSLIP', 'EXPERIENCE_LETTER', 'RESIGNATION_LETTER', 'DOCUMENTS', 'SERVICE_CERTIFICATE', 'ATTENDANCE_DETAIL', 'SATURDAY_SUGGESTIONS'];
         if (validTabs.includes(legacyTab)) {
           targetTab = legacyTab;
         }
@@ -303,6 +304,7 @@ function App() {
         return <DocumentsScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'SERVICE_CERTIFICATE': return <ServiceCertificateScreen onBack={() => handleTabChange('PROFILE')} />;
       case 'ATTENDANCE_DETAIL': return <EmployeeAttendanceDetail employeeId={activeTabState?.employeeId} onBack={() => handleTabChange('ATTENDANCE')} />;
+      case 'SATURDAY_SUGGESTIONS': return <SaturdaySuggestionsScreen onBack={() => handleTabChange('HOME')} />;
 
       default: return <Dashboard setActiveTab={setActiveTab} />;
     }
@@ -314,10 +316,10 @@ function App() {
     <ThreadProvider>
       <div className="App" style={{ overflowX: 'hidden' }}>
         <Header setActiveTab={handleTabChange} isNewJoinee={isNewJoinee} />
-        <main key={activeTab} ref={scrollRef} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: '90px', paddingTop: '110px' }}>
+        <main key={activeTab} ref={scrollRef} style={{ flex: 1, backgroundColor: '#f8fafc', overflowY: "auto", paddingBottom: isNewJoinee ? '20px' : '90px', paddingTop: '110px' }}>
           {renderTab()}
         </main>
-        <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} />
+        {!isNewJoinee && <NavigationDock activeTab={activeTab} onTabChange={handleTabChange} isNewJoinee={isNewJoinee} />}
         {!isNewJoinee && <TaskNotification onOpenTask={handleTabChange} />}
         <SaturdayRequirementsPopover />
         <ScrollToTop scrollRef={scrollRef} />

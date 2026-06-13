@@ -33,7 +33,7 @@ export default function CourseScreen() {
     const isVideoDone = isActuallyComplete || currentCourseProgress.progress >= 100;
     const isPdfDone = isActuallyComplete || currentCourseProgress.isPdfDone || currentCourseProgress.is_pdf_done || currentCourseProgress.pdf_done;
     const isTestDone = isActuallyComplete || currentCourseProgress.isTestDone || currentCourseProgress.is_test_done || currentCourseProgress.test_done;
-    const [currentView, setCurrentView] = useState(null); // 'video', 'pdf', 'test'
+    const [currentView, setCurrentView] = useState(null); 
     const [showCertificate, setShowCertificate] = useState(false);
     const [showCard, setShowCard] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
