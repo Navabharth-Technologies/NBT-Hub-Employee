@@ -1491,7 +1491,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                   {/* Bottom Section: Reason */}
                   <div>
                     <p style={{ margin: '0 0 15px 0', fontSize: '15px', fontWeight: '1000', color: '#182230ff', letterSpacing: '0.5px' }}>Reason for leave</p>
-                    <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '25px', border: '1px solid #f1f5f9', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                       <p style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b', lineHeight: '1.6' }}>
                         {selectedLeave.reason || selectedLeave.remark || 'No specific reason provided.'}
                       </p>
@@ -1525,21 +1525,21 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
 
                       return (
                         <>
-                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>PM Remark</p>
                             <p style={{ margin: 0, fontSize: '14px', color: finalPmRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalPmRemark ? 'normal' : 'italic' }}>
                               {finalPmRemark || 'No remark yet.'}
                             </p>
                           </div>
 
-                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>TL Remark</p>
                             <p style={{ margin: 0, fontSize: '14px', color: finalTlRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalTlRemark ? 'normal' : 'italic' }}>
                               {finalTlRemark || 'No remark yet.'}
                             </p>
                           </div>
 
-                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '15px', border: '1px solid #f1f5f9', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: '1000', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>HR Remark</p>
                             <p style={{ margin: 0, fontSize: '14px', color: finalHrRemark ? '#1e293b' : '#94a3b8', lineHeight: '1.4', fontStyle: finalHrRemark ? 'normal' : 'italic' }}>
                               {finalHrRemark || 'No remark yet.'}
