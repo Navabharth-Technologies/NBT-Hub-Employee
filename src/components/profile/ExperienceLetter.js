@@ -6,7 +6,7 @@ import {
   AlertCircle, History, User, Calendar, Briefcase,
   FileText, Download, ShieldCheck, Shield,
   MousePointer2, Keyboard, Monitor, Smartphone,
-  Tablet, Camera, Database, Headphones
+  Tablet, Camera, Database, Headphones, Check
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_URL, API_ENDPOINTS } from '../../config';
@@ -52,6 +52,7 @@ const ExperienceLetter = ({ onBack }) => {
   const [otherPurpose, setOtherPurpose] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestStatus, setRequestStatus] = useState('idle'); // idle, success, error
+  const [errorModal, setErrorModal] = useState(null);
   const [profileData, setProfileData] = useState({
     name: user?.name || 'User',
     empId: cleanDisplayId(user?.employee_id || user?.id),
@@ -95,17 +96,18 @@ const ExperienceLetter = ({ onBack }) => {
     return s;
   };
 
-  const isOwnProfile = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
+  const isOwnProfile = !employeeId || employeeId === 'undefined' || employeeId === 'null' || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
 
   useEffect(() => {
     const fetchFullProfile = async () => {
       try {
         const token = localStorage.getItem('token');
-        const isOwn = !employeeId || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
+        const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
+        const isOwn = !employeeId || employeeId === 'undefined' || employeeId === 'null' || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
         const url = isOwn ? API_ENDPOINTS.MY_EMPLOYEE_PROFILE : `${BASE_URL}/api/profile/${employeeId || user?.email}`;
         const resp = await fetch(url, {
           headers: { 
-            'Authorization': `Bearer ${token?.trim()}`,
+            'Authorization': `Bearer ${cleanToken}`,
             'Accept': 'application/json'
           }
         });
@@ -137,11 +139,14 @@ const ExperienceLetter = ({ onBack }) => {
   const fetchHistory = async () => {
     try {
       const uid = employeeId || user?.employee_id || user?.id;
-      if (!uid) return;
+      if (!uid || uid === 'undefined' || uid === 'null') return;
       
       const token = localStorage.getItem('token');
-      const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES_USER(uid), {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
+      const isOwn = !employeeId || employeeId === 'undefined' || employeeId === 'null' || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
+      const url = isOwn ? API_ENDPOINTS.SERVICE_CERTIFICATES_MY : API_ENDPOINTS.SERVICE_CERTIFICATES_USER(uid);
+      const resp = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${cleanToken}` }
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -169,11 +174,12 @@ const ExperienceLetter = ({ onBack }) => {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
       const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES(), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${cleanToken}`
         },
         body: JSON.stringify({
           employee_id: profileData.empId,
@@ -205,11 +211,11 @@ const ExperienceLetter = ({ onBack }) => {
         fetchHistory(); // Refresh history after successful submission
       } else {
         const errorData = await resp.json();
-        alert(errorData.message || 'Failed to submit application');
+        setErrorModal(errorData.message || 'Failed to submit application');
       }
     } catch (err) {
       console.error('Submission Error:', err);
-      alert('An error occurred. Please try again.');
+      setErrorModal('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -252,12 +258,15 @@ const ExperienceLetter = ({ onBack }) => {
       setIsAssetLoading(true);
       try {
         const token = localStorage.getItem('token');
+        const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
+        const isOwn = !employeeId || employeeId === 'undefined' || employeeId === 'null' || String(employeeId) === String(user?.employee_id) || String(employeeId) === String(user?.id);
+        const historyUrl = isOwn ? API_ENDPOINTS.SERVICE_CERTIFICATES_MY : API_ENDPOINTS.SERVICE_CERTIFICATES_USER(uid);
         const [res, hRes] = await Promise.all([
           fetch(API_ENDPOINTS.MY_ASSETS(uid), {
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+            headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/json' }
           }),
-          fetch(API_ENDPOINTS.SERVICE_CERTIFICATES_USER(uid), {
-            headers: { 'Authorization': `Bearer ${token}` }
+          fetch(historyUrl, {
+            headers: { 'Authorization': `Bearer ${cleanToken}` }
           })
         ]);
         
@@ -332,12 +341,13 @@ const ExperienceLetter = ({ onBack }) => {
     setIsAssetSubmitting(true);
     try {
       const token = localStorage.getItem('token');
+      const cleanToken = (token && token !== 'undefined' && token !== 'null') ? token.replace(/['"]+/g, '').trim() : '';
       const resp = await fetch(API_ENDPOINTS.SERVICE_CERTIFICATES(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${cleanToken}`
         },
         body: JSON.stringify({
           id: assetRecordId,
@@ -378,11 +388,11 @@ const ExperienceLetter = ({ onBack }) => {
           const errData = await resp.json();
           errMsg = errData.message || errMsg;
         } catch(e) {}
-        alert(errMsg);
+        setErrorModal(errMsg);
       }
     } catch (err) {
       console.error('Asset Submission Error:', err);
-      alert('Network error or server is down. Please try again.');
+      setErrorModal('Network error or server is down. Please try again.');
     } finally {
       setIsAssetSubmitting(false);
     }
@@ -784,6 +794,35 @@ const ExperienceLetter = ({ onBack }) => {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {errorModal && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ backgroundColor: 'white', borderRadius: '30px', padding: '40px', maxWidth: '400px', width: '100%', boxShadow: '0 30px 60px rgba(0,0,0,0.2)', textAlign: 'center' }}>
+              {typeof errorModal === 'object' && errorModal.isSuccess ? (
+                <div style={{ width: '60px', height: '60px', borderRadius: '30px', backgroundColor: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                  <Check size={30} />
+                </div>
+              ) : (
+                <div style={{ width: '60px', height: '60px', borderRadius: '30px', backgroundColor: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                  <AlertCircle size={30} />
+                </div>
+              )}
+              <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#10274A', marginBottom: '15px' }}>
+                {typeof errorModal === 'object' ? errorModal.title || 'Notice' : 'Notice'}
+              </h2>
+              <p style={{ fontSize: '14px', color: '#64748b', fontWeight: '600', marginBottom: '30px', lineHeight: '1.5' }}>
+                {typeof errorModal === 'object' ? errorModal.message : errorModal}
+              </p>
+              <button onClick={() => {
+                const onClose = typeof errorModal === 'object' ? errorModal.onClose : null;
+                setErrorModal(null);
+                if (onClose) onClose();
+              }} style={{ ...s.submitBtn, backgroundColor: '#10274A', padding: '15px', width: '100%', marginTop: 0 }}>Okay</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

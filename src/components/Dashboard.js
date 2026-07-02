@@ -824,24 +824,24 @@ const Dashboard = ({ setActiveTab }) => {
       display: 'flex',
       flexDirection: 'column',
       gap: winWidth < 768 ? '15px' : '30px',
-      fontFamily: "'Inter', sans-serif",
+      fontFamily: "'Outfit', 'Inter', sans-serif",
       overflowX: 'hidden'
     },
     grid: { display: 'flex', flexDirection: 'column', gap: winWidth < 768 ? '12px' : '25px' },
-    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '45px', padding: winWidth < 768 ? (winWidth < 480 ? '10px' : '15px') : '35px 45px 45px', minHeight: '280px', boxShadow: '0 20px 60px rgba(0,0,0,0.02)', border: '1px solid #0B1E3F', display: 'flex', flexDirection: 'column' },
-    mainTitle: { fontSize: winWidth < 768 ? '14px' : '18px', fontWeight: '800', color: '#3b5b80ff', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginTop: '5px', paddingTop: '10px', borderTop: '1.5px solid #f8fafc' },
-    yesterdayBox: { backgroundColor: '#f0fdf4', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', minHeight: '180px', height: '100%', border: '1.5px solid #dcfce7', display: 'flex', flexDirection: 'column' },
-    yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px', marginBottom: '8px' },
+    mainCard: { backgroundColor: 'white', borderRadius: winWidth < 768 ? '25px' : '40px', padding: winWidth < 768 ? (winWidth < 480 ? '15px' : '20px') : '40px', minHeight: '280px', boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.04)', border: '1px solid rgba(15, 23, 42, 0.06)', display: 'flex', flexDirection: 'column' },
+    mainTitle: { fontSize: winWidth < 768 ? '16px' : '20px', fontWeight: '900', color: '#0f172a', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.3px' },
+    taskGrid: { display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '20px' : '30px', marginTop: '15px', paddingTop: '15px', borderTop: '1.5px solid #f1f5f9' },
+    yesterdayBox: { background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)', borderRadius: '24px', padding: winWidth < 768 ? '18px' : '24px', minHeight: '190px', height: '100%', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px -5px rgba(22, 163, 74, 0.03)' },
+    yesterdayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: '800', fontSize: '18px', marginBottom: '8px', fontFamily: "'Outfit', sans-serif" },
     yesterdayText: { fontSize: '14px', color: '#16a34a', fontWeight: '700' },
-    todayBox: { backgroundColor: '#f8fafc', borderRadius: '15px', padding: winWidth < 768 ? '15px' : '20px', border: '1.0px solid #bfdbfe', display: 'flex', flexDirection: 'column', minHeight: '180px', height: '100%' },
+    todayBox: { background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderRadius: '24px', padding: winWidth < 768 ? '18px' : '24px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', minHeight: '190px', height: '100%', boxShadow: '0 10px 25px -5px rgba(148, 163, 184, 0.03)' },
     todayHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
-    todayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0B1E3F', fontWeight: '1000', fontSize: '18px' },
-    editBtn: { background: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#0B1E3F' },
-    taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#1e293b', fontWeight: '700', fontSize: '13px', lineHeight: '1.4' },
-    statusBadge: { fontSize: '10px', fontWeight: '1000', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#0B1E3F', width: 'fit-content', marginTop: '12px' },
-    liveBadge: { fontSize: '10px', fontWeight: '1000', color: '#cbd5e1', alignSelf: 'flex-end', marginTop: 'auto' },
-    statsCard: { backgroundColor: '#0B1E3F', borderRadius: '45px', padding: '45px', boxShadow: '0 20px 60px rgba(11,30,63,0.15)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
+    todayLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: '800', fontSize: '18px', fontFamily: "'Outfit', sans-serif" },
+    editBtn: { background: 'white', border: '1px solid #e2e8f0', padding: '8px 18px', borderRadius: '12px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'all 0.2s' },
+    taskItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', color: '#334155', fontWeight: '600', fontSize: '13px', lineHeight: '1.4' },
+    statusBadge: { fontSize: '10px', fontWeight: '800', padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', color: '#475569', width: 'fit-content', marginTop: '12px' },
+    liveBadge: { fontSize: '10px', fontWeight: '800', color: '#94a3b8', alignSelf: 'flex-end', marginTop: 'auto' },
+    statsCard: { background: 'linear-gradient(135deg, #0b1e3f 0%, #1e293b 100%)', borderRadius: '40px', padding: '40px', boxShadow: '0 20px 50px rgba(11,30,63,0.18)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '300px' }
   };
 
   const avatarInitial = (name = '') => name?.charAt(0)?.toUpperCase() || '?';
@@ -851,38 +851,46 @@ const Dashboard = ({ setActiveTab }) => {
       <div style={s.grid}>
         {/* ────── ATTENDANCE PORTAL SECTION ────── */}
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <div style={{ ...s.mainTitle, fontSize: '28px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={20} color="#2a3c63ff" /> Attendance Overview
+          <div style={{ ...s.mainTitle, fontSize: '22px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: '#0b1e3f' }}>
+            <Calendar size={22} color="#0b1e3f" /> Attendance Overview
           </div>
-          <div
+          <motion.div
+            whileHover={{ y: -4, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)', borderColor: 'rgba(37,99,235,0.3)' }}
             onClick={(e) => { e.stopPropagation(); setActiveTab('ATTENDANCE'); }}
             style={{
-              padding: '26px 24px',
+              padding: '24px',
               backgroundColor: '#ffffff',
               borderRadius: '24px',
-              border: '1px solid #0b1e3f',
-              borderLeft: '10px solid #0b1e3f',
+              border: '1px solid rgba(15, 23, 42, 0.08)',
+              borderLeft: '6px solid #2563eb',
               display: 'flex',
               alignItems: 'center',
               gap: '20px',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)'
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.02)'
             }}
           >
-            <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '50%', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Calendar size={24} color="#2563eb" />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '15px', fontWeight: '900', color: '#371534ff', letterSpacing: '0.5px' }}>My Attendance</div>
-              <div style={{ fontSize: '22px', fontWeight: '900', color: '#20427cff', marginTop: '2px' }}>Attendance History</div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>My Attendance</div>
+              <div style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a', marginTop: '2px', fontFamily: "'Outfit', sans-serif" }}>Attendance History</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontSize: '11px', fontWeight: '900', letterSpacing: '0.5px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px' }}>
+              <div style={{ position: 'relative', display: 'flex', width: '8px', height: '8px' }}>
+                <motion.span
+                  animate={{ scale: [1, 2.2, 1], opacity: [0.6, 0, 0.6] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: '100%', borderRadius: '50%', backgroundColor: '#22c55e' }}
+                />
+                <span style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: '8px', width: '8px', backgroundColor: '#22c55e' }} />
+              </div>
               <span>LIVE UPDATES</span>
             </div>
-            <ChevronRight size={20} color="#161718ff" />
-          </div>
+            <ChevronRight size={20} color="#64748b" />
+          </motion.div>
         </motion.div>
 
         <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1200 ? '1fr' : '1fr 320px', gap: '30px', marginTop: winWidth < 768 ? '15px' : '30px' }}>
@@ -895,63 +903,65 @@ const Dashboard = ({ setActiveTab }) => {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: winWidth < 768 ? '1fr' : 'repeat(2, 1fr)', gap: winWidth < 768 ? '15px' : '25px', marginBottom: '15px' }}>
-                <div
+                <motion.div
+                  whileHover={{ y: -4, boxShadow: '0 12px 30px rgba(37,99,235,0.12)' }}
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'INDIVIDUAL' }); }}
                   onMouseEnter={() => setHoveredCard('individual')}
                   onMouseLeave={() => setHoveredCard(null)}
                   style={{
-                    padding: winWidth < 768 ? '12px' : '16px',
-                    background: hoveredCard === 'individual' ? '#0b1e3f' : 'white',
-                    borderRadius: '34px',
-                    border: hoveredCard === 'individual' ? '1.5px solid #0b1e3f' : '1.5px solid #1e3a8a',
+                    padding: '20px',
+                    background: hoveredCard === 'individual' ? 'linear-gradient(135deg, #0b1e3f 0%, #1d4ed8 100%)' : 'white',
+                    borderRadius: '24px',
+                    border: hoveredCard === 'individual' ? '1px solid #1e3a8a' : '1px solid rgba(15, 23, 42, 0.08)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: winWidth < 768 ? '15px' : '25px',
+                    gap: '20px',
                     cursor: 'pointer',
-                    transition: 'all 0.25s ease',
-                    boxShadow: hoveredCard === 'individual' ? '0 10px 25px rgba(11,30,63,0.2)' : '0 10px 20px rgba(37,99,235,0.03)'
+                    transition: 'background 0.3s ease, border 0.3s ease',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.01)'
                   }}
                 >
-                  <div style={{ backgroundColor: 'white', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%', border: '1.5px solid #bfdbfe', boxShadow: '0 4px 10px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <User size={winWidth < 768 ? 22 : 28} color="#2563eb" />
+                  <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <User size={24} color="#2563eb" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '15px', fontWeight: '800', color: hoveredCard === 'individual' ? 'white' : '#475569', letterSpacing: '0.5px', transition: 'color 0.2s ease' }}>Individual</div>
-                    <div style={{ fontSize: winWidth < 768 ? '20px' : '22px', fontWeight: '900', color: hoveredCard === 'individual' ? 'white' : '#0b1e3f', transition: 'color 0.2s ease', marginTop: '2px' }}>
-                      {individualProjects.length} <span style={{ fontSize: winWidth < 768 ? '14px' : '15px', color: hoveredCard === 'individual' ? 'white' : '#64748b', fontWeight: '700', transition: 'color 0.2s ease' }}>Projects</span>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: hoveredCard === 'individual' ? 'rgba(255,255,255,0.8)' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Individual</div>
+                    <div style={{ fontSize: '22px', fontWeight: '900', color: hoveredCard === 'individual' ? 'white' : '#0f172a', marginTop: '2px', fontFamily: "'Outfit', sans-serif" }}>
+                      {individualProjects.length} <span style={{ fontSize: '14px', color: hoveredCard === 'individual' ? 'rgba(255,255,255,0.7)' : '#64748b', fontWeight: '700' }}>Projects</span>
                     </div>
                   </div>
-                  <ChevronRight size={20} color={hoveredCard === 'individual' ? 'white' : '#2563eb'} style={{ transition: 'color 0.2s ease' }} />
-                </div>
+                  <ChevronRight size={20} color={hoveredCard === 'individual' ? 'white' : '#64748b'} />
+                </motion.div>
 
-                <div
+                <motion.div
+                  whileHover={{ y: -4, boxShadow: '0 12px 30px rgba(124,58,237,0.12)' }}
                   onClick={(e) => { e.stopPropagation(); setActiveTab('PROJECTS', { view: 'TEAM' }); }}
                   onMouseEnter={() => setHoveredCard('team')}
                   onMouseLeave={() => setHoveredCard(null)}
                   style={{
-                    padding: winWidth < 768 ? '12px' : '16px',
-                    background: hoveredCard === 'team' ? '#0b1e3f' : 'white',
-                    borderRadius: '34px',
-                    border: hoveredCard === 'team' ? '1.5px solid #0b1e3f' : '1.5px solid #5b21b6',
+                    padding: '20px',
+                    background: hoveredCard === 'team' ? 'linear-gradient(135deg, #0b1e3f 0%, #6d28d9 100%)' : 'white',
+                    borderRadius: '24px',
+                    border: hoveredCard === 'team' ? '1px solid #5b21b6' : '1px solid rgba(15, 23, 42, 0.08)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: winWidth < 768 ? '15px' : '25px',
+                    gap: '20px',
                     cursor: 'pointer',
-                    transition: 'all 0.25s ease',
-                    boxShadow: hoveredCard === 'team' ? '0 10px 25px rgba(11,30,63,0.2)' : '0 10px 20px rgba(124,58,237,0.03)'
+                    transition: 'background 0.3s ease, border 0.3s ease',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.01)'
                   }}
                 >
-                  <div style={{ backgroundColor: 'white', padding: winWidth < 768 ? '8px' : '12px', borderRadius: '50%', border: '1.5px solid #ddd6fe', boxShadow: '0 4px 10px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Users size={28} color="#7c3aed" />
+                  <div style={{ backgroundColor: '#f5f3ff', padding: '12px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users size={24} color="#7c3aed" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '15px', fontWeight: '800', color: hoveredCard === 'team' ? 'white' : '#475569', letterSpacing: '0.5px', transition: 'color 0.2s ease' }}>Team</div>
-                    <div style={{ fontSize: winWidth < 768 ? '20px' : '22px', fontWeight: '900', color: hoveredCard === 'team' ? 'white' : '#0b1e3f', transition: 'color 0.2s ease', marginTop: '2px' }}>
-                      {teamProjects.length} <span style={{ fontSize: winWidth < 768 ? '14px' : '15px', color: hoveredCard === 'team' ? 'white' : '#64748b', fontWeight: '700', transition: 'color 0.2s ease' }}>Projects</span>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: hoveredCard === 'team' ? 'rgba(255,255,255,0.8)' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Team</div>
+                    <div style={{ fontSize: '22px', fontWeight: '900', color: hoveredCard === 'team' ? 'white' : '#0f172a', marginTop: '2px', fontFamily: "'Outfit', sans-serif" }}>
+                      {teamProjects.length} <span style={{ fontSize: '14px', color: hoveredCard === 'team' ? 'rgba(255,255,255,0.7)' : '#64748b', fontWeight: '700' }}>Projects</span>
                     </div>
                   </div>
-                  <ChevronRight size={20} color={hoveredCard === 'team' ? 'white' : '#7c3aed'} style={{ transition: 'color 0.2s ease' }} />
-                </div>
+                  <ChevronRight size={20} color={hoveredCard === 'team' ? 'white' : '#64748b'} />
+                </motion.div>
               </div>
 
 
@@ -959,12 +969,12 @@ const Dashboard = ({ setActiveTab }) => {
                 <div style={{ ...s.yesterdayBox, position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={s.yesterdayLabel}>
-                      <CheckCircle2 size={22} color="#0B1E3F" /> Yesterday
+                      <CheckCircle2 size={20} color="#16a34a" /> Yesterday
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveTab('FOCUS_LOGS'); }}
-                        style={{ ...s.editBtn, background: 'white', border: '1.5px solid #0f4824ff', color: '#15803d', padding: '8px 14px', borderRadius: '20px', fontSize: '11px', fontFamily: 'sans-serif' }}
+                        style={{ ...s.editBtn, background: 'white', border: '1px solid #16a34a', color: '#16a34a', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' }}
                       >
                         View Report &rarr;
                       </button>
@@ -972,16 +982,12 @@ const Dashboard = ({ setActiveTab }) => {
                   </div>
 
                   {yesterdayTasks.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '10px 0', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px', flex: 1 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '12px 0', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px', flex: 1 }}>
                       {yesterdayTasks.map((t, i) => {
-                        const taskId = typeof t === 'object' ? Number(t.id) : null;
-                        const timeStr = (!isNaN(taskId) && taskId > 1000000000000)
-                          ? new Date(taskId).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
-                          : '';
                         return (
                           <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
-                            <CheckCircle2 size={12} color="#16a34a" flexShrink={0} />
-                            <span style={{ fontSize: '12px', color: '#475569' }}>
+                            <CheckCircle2 size={12} color="#16a34a" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
                               {typeof t === 'string' ? t : t.text}
                             </span>
                           </div>
@@ -989,14 +995,22 @@ const Dashboard = ({ setActiveTab }) => {
                       })}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#64748b', fontWeight: '600', fontSize: '16px' }}>
-                      No log found.
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, margin: '20px 0', color: '#94a3b8', fontWeight: '600', fontSize: '14px' }}>
+                      No logs found.
                     </div>
                   )}
 
                   {yesterdayTasks.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
-                      <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
+                      <div style={{
+                        padding: '4px 12px',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        background: yesterdayStatus === 'Completed' ? '#dcfce7' : yesterdayStatus === 'In Progress' ? '#dbeafe' : '#fef3c7',
+                        color: yesterdayStatus === 'Completed' ? '#15803d' : yesterdayStatus === 'In Progress' ? '#1d4ed8' : '#b45309',
+                      }}>
                         {yesterdayStatus && yesterdayStatus !== 'No Data' ? yesterdayStatus : 'Pending'}
                       </div>
                     </div>
@@ -1006,14 +1020,14 @@ const Dashboard = ({ setActiveTab }) => {
                 <div style={s.todayBox} onClick={(e) => e.stopPropagation()}>
                   <div style={s.todayHeader}>
                     <div style={s.todayLabel}>
-                      <TrendingUp size={22} color="#0B1E3F" /> Today
+                      <TrendingUp size={20} color="#2563eb" /> Today
                     </div>
                     {!isEditing ? (
                       <button style={s.editBtn} onClick={startEditing}>
-                        <Edit3 size={14} color="#0B1E3F" /> Edit
+                        <Edit3 size={12} color="#475569" /> Edit
                       </button>
                     ) : (
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button style={{ ...s.editBtn, background: '#f8fafc', color: '#64748b' }} onClick={() => setIsEditing(false)}>Cancel</button>
                         {(() => {
                           const hasValidTask = editBuffer.some(t => t.text && t.text.trim() !== '');
@@ -1021,10 +1035,11 @@ const Dashboard = ({ setActiveTab }) => {
                             <button
                               style={{
                                 ...s.editBtn,
-                                background: hasValidTask ? '#1e40af' : '#cbd5e1',
+                                background: hasValidTask ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#cbd5e1',
                                 color: 'white',
                                 border: 'none',
-                                cursor: hasValidTask ? 'pointer' : 'not-allowed'
+                                cursor: hasValidTask ? 'pointer' : 'not-allowed',
+                                boxShadow: hasValidTask ? '0 4px 12px rgba(37, 99, 235, 0.2)' : 'none'
                               }}
                               onClick={hasValidTask ? handleSaveTasks : undefined}
                               disabled={!hasValidTask}
@@ -1039,25 +1054,34 @@ const Dashboard = ({ setActiveTab }) => {
 
                   {!isEditing ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      {/* Manual Logged Tasks ONLY (as requested to remove assigned projects from here as well) */}
-                      <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '12px 0', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px', flex: 1 }}>
                         {todayTasks.length > 0 ? (
                           todayTasks.map((t, i) => {
                             return (
-                              <div key={i} style={s.taskItem}>
-                                <CheckCircle2 size={14} color="#3b82f6" />
-                                <span style={{ flex: 1 }}>{typeof t === 'string' ? t : t.text}</span>
+                              <div key={i} style={{ ...s.taskItem, padding: 0, border: 'none', background: 'transparent' }}>
+                                <CheckCircle2 size={12} color="#2563eb" style={{ flexShrink: 0 }} />
+                                <span style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                                  {typeof t === 'string' ? t : t.text}
+                                </span>
                               </div>
                             );
                           })
                         ) : (
-                          <div style={{ backgroundColor: '#fff7ed', border: '1.5px solid #ffedd5', padding: '12px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
-                            <AlertCircle size={16} /> Update ur todays task
+                          <div style={{ backgroundColor: '#fff7ed', border: '1px solid #ffedd5', padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0', color: '#c2410c', fontSize: '13px', fontWeight: '800' }}>
+                            <AlertCircle size={16} /> Update your tasks for today
                           </div>
                         )}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: '10px' }}>
-                        <div style={{ padding: '5px 12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #0B1E3F', color: '#0B1E3F', fontSize: '12px', fontWeight: '1000', }}>
+                        <div style={{
+                          padding: '4px 12px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          background: todayStatus === 'Completed' ? '#dcfce7' : todayStatus === 'In Progress' ? '#dbeafe' : '#fef3c7',
+                          color: todayStatus === 'Completed' ? '#15803d' : todayStatus === 'In Progress' ? '#1d4ed8' : '#b45309',
+                        }}>
                           {todayStatus && todayStatus !== 'No Data' ? todayStatus : 'PENDING'}
                         </div>
                       </div>
@@ -1075,7 +1099,7 @@ const Dashboard = ({ setActiveTab }) => {
                                 nb[i].text = e.target.value;
                                 setEditBuffer(nb);
                               }}
-                              style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none' }}
+                              style={{ flex: 1, padding: '10px 15px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', transition: 'border-color 0.2s', fontFamily: 'inherit' }}
                               placeholder="Type task details..."
                             />
                             <button onClick={() => setEditBuffer(editBuffer.filter((_, idx) => idx !== i))} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -1084,7 +1108,7 @@ const Dashboard = ({ setActiveTab }) => {
                           </div>
                         ))}
                       </div>
-                      <button onClick={() => setEditBuffer([...editBuffer, { text: '', id: Date.now() }])} style={{ padding: '8px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '10px' }}>
+                      <button onClick={() => setEditBuffer([...editBuffer, { text: '', id: Date.now() }])} style={{ padding: '8px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', background: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '10px', transition: 'all 0.2s' }}>
                         + Add Task
                       </button>
                       <div style={{ marginTop: 'auto', paddingTop: '15px' }}>
@@ -1092,7 +1116,7 @@ const Dashboard = ({ setActiveTab }) => {
                         <select
                           value={editStatus}
                           onChange={e => setEditStatus(e.target.value)}
-                          style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', fontWeight: '700' }}
+                          style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', fontWeight: '700', fontFamily: 'inherit' }}
                         >
                           <option value="Pending">Pending (Default)</option>
                           <option value="In Progress">In Progress</option>
@@ -1114,13 +1138,20 @@ const Dashboard = ({ setActiveTab }) => {
             </motion.div>
           </div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} style={{ ...s.statsCard, minHeight: 'fit-content', padding: '30px', borderRadius: winWidth < 768 ? '25px' : '45px' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: 'white', textAlign: 'center', marginBottom: '24px', fontFamily: "'Outfit', 'Inter', sans-serif" }}>Yesterday Progress</div>
-            <div style={{ width: '130px', height: '130px', borderRadius: '50%', background: `radial-gradient(closest-side, #0B1E3F 79%, transparent 80% 100%), conic-gradient(#38bdf8 ${yesterdayCompletion}%, rgba(255,255,255,0.1) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-              <span style={{ fontSize: '24px', fontWeight: '900', color: 'white' }}>{yesterdayCompletion}%</span>
+          <motion.div
+            whileHover={{ y: -4 }}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            style={{ ...s.statsCard, minHeight: 'fit-content', padding: '30px', borderRadius: winWidth < 768 ? '25px' : '40px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '18px', fontWeight: '900', color: 'white', textAlign: 'center', marginBottom: '24px', fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.3px' }}>Yesterday Progress</div>
+            <div style={{ width: '130px', height: '130px', borderRadius: '50%', background: `radial-gradient(closest-side, #0e1e38 79%, transparent 80% 100%), conic-gradient(#3b82f6 ${yesterdayCompletion}%, rgba(255,255,255,0.08) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
+              <span style={{ fontSize: '24px', fontWeight: '900', color: 'white', fontFamily: "'Outfit', sans-serif" }}>{yesterdayCompletion}%</span>
             </div>
-            <div style={{ marginTop: '24px', fontSize: '11px', color: yesterdayCompletion === 100 ? '#4ade80' : '#cbd5e1', fontWeight: '800', textAlign: 'center', backgroundColor: yesterdayCompletion === 100 ? 'rgba(22, 163, 74, 0.2)' : 'rgba(255, 255, 255, 0.1)', padding: '10px 20px', borderRadius: '15px' }}>
-              {yesterdayCompletion === 100 ? 'Completed' : yesterdayCompletion > 0 ? 'In Progress' : 'Verified'}
+            <div style={{ marginTop: '24px', fontSize: '11px', color: yesterdayCompletion === 100 ? '#4ade80' : '#cbd5e1', fontWeight: '800', textAlign: 'center', backgroundColor: yesterdayCompletion === 100 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.06)', padding: '10px 20px', borderRadius: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              {yesterdayCompletion === 100 ? 'Completed' : yesterdayCompletion > 0 ? 'In Progress' : 'Pending'}
             </div>
           </motion.div>
         </div>
@@ -1154,22 +1185,45 @@ const Dashboard = ({ setActiveTab }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
               {birthdaysList.slice(0, 2).map((b, idx) => {
                 return (
-                  <div key={idx} style={{ padding: '14px 18px', backgroundColor: '#f8fafc', borderRadius: '18px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
+                  <motion.div
+                    whileHover={{ y: -2, boxShadow: '0 8px 20px rgba(244,63,94,0.06)' }}
+                    key={idx}
+                    style={{ padding: '14px 18px', backgroundColor: '#fff5f5', borderRadius: '18px', border: '1px solid #ffe3e3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', transition: 'all 0.2s' }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e2e8f0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px', flexShrink: 0, overflow: 'hidden' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', border: '2px solid #fecdd3', backgroundColor: '#ffe4e6', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px', flexShrink: 0, overflow: 'hidden' }}>
                         {b.profileImage ? <img src={`${BASE_URL}${b.profileImage}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : avatarInitial(b.name)}
                       </div>
                       <div>
-                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>{b.name}</div>
-                        <div style={{ fontSize: '11px', fontWeight: '600', color: '#000000', marginTop: '4px', lineHeight: '1.2' }}>
-                          {(() => {
+                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2', fontFamily: "'Outfit', sans-serif" }}>{b.name}</div>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: '#e11d48', marginTop: '4px', lineHeight: '1.2' }}>
+                          🎂 {(() => {
                             const nextDob = getNextOccurrence(b.date || b.dob);
                             return `${String(nextDob.getDate()).padStart(2, '0')}/${String(nextDob.getMonth() + 1).padStart(2, '0')}/${nextDob.getFullYear()}`;
                           })()}
                         </div>
                       </div>
                     </div>
-                  </div>
+                    {b.name !== (user?.name || user?.employee_name) && (
+                      <button
+                        onClick={() => sendBirthdayWish(b)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          backgroundColor: '#f43f5e',
+                          color: 'white',
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 10px rgba(244, 63, 94, 0.2)',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        Wish 🎂
+                      </button>
+                    )}
+                  </motion.div>
                 );
               })}
               {birthdaysList.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#fb7185', fontWeight: '700', fontSize: '13px', backgroundColor: 'transparent', borderRadius: '20px' }}>No upcoming birthdays.</div>}
@@ -1205,24 +1259,28 @@ const Dashboard = ({ setActiveTab }) => {
               {holidays.filter(h => new Date(h.date) >= new Date().setHours(0, 0, 0, 0)).slice(0, 2).map((h, idx) => {
                 const hDate = new Date(h.date);
                 return (
-                  <div key={idx} style={{ padding: '14px 18px', backgroundColor: '#eff6ff', borderRadius: '18px', border: '1px solid #dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
+                  <motion.div
+                    whileHover={{ y: -2, boxShadow: '0 8px 20px rgba(37,99,235,0.06)' }}
+                    key={idx}
+                    style={{ padding: '14px 18px', backgroundColor: '#f0f7ff', borderRadius: '18px', border: '1px solid #dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', transition: 'all 0.2s' }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: '#1e3a8a', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ fontSize: '8px', fontWeight: '800', textTransform: 'uppercase', opacity: 0.9 }}>
+                      <div style={{ width: '44px', height: '46px', borderRadius: '10px', border: '1px solid #bfdbfe', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexShrink: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }}>
+                        <div style={{ backgroundColor: '#2563eb', color: 'white', fontSize: '8px', fontWeight: '900', textTransform: 'uppercase', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', letterSpacing: '0.5px' }}>
                           {hDate.toLocaleString('default', { month: 'short' })}
-                        </span>
-                        <span style={{ fontSize: '14px', fontWeight: '900', lineHeight: '1.1' }}>
+                        </div>
+                        <div style={{ backgroundColor: 'white', color: '#1e293b', fontSize: '15px', fontWeight: '900', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
                           {hDate.getDate()}
-                        </span>
+                        </div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2' }}>{h.name}</div>
-                        <div style={{ fontSize: '11px', color: '#000000', fontWeight: '600', marginTop: '4px', textTransform: 'capitalize', lineHeight: '1.2' }}>
-                          {hDate.toLocaleDateString('en-US', { weekday: 'long' })}
+                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2', fontFamily: "'Outfit', sans-serif" }}>{h.name}</div>
+                        <div style={{ fontSize: '11px', color: '#475569', fontWeight: '700', marginTop: '4px', textTransform: 'capitalize', lineHeight: '1.2' }}>
+                          📅 {hDate.toLocaleDateString('en-US', { weekday: 'long' })}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
               {holidays.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#d97706', fontWeight: '700', fontSize: '13px', backgroundColor: 'transparent', borderRadius: '20px' }}>No upcoming holidays.</div>}
@@ -1232,10 +1290,10 @@ const Dashboard = ({ setActiveTab }) => {
 
         {/* Team Suggestions */}
         {suggestions.length > 0 && (
-          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '25px', width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '2px solid #cbd5e1', marginTop: '20px' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ fontSize: '16px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={24} color="#f59e0b" /> Saturday Suggestions
+          <div style={{ backgroundColor: 'white', borderRadius: '32px', padding: '30px', width: '100%', boxShadow: '0 20px 40px -15px rgba(15, 23, 42, 0.04)', border: '1px solid rgba(15, 23, 42, 0.06)', marginTop: '30px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Outfit', sans-serif" }}>
+                <FileText size={22} color="#d97706" /> Saturday Suggestions
               </div>
               <button
                 onClick={() => { if (typeof setActiveTab === 'function') setActiveTab('SATURDAY_SUGGESTIONS'); }}
@@ -1260,13 +1318,17 @@ const Dashboard = ({ setActiveTab }) => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {suggestions.slice(0, 3).map((sug, i) => (
-                <div key={i} style={{ padding: '14px 18px', borderRadius: '18px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F' }}>
-                      {sug.employee_name || 'Anonymous'}
+                <motion.div
+                  whileHover={{ y: -2, boxShadow: '0 8px 20px rgba(217,119,6,0.04)' }}
+                  key={i}
+                  style={{ padding: '16px 20px', borderRadius: '20px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', transition: 'all 0.2s' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#b45309', fontFamily: "'Outfit', sans-serif" }}>
+                      💡 {sug.employee_name || 'Anonymous'}
                     </div>
                     {(sug.created_at || sug.timestamp || sug.date || sug.createdAt) && (
-                      <div style={{ fontSize: '10px', color: '#161718ff', fontWeight: '800' }}>
+                      <div style={{ fontSize: '10px', color: '#b45309', opacity: 0.8, fontWeight: '700' }}>
                         {(() => {
                           const d = new Date(sug.created_at || sug.timestamp || sug.date || sug.createdAt);
                           return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -1275,16 +1337,16 @@ const Dashboard = ({ setActiveTab }) => {
                     )}
                   </div>
                   {sug.requirement && (
-                    <div style={{ fontSize: '12px', color: '#141415ff', marginBottom: '4px' }}>
-                      <strong>Requirements:</strong> {sug.requirement}
+                    <div style={{ fontSize: '12.5px', color: '#451a03', marginBottom: '6px', lineHeight: '1.4' }}>
+                      <strong style={{ color: '#78350f' }}>Requirement:</strong> {sug.requirement}
                     </div>
                   )}
                   {sug.suggestion && (
-                    <div style={{ fontSize: '12px', color: '#141415ff' }}>
-                      <strong>Suggestions:</strong> {sug.suggestion}
+                    <div style={{ fontSize: '12.5px', color: '#451a03', lineHeight: '1.4' }}>
+                      <strong style={{ color: '#78350f' }}>Suggestion:</strong> {sug.suggestion}
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>

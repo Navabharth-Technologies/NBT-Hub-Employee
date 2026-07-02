@@ -143,6 +143,7 @@ export const API_ENDPOINTS = {
   // Resignation System
   RESIGNATION_SUBMIT: `${BASE_URL}/api/resignations`,
   RESIGNATION_MY: `${BASE_URL}/api/resignations/my`,
+  EXIT_FORMALITIES: `${BASE_URL}/api/exit-formalities`,
 
   // Service Certificate System
   SERVICE_CERT_SUBMIT: `${BASE_URL}/api/service-certificates`,
@@ -173,7 +174,8 @@ export const API_ENDPOINTS = {
   PASSWORD_RESET: `${BASE_URL}/api/password/reset-with-otp`,
   CHANGE_PASSWORD: `${BASE_URL}/api/password/change-password`,
   QUIZ_USER_POINTS: `${BASE_URL}/api/quizzes/user-points`,
-  QUIZ_LEADERBOARD: `${BASE_URL}/api/quizzes/leaderboard`
+  QUIZ_LEADERBOARD: `${BASE_URL}/api/quizzes/leaderboard`,
+  EXIT_FEEDBACK: `${BASE_URL}/api/exit-feedback`
 };
 
 export const INTERN_API_ENDPOINTS = {

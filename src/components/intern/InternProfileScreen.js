@@ -34,12 +34,7 @@ const formatDOB = (val) => {
 export default function InternProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
-  const hideForJoinees = !!(
-    isNewJoinee ||
-    user?.isNewJoinee ||
-    String(user?.role || '').toUpperCase().includes('TRAINEE') ||
-    String(user?.role || '').toUpperCase().includes('JOINEE')
-  );
+  const hideForJoinees = false;
   const [activeTab, setActiveTab] = useState('My Profile');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [hoverSecurity, setHoverSecurity] = useState(false);
@@ -213,28 +208,50 @@ export default function InternProfileScreen({ isNewJoinee, onNavigate, onBack })
   const fetchReportingManager = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const empId = user?.employee_id || user?.id || user?.userId;
+      let empId = user?.employee_id || user?.id || user?.userId;
       if (!empId && !user?.email) return;
 
-      // 1. Fetch Primary Profile
-      const resp = await fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
-        headers: { 'Authorization': `Bearer ${token?.trim()}` }
-      });
-
-      let metaResp = { ok: false };
-      if (empId) {
-        metaResp = await fetch(API_ENDPOINTS.EMPLOYEE_PROFILE(empId), {
-          headers: { 'Authorization': `Bearer ${token?.trim()}` }
-        });
-      }
-
-      // 2. Fetch Users List for correct ID mapping (requested source)
+      // 1. Fetch Users List first for correct ID mapping
       const uResp = await fetch(API_ENDPOINTS.USERS, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const mResp = await fetch(API_ENDPOINTS.MANAGERS || BASE_URL + '/api/users', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
+      let currentUser = null;
+      let usersList = [];
+      let managersList = [];
+      let combinedUsers = [];
+      if (uResp.ok) {
+        usersList = await uResp.json();
+        if (mResp.ok) managersList = await mResp.json();
+        combinedUsers = [...usersList, ...managersList];
+
+        currentUser = usersList.find(u =>
+          (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
+          (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
+        );
+
+        // Fallback to match by role if not found (e.g. new joinees whose email is not in users table)
+        if (!currentUser && user?.role) {
+          currentUser = combinedUsers.find(u =>
+            u.role && String(u.role).toLowerCase() === String(user.role).toLowerCase()
+          );
+        }
+      }
+
+      const resolvedEmpId = currentUser ? (currentUser.employee_id || currentUser.id) : empId;
+
+      // 2. Fetch Primary Profile & Meta Profile
+      const [resp, metaResp] = await Promise.all([
+        fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
+          headers: { 'Authorization': `Bearer ${token?.trim()}` }
+        }).catch(() => ({ ok: false })),
+        resolvedEmpId ? fetch(API_ENDPOINTS.EMPLOYEE_PROFILE(resolvedEmpId), {
+          headers: { 'Authorization': `Bearer ${token?.trim()}` }
+        }).catch(() => ({ ok: false })) : Promise.resolve({ ok: false })
+      ]);
 
       // 3. Fetch Teams API to perfectly map RM based on Team Leader
       let teamsData = [];
@@ -276,71 +293,59 @@ export default function InternProfileScreen({ isNewJoinee, onNavigate, onBack })
         }
       }
 
-      if (uResp.ok) {
-        const usersList = await uResp.json();
-        let managersList = [];
-        if (mResp.ok) managersList = await mResp.json();
-        
-        const combinedUsers = [...usersList, ...managersList];
-        
-        const currentUser = usersList.find(u =>
-          (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
-          (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
-        );
-        if (currentUser) {
-          const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
-          if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
-          const eid = currentUser.employee_id || currentUser.id;
-          if (eid) {
-            const raw = String(eid);
-            const len = raw.length;
-            let clean = raw;
-            if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0, p) === raw.slice(p, p * 2) && raw.slice(0, p) === raw.slice(p * 2)) clean = raw.slice(0, p); }
-            else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0, p) === raw.slice(p)) clean = raw.slice(0, p); }
-            setCleanEmployeeId(clean);
-          }
+      if (currentUser) {
+        const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
+        if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
+        const eid = currentUser.employee_id || currentUser.id;
+        if (eid) {
+          const raw = String(eid);
+          const len = raw.length;
+          let clean = raw;
+          if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0, p) === raw.slice(p, p * 2) && raw.slice(0, p) === raw.slice(p * 2)) clean = raw.slice(0, p); }
+          else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0, p) === raw.slice(p)) clean = raw.slice(0, p); }
+          setCleanEmployeeId(clean);
+        }
 
-          // Fetch Team Name from Users table
-          let fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
+        // Fetch Team Name from Users table
+        let fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
 
-          // Reporting Manager Lookup in users list
-          const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
-          if (targetRmId) {
-            mId = targetRmId;
-            const mgr = combinedUsers.find(u => String(u.id || u.employee_id) === String(targetRmId));
-            if (mgr) {
-              mName = mgr.name || mgr.emp_name;
-              // Inherit team from Reporting Manager if intern doesn't have one explicitly
-              if (!fetchedTeam) {
-                fetchedTeam = mgr.team || mgr.process || mgr.department || mgr.team_name;
-              }
+        // Reporting Manager Lookup in users list
+        const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
+        if (targetRmId) {
+          mId = targetRmId;
+          const mgr = combinedUsers.find(u => String(u.id || u.employee_id) === String(targetRmId));
+          if (mgr) {
+            mName = mgr.name || mgr.emp_name;
+            // Inherit team from Reporting Manager if intern doesn't have one explicitly
+            if (!fetchedTeam) {
+              fetchedTeam = mgr.team || mgr.process || mgr.department || mgr.team_name;
             }
           }
+        }
 
-          if (fetchedTeam) setTeamName(fetchedTeam);
-          else setTeamName('Unassigned');
+        if (fetchedTeam) setTeamName(fetchedTeam);
+        else setTeamName('Unassigned');
 
-          // Fallback to Team Leader dynamically if no explicit reporting manager is set
-          if (!mName && fetchedTeam) {
-            // Check the TEAMS API
-            const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
-            const matchingTeam = teamsData.find(t =>
-              String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
+        // Fallback to Team Leader dynamically if no explicit reporting manager is set
+        if (!mName && fetchedTeam) {
+          // Check the TEAMS API
+          const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
+          const matchingTeam = teamsData.find(t =>
+            String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
+          );
+          if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
+            mName = matchingTeam.leader || matchingTeam.lead;
+          } else {
+            // Fallback to user list
+            const teamLeader = combinedUsers.find(u =>
+              (String(u.role || '').toLowerCase().includes('teamleader') ||
+                String(u.role || '').toLowerCase() === 'team_leader' ||
+                String(u.designation || '').toLowerCase().includes('team leader')) &&
+              (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
             );
-            if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
-              mName = matchingTeam.leader || matchingTeam.lead;
-            } else {
-              // Fallback to user list
-              const teamLeader = combinedUsers.find(u =>
-                (String(u.role || '').toLowerCase().includes('teamleader') ||
-                  String(u.role || '').toLowerCase() === 'team_leader' ||
-                  String(u.designation || '').toLowerCase().includes('team leader')) &&
-                (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
-              );
-              if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
-                mName = teamLeader.name || teamLeader.emp_name;
-                mId = teamLeader.id || teamLeader.employee_id;
-              }
+            if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
+              mName = teamLeader.name || teamLeader.emp_name;
+              mId = teamLeader.id || teamLeader.employee_id;
             }
           }
         }

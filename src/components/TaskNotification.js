@@ -88,9 +88,12 @@ const TaskNotification = ({ onOpenTask }) => {
 
         const rawMsg = gn.message || gn.content || gn.description || '';
         let dynamicTitle = gn.title;
+        const lowerMsg = rawMsg.toLowerCase();
+        const isResignation = lowerMsg.includes('resignation') || lowerMsg.includes('exit formalities') || (gn.type && gn.type.toUpperCase() === 'RESIGNATION');
         
-        if (!dynamicTitle || dynamicTitle === 'System Alert' || dynamicTitle.toLowerCase().includes('system alert')) {
-            const lowerMsg = rawMsg.toLowerCase();
+        if (isResignation) {
+            dynamicTitle = 'Resignation Updates';
+        } else if (!dynamicTitle || dynamicTitle === 'System Alert' || dynamicTitle.toLowerCase().includes('system alert')) {
             if (lowerMsg.includes('ticket')) {
                 dynamicTitle = 'Ticket response';
             } else if (lowerMsg.includes('leave') && (lowerMsg.includes('approved') || lowerMsg.includes('accepted'))) {
@@ -304,6 +307,8 @@ const TaskNotification = ({ onOpenTask }) => {
                           tab = 'THREAD';
                         } else if (nType === 'QUIZ' || nTitle.includes('quiz') || nDesc.includes('quiz')) {
                           tab = 'FUN';
+                        } else if (nType === 'RESIGNATION' || nTitle.includes('resignation') || nDesc.includes('resignation') || nTitle.includes('exit formalities') || nDesc.includes('exit formalities')) {
+                          tab = 'RESIGNATION';
                         } else if (
                           nType === 'TASK' ||
                           nTitle.includes('task') ||
@@ -314,7 +319,7 @@ const TaskNotification = ({ onOpenTask }) => {
                         ) {
                           tab = 'PROJECTS';
                         }
-
+ 
                         onOpenTask(tab);
                         setIsOpen(false);
                         setHasUnread(false);

@@ -32,25 +32,75 @@ const AttendanceScreen = ({ onBack }) => {
     }
 
     try {
-      const res = await fetch(API_ENDPOINTS.ATTENDANCE_LOGS(uid), {
-        headers: {
-          'Authorization': `Bearer ${token?.trim()}`,
-          'Accept': 'application/json'
+      const cleanToken = token.replace(/['"]+/g, '').trim();
+      let uidsToFetch = [String(uid).split(':')[0].trim()];
+
+      // Resolve the actual employee ID from the users list by matching the role as a fallback
+      try {
+        const uResp = await fetch(API_ENDPOINTS.USERS, {
+          headers: { 'Authorization': `Bearer ${cleanToken}` }
+        });
+        if (uResp.ok) {
+          const usersList = await uResp.json();
+          const list = Array.isArray(usersList) ? usersList : (usersList.data || []);
+          let dbUser = list.find(u =>
+            (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
+            (String(u.employee_id || u.id).split(':')[0] === String(uid).split(':')[0])
+          );
+          if (!dbUser && user?.role) {
+            dbUser = list.find(u =>
+              u.role && String(u.role).toLowerCase() === String(user.role).toLowerCase()
+            );
+          }
+          if (dbUser) {
+            const resolvedId = String(dbUser.employee_id || dbUser.id || '').split(':')[0].trim();
+            if (resolvedId && !uidsToFetch.includes(resolvedId)) {
+              uidsToFetch.push(resolvedId);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error resolving uid in fetchLogs:", e);
+      }
+
+      const fetchPromises = uidsToFetch.map(async (currUid) => {
+        const res = await fetch(API_ENDPOINTS.ATTENDANCE_LOGS(currUid), {
+          headers: {
+            'Authorization': `Bearer ${cleanToken}`,
+            'Accept': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return Array.isArray(data) ? data : (data.value || data.data || data.logs || []);
+        }
+        return [];
+      });
+
+      const results = await Promise.all(fetchPromises);
+      const logsMap = {};
+      results.flat().forEach(log => {
+        if (log && (log.id || log.punch_date || log.date)) {
+          const key = log.id || `${log.punch_date || log.date}_${log.in_time || ''}_${log.out_time || ''}`;
+          if (log.user_name === 'Unknown' || log.Name === 'Unknown') {
+            log.user_name = user?.name || log.user_name;
+            log.Name = user?.name || log.Name;
+          }
+          logsMap[key] = log;
         }
       });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by date descending
-        const sortedLogs = data.sort((a, b) => new Date(b.punch_date || b.date) - new Date(a.punch_date || a.date)).reverse();
-        setLogs(sortedLogs);
+      const logsArray = Object.values(logsMap);
 
-        // Find today's log to set check-in status
-        const todayStr = new Date().toISOString().split('T')[0]; // Matches YYYY-MM-DD
-        const today = sortedLogs.find(l => (l.punch_date || l.date) === todayStr);
-        if (today) {
-          setTodayLog(today);
-          setIsCheckedIn(!!today.in_time && (!today.out_time || today.out_time === '--:--'));
-        }
+      // Sort by date descending
+      const sortedLogs = logsArray.sort((a, b) => new Date(b.punch_date || b.date) - new Date(a.punch_date || a.date)).reverse();
+      setLogs(sortedLogs);
+
+      // Find today's log to set check-in status
+      const todayStr = new Date().toISOString().split('T')[0]; // Matches YYYY-MM-DD
+      const today = sortedLogs.find(l => (l.punch_date || l.date) === todayStr);
+      if (today) {
+        setTodayLog(today);
+        setIsCheckedIn(!!today.in_time && (!today.out_time || today.out_time === '--:--'));
       }
     } catch (err) {
       console.error("Fetch Logs Error:", err);

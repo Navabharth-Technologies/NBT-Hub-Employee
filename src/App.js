@@ -6,7 +6,7 @@ import Header from './components/Header';
 import NavigationDock from './components/NavigationDock';
 import Dashboard from './components/Dashboard';
 import ProfileScreen from './components/profile/ProfileScreen';
-import { API_ENDPOINTS } from './config';
+import { API_ENDPOINTS, BASE_URL } from './config';
 
 import { ThreadProvider } from './context/ThreadContext';
 import ThreadScreen from './components/ThreadScreen';
@@ -52,8 +52,58 @@ const pathToTab = {
 };
 
 
+// 🔄 Service Certificate Revocation → Re-activation Check
+// If HR deletes a service cert from DB, the resigned employee is re-activated automatically.
+function useCertRevocationReactivation(user, setUser) {
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    const cleanToken = token.replace(/['"+]+/g, '').trim();
+
+    // Only run for users that appear resigned/deactivated
+    const status = String(user?.status || '').toLowerCase().trim();
+    const empStatus = String(user?.employment_status || user?.employmentStatus || '').toLowerCase().trim();
+    const isInactive =
+      ['relieved', 'resigned', 'inactive', 'terminated', 'former'].includes(status) ||
+      ['relieved', 'resigned', 'inactive', 'terminated', 'former'].includes(empStatus) ||
+      Number(user?.is_active) === 0 ||
+      user?.is_active === false;
+
+    if (!isInactive) return;
+
+    (async () => {
+      try {
+        const certRes = await fetch(`${BASE_URL}/api/service-certificates/my`, {
+          headers: { Authorization: `Bearer ${cleanToken}` }
+        });
+        if (!certRes.ok) return;
+        const certData = await certRes.json();
+        const certs = Array.isArray(certData) ? certData : (certData.data || certData.requests || []);
+
+        // If NO service certificate record exists (was deleted from DB) → re-activate
+        if (certs.length === 0) {
+          if (setUser) {
+            setUser(prev => ({
+              ...prev,
+              status: 'active',
+              employment_status: 'active',
+              is_active: 1,
+              isActive: true
+            }));
+          }
+        }
+      } catch (e) {
+        // Network error — fail gracefully, never lock user out
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.employee_id]);
+}
+
 function App() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, setUser } = useAuth();
+  useCertRevocationReactivation(user, setUser);
 
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -86,49 +136,9 @@ function App() {
     } catch { return null; }
   });
 
-  const [isNewJoinee, setIsNewJoinee] = useState(() => {
-    if (!user) return false;
-    const roleStr = String(user.role || '').toUpperCase();
-    return !!(user.isNewJoinee || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE'));
-  });
+  const [isNewJoinee, setIsNewJoinee] = useState(false);
   const scrollRef = useRef(null);
   const isInitialMount = useRef(true);
-
-  React.useEffect(() => {
-    const checkJoineeStatus = async () => {
-      if (user?.email) {
-        const roleStr = String(user.role || '').toUpperCase();
-        // If the user already has the flag or is a trainee, no need to fetch
-        if (user.isNewJoinee || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE')) {
-          setIsNewJoinee(true);
-          return;
-        }
-
-        // Only fetch as a last resort if we don't know for sure
-        try {
-          const res = await fetch(API_ENDPOINTS.NEW_JOINEES_GET);
-          if (res.ok) {
-            const rawJoinees = await res.json();
-            const joineesList = Array.isArray(rawJoinees) ? rawJoinees : (rawJoinees?.value || rawJoinees?.data || []);
-            const isListed = joineesList.some(j => {
-              const jEmail = String(j?.email || j?.email_id || j?.email_address || typeof j === 'string' ? j : '').toLowerCase();
-              const inputEmail = String(user.email).toLowerCase();
-              return (jEmail && (jEmail === inputEmail || jEmail.startsWith(inputEmail.split('@')[0])));
-            });
-            const uid = user?.id || user?.empId || user?.userId || user?.employee_id;
-            if (!uid) return;
-            setIsNewJoinee(isListed || roleStr.includes('TRAINEE') || roleStr.includes('JOINEE') || user.isNewJoinee);
-          } else {
-            setIsNewJoinee(roleStr.includes('TRAINEE') || roleStr.includes('JOINEE') || user.isNewJoinee);
-          }
-        } catch (e) { 
-          console.error("Joinee check failed:", e); 
-          setIsNewJoinee(roleStr.includes('TRAINEE') || roleStr.includes('JOINEE') || user.isNewJoinee);
-        }
-      }
-    };
-    checkJoineeStatus();
-  }, [user]);
 
   const previousUser = useRef(user);
 
@@ -270,7 +280,7 @@ function App() {
     switch (activeTab) {
       case 'HOME': 
         if (isIntern) return <InternDashboard setActiveTab={handleTabChange} />;
-        return (isNewJoinee || user.isNewJoinee) ? <TraineeDashboard /> : <Dashboard setActiveTab={handleTabChange} />;
+        return <Dashboard setActiveTab={handleTabChange} />;
       case 'PROJECTS': return <ProjectScreen onBack={() => setActiveTab('HOME')} defaultView={activeTabState?.view} defaultStatus={activeTabState?.status} />;
       case 'COURSES': return <Courses resumeCourseId={activeTabState?.resumeCourseId} clearState={() => { setActiveTabState(null); handleTabChange('HOME'); }} />;
       case 'THREAD': return <ThreadScreen onBack={() => setActiveTab('HOME')} />;

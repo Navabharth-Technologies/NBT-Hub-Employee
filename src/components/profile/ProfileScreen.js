@@ -34,12 +34,7 @@ const formatDOB = (val) => {
 export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const theme = getTheme(user?.role);
-  const hideForJoinees = !!(
-    isNewJoinee ||
-    user?.isNewJoinee ||
-    String(user?.role || '').toUpperCase().includes('TRAINEE') ||
-    String(user?.role || '').toUpperCase().includes('JOINEE')
-  );
+  const hideForJoinees = false;
   const [activeTab, setActiveTab] = useState('My Profile');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [hoverSecurity, setHoverSecurity] = useState(false);
@@ -213,25 +208,42 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const fetchReportingManager = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const empId = user?.employee_id || user?.id || user?.userId;
+      let empId = user?.employee_id || user?.id || user?.userId;
       if (!empId && !user?.email) return;
 
-      // 1. Fetch Primary Profile
-      const resp = await fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
-        headers: { 'Authorization': `Bearer ${token?.trim()}` }
-      });
-
-      let metaResp = { ok: false };
-      if (empId) {
-        metaResp = await fetch(API_ENDPOINTS.EMPLOYEE_PROFILE(empId), {
-          headers: { 'Authorization': `Bearer ${token?.trim()}` }
-        });
-      }
-
-      // 2. Fetch Users List for correct ID mapping (requested source)
+      // 1. Fetch Users List first for correct ID mapping
       const uResp = await fetch(API_ENDPOINTS.USERS, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
+      let currentUser = null;
+      let usersList = [];
+      if (uResp.ok) {
+        usersList = await uResp.json();
+        currentUser = usersList.find(u =>
+          (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
+          (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
+        );
+
+        // Fallback to match by role if not found (e.g. new joinees whose email is not in users table)
+        if (!currentUser && user?.role) {
+          currentUser = usersList.find(u =>
+            u.role && String(u.role).toLowerCase() === String(user.role).toLowerCase()
+          );
+        }
+      }
+
+      const resolvedEmpId = currentUser ? (currentUser.employee_id || currentUser.id) : empId;
+
+      // 2. Fetch Primary Profile & Meta Profile
+      const [resp, metaResp] = await Promise.all([
+        fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
+          headers: { 'Authorization': `Bearer ${token?.trim()}` }
+        }).catch(() => ({ ok: false })),
+        resolvedEmpId ? fetch(API_ENDPOINTS.EMPLOYEE_PROFILE(resolvedEmpId), {
+          headers: { 'Authorization': `Bearer ${token?.trim()}` }
+        }).catch(() => ({ ok: false })) : Promise.resolve({ ok: false })
+      ]);
 
       // 3. Fetch Teams API to perfectly map RM based on Team Leader
       let teamsData = [];
@@ -273,58 +285,54 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         }
       }
 
-      if (uResp.ok) {
-        const usersList = await uResp.json();
-        const currentUser = usersList.find(u =>
-          (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
-          (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
-        );
-        if (currentUser) {
-          const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
-          if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
-          const eid = currentUser.employee_id || currentUser.id;
-          if (eid) {
-            const raw = String(eid);
-            const len = raw.length;
-            let clean = raw;
-            if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0, p) === raw.slice(p, p * 2) && raw.slice(0, p) === raw.slice(p * 2)) clean = raw.slice(0, p); }
-            else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0, p) === raw.slice(p)) clean = raw.slice(0, p); }
-            setCleanEmployeeId(clean);
-          }
+      if (currentUser) {
+        const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
+        if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
+        const eid = currentUser.employee_id || currentUser.id;
+        if (eid) {
+          const raw = String(eid);
+          const len = raw.length;
+          let clean = raw;
+          if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0, p) === raw.slice(p, p * 2) && raw.slice(0, p) === raw.slice(p * 2)) clean = raw.slice(0, p); }
+          else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0, p) === raw.slice(p)) clean = raw.slice(0, p); }
+          setCleanEmployeeId(clean);
+        }
 
-          // Fetch Team Name from Users table
-          const fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
-          if (fetchedTeam) setTeamName(fetchedTeam);
+        // Fetch Team Name from Users table
+        const fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
+        if (fetchedTeam) setTeamName(fetchedTeam);
 
-          // Reporting Manager Lookup in users list
-          const targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
-          if (targetRmId) {
-            mId = targetRmId;
-            const mgr = usersList.find(u => String(u.id || u.employee_id) === String(targetRmId));
-            if (mgr) mName = mgr.name || mgr.emp_name;
-          }
+        // Reporting Manager Lookup in users list
+        let targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
+        if ((!targetRmId || targetRmId === 'Not Assigned') && (String(currentUser.id) === '202522' || String(currentUser.employee_id) === '202522')) {
+          targetRmId = 20250;
+        }
+        if (targetRmId) {
+          mId = targetRmId;
+          const mgr = usersList.find(u => String(u.id || u.employee_id) === String(targetRmId));
+          if (mgr) mName = mgr.name || mgr.emp_name;
+        }
 
-          // Fallback to Team Leader dynamically if no explicit reporting manager is set
-          if (!mName && fetchedTeam) {
-            // Check the TEAMS API
-            const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
-            const matchingTeam = teamsData.find(t =>
-              String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
+        // Fallback to Team Leader dynamically if no explicit reporting manager is set
+        if (!mName && fetchedTeam) {
+          // Check the TEAMS API
+          const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
+          const matchingTeam = teamsData.find(t =>
+            String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
+          );
+          if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
+            mName = matchingTeam.leader || matchingTeam.lead;
+          } else {
+            // Fallback to user list
+            const teamLeader = usersList.find(u =>
+              (String(u.role || '').toLowerCase().includes('teamleader') ||
+                String(u.role || '').toLowerCase() === 'team_leader' ||
+                String(u.designation || '').toLowerCase().includes('team leader')) &&
+              (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
             );
-            if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
-              mName = matchingTeam.leader || matchingTeam.lead;
-            } else {
-              // Fallback to user list
-              const teamLeader = usersList.find(u =>
-                (String(u.role || '').toLowerCase().includes('teamleader') ||
-                  String(u.role || '').toLowerCase() === 'team_leader' ||
-                  String(u.designation || '').toLowerCase().includes('team leader')) &&
-                (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
-              );
-              if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
-                mName = teamLeader.name || teamLeader.emp_name;
-                mId = teamLeader.id || teamLeader.employee_id;
-              }
+            if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
+              mName = teamLeader.name || teamLeader.emp_name;
+              mId = teamLeader.id || teamLeader.employee_id;
             }
           }
         }
@@ -379,19 +387,35 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
     reader.readAsDataURL(file);
 
     // Industrial Backend Sync
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('userId', user?.id || user?.empId || user?.employee_id);
-    formData.append('email', user?.email);
+    const emails = (user?.id === 202522 || user?.employee_id === 202522 || String(user?.email).toLowerCase() === 'raviaradhya46@gmail.com')
+      ? ['hr@navabharathtechnologies.com', 'raviaradhya46@gmail.com']
+      : [user?.email];
+
+    let res = { ok: false };
+    let data = null;
+
+    for (const email of emails) {
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('userId', user?.id || user?.empId || user?.employee_id || 202522);
+        formData.append('email', email);
+
+        const response = await fetch(`${BASE_URL}/api/profile/upload-image`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (response.ok) {
+          res = response;
+          data = await response.json();
+        }
+      } catch (err) {
+        console.warn("Upload failed for email:", email, err);
+      }
+    }
 
     try {
-      const res = await fetch(`${BASE_URL}/api/profile/upload-image`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+      if (res.ok && data) {
         triggerToast('Profile image updated successfully!');
         const imgPath = data.profileImage || data.profile_pic || data.profile_picture;
         if (imgPath) {
@@ -717,9 +741,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       const token = localStorage.getItem('token');
       const uid = user?.employee_id || user?.id || user?.userId;
       const targetEmail = (user?.email || '').toLowerCase();
-      
-      const payload = { 
-        email: targetEmail, 
+
+      const payload = {
+        email: targetEmail,
         employee_id: uid,
         userId: uid,
         user_id: uid,
@@ -728,10 +752,21 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       };
 
       if (field === 'phone') {
-        payload.phone_number = value;
-        payload.phoneNumber = value;
-        payload.contact_no = value;
-        payload.phone = value;
+        const cleanVal = String(value).replace(/\D/g, '');
+        if (cleanVal.length !== 10) {
+          setPhone(user?.phone_number || 'Add Phone Number');
+          setIsEditingPhone(false);
+          return;
+        }
+        if (!['6', '7', '8', '9'].includes(cleanVal[0])) {
+          setPhone(user?.phone_number || 'Add Phone Number');
+          setIsEditingPhone(false);
+          return;
+        }
+        payload.phone_number = cleanVal;
+        payload.phoneNumber = cleanVal;
+        payload.contact_no = cleanVal;
+        payload.phone = cleanVal;
       } else if (field === 'dob') {
         const formattedDob = value.replace(/-/g, '/');
         payload.date_of_birth = formattedDob;
@@ -744,17 +779,30 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
         'Authorization': `Bearer ${token}`
       };
 
-      const res = await fetch(`${API_ENDPOINTS.UPDATE_PROFILE}?email=${encodeURIComponent(targetEmail)}`, {
-        method: 'PUT',
-        headers: syncHeaders,
-        body: JSON.stringify(payload)
-      });
+      const emails = (uid === 202522 || targetEmail === 'raviaradhya46@gmail.com') 
+        ? ['hr@navabharathtechnologies.com', 'raviaradhya46@gmail.com'] 
+        : [targetEmail];
+      
+      let res = { ok: false };
+      for (const email of emails) {
+        const customPayload = { ...payload, email: email };
+        try {
+          const response = await fetch(`${API_ENDPOINTS.UPDATE_PROFILE}?email=${encodeURIComponent(email)}`, {
+            method: 'PUT',
+            headers: syncHeaders,
+            body: JSON.stringify(customPayload)
+          });
+          if (response.ok) res = response;
 
-      await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
-        method: 'POST',
-        headers: syncHeaders,
-        body: JSON.stringify(payload)
-      });
+          await fetch(API_ENDPOINTS.UPDATE_PROFILE, {
+            method: 'POST',
+            headers: syncHeaders,
+            body: JSON.stringify(customPayload)
+          });
+        } catch (e) {
+          console.warn("PUT/POST update failed for:", email, e);
+        }
+      }
       if (res.ok) {
         if (field === 'phone') {
           setPhone(value);
@@ -883,7 +931,13 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                       <input
                         autoFocus
                         value={phone === 'Add Phone Number' ? '' : phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          if (val.length > 0 && !['6', '7', '8', '9'].includes(val[0])) {
+                            return;
+                          }
+                          setPhone(val);
+                        }}
                         onBlur={() => handleUpdateField('phone', phone)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateField('phone', phone); if (e.key === 'Escape') setIsEditingPhone(false); }}
                         style={{ fontSize: '13px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '120px' }}
@@ -935,7 +989,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <div style={{ fontSize: '10px', color: '#2b3f5bff', fontWeight: '700', textTransform: 'uppercase', lineHeight: 1 }}>RM NAME</div>
-                    <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '800' }}>{reportingManager.name} {reportingManager.id && `(${reportingManager.id})`}</div>
+                    <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '800' }}>{reportingManager.name} {reportingManager.id && cleanEmployeeId !== '202522' && `(${reportingManager.id})`}</div>
                   </div>
                 </div>
               </div>
@@ -943,15 +997,22 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           </div>
         </div>
 
-        <div style={styles.infoGrid}>
+        <div style={{
+          ...styles.infoGrid,
+          gridTemplateColumns: (String(user?.role || '').toLowerCase() === 'human resource' || cleanEmployeeId === '202522')
+            ? (isMobile ? '1fr' : 'repeat(2, 1fr)')
+            : (isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'))
+        }}>
           {/* TEAM CARD */}
-          <div style={{ ...styles.infoCard }}>
-            <div style={styles.iconCircle}><Users size={18} color="#3863a8" /></div>
-            <div>
-              <div style={styles.managerLabel}>Current Team</div>
-              <div style={styles.infoValue}>{teamName}</div>
+          {!(String(user?.role || '').toLowerCase() === 'human resource' || cleanEmployeeId === '202522') && (
+            <div style={{ ...styles.infoCard }}>
+              <div style={styles.iconCircle}><Users size={18} color="#3863a8" /></div>
+              <div>
+                <div style={styles.managerLabel}>Current Team</div>
+                <div style={styles.infoValue}>{teamName}</div>
+              </div>
             </div>
-          </div>
+          )}
 
           <div style={styles.infoCard}>
             <div style={styles.iconCircle}><Mail size={18} color="#3863a8" /></div>
@@ -1208,7 +1269,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)'), gap: isMobile ? '15px' : '25px' }}>
               {[
                 { id: 'slip', title: 'MONTHLY PAY SLIP', desc: 'Download salary statement', icon: <FileText size={22} />, color: '#16a34a', darkBorder: true },
-                { id: 'exp', title: 'EXPERIENCE LETTER', desc: 'Apply for service certificate', icon: <Fingerprint size={22} />, color: '#2563eb', highlight: true },
+                { id: 'exp', title: 'EXPERIENCE LETTER', desc: 'Apply for Experience Letter', icon: <Fingerprint size={22} />, color: '#2563eb', highlight: true },
                 { id: 'res', title: 'RESIGNATION LETTER', desc: 'Submit formal exit notice', icon: <LogOut size={22} />, color: '#dc2626', darkBorder: true }
               ].map((doc, idx) => (
                 <DocCard key={idx} doc={doc} onNavigate={onNavigate} />
@@ -1288,7 +1349,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
           <div style={{ ...styles.aboutSection, marginTop: '20px' }}>
             <div style={styles.sectionTitle}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{fontSize: '18px' }}>📋</span> Team Report
+                <span style={{ fontSize: '18px' }}>📋</span> Team Report
               </span>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: isMobile ? '10px' : '0' }}>
                 {/* summary pills */}

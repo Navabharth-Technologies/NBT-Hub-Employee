@@ -32,8 +32,8 @@ export default function TicketScreen({ onBack }) {
   useEffect(() => {
     const handleResize = () => setWinWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
-    setDepartments(['Infrastructure', 'Technical', 'HR']);
-    setDepartment('Technical');
+    setDepartments(['Service letter', 'Payroll issues', 'payslips', 'ID card issues', 'Technical', 'HR']);
+    setDepartment('Service letter');
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -144,6 +144,25 @@ export default function TicketScreen({ onBack }) {
 
     label: { fontSize: '11px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '15px', display: 'block' },
     input: { width: '100%', padding: '18px 24px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1.5px solid #f1f5f9', fontSize: '15px', color: '#0B1E3F', fontWeight: '600', outline: 'none', boxSizing: 'border-box', marginBottom: '30px' },
+    selectInput: {
+      width: '100%',
+      padding: '18px 24px',
+      borderRadius: '20px',
+      backgroundColor: '#f8fafc',
+      border: '1.5px solid #f1f5f9',
+      fontSize: '15px',
+      color: '#0B1E3F',
+      fontWeight: '600',
+      outline: 'none',
+      boxSizing: 'border-box',
+      marginBottom: '30px',
+      appearance: 'none',
+      backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230b1e3f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'right 24px center',
+      backgroundSize: '16px',
+      cursor: 'pointer'
+    },
     textarea: { width: '100%', padding: '24px', borderRadius: '25px', backgroundColor: '#f8fafc', border: '1.5px solid #f1f5f9', fontSize: '15px', color: '#0B1E3F', fontWeight: '600', outline: 'none', boxSizing: 'border-box', minHeight: '180px', marginBottom: '30px', resize: 'none' },
 
     priorityGrid: { display: 'grid', gridTemplateColumns: isMobile() ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '15px', marginBottom: '40px' },
@@ -209,11 +228,11 @@ export default function TicketScreen({ onBack }) {
           </div>
 
           <label style={s.label}>Department / Category</label>
-          <div style={s.deptGrid}>
+          <select style={s.selectInput} value={department} onChange={e => setDepartment(e.target.value)}>
             {departments.map(d => (
-              <button key={d} style={s.deptTab(department === d)} onClick={() => setDepartment(d)}>{d}</button>
+              <option key={d} value={d}>{d}</option>
             ))}
-          </div>
+          </select>
 
           <label style={s.label}>Issue Subject</label>
           <input style={s.input} placeholder="e.g., Access Denied to HR Portal" value={subject} onChange={e => setSubject(e.target.value)} />
