@@ -108,8 +108,19 @@ const InternAwardsScreen = ({ onBack }) => {
     const [rewardsBackendRank, setRewardsBackendRank] = useState(null);
     const [backendEndorsements, setBackendEndorsements] = useState(0);
     const [rewardsBackendPoints, setRewardsBackendPoints] = useState(0);
-    const [startDate, setStartDate] = useState('2026-06-01');
-    const [endDate, setEndDate] = useState('2026-06-30');
+    const [startDate, setStartDate] = useState(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        return `${year}-${month}-01`;
+    });
+    const [endDate, setEndDate] = useState(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    });
     const startDateRef = useRef(null);
     const endDateRef = useRef(null);
 
