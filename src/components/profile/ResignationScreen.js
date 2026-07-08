@@ -319,6 +319,8 @@ export default function ResignationScreen({ onBack }) {
         designation: user?.designation || user?.role || '',
         department: user?.department || 'Operations',
         manager_id: mId,
+        reporting_manager_id: mId,
+        managerId: mId,
         resignation_date: resignationDate,
         last_working_day: lastWorkingDay,
         reason: reason,
@@ -732,7 +734,8 @@ export default function ResignationScreen({ onBack }) {
                   designation.includes('hr') || designation.includes('human resource') ||
                   role.includes('hr') || role.includes('human resource');
 
-                const hasNoTl = !activeRes.manager_id || Number(activeRes.manager_id) === 0;
+                const userManagerId = Number(user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || 0) || 0;
+                const hasNoTl = userManagerId === 0;
                 const hasTlApproved = isExcludedFromTlReview || hasNoTl || !!(activeRes.reviewed_by_tl || activeRes.reporting_manager_remark);
                 const hasPmApproved = (activeRes.pm_status || '').toUpperCase() === 'APPROVED';
                 const hasHrApproved = (activeRes.hr_status || '').toUpperCase() === 'APPROVED';

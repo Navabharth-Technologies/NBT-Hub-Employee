@@ -108,12 +108,7 @@ const InternAwardsScreen = ({ onBack }) => {
     const [rewardsBackendRank, setRewardsBackendRank] = useState(null);
     const [backendEndorsements, setBackendEndorsements] = useState(0);
     const [rewardsBackendPoints, setRewardsBackendPoints] = useState(0);
-    const [startDate, setStartDate] = useState(() => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        return `${year}-${month}-01`;
-    });
+    const [startDate, setStartDate] = useState('2026-06-01');
     const [endDate, setEndDate] = useState(() => {
         const now = new Date();
         const year = now.getFullYear();
@@ -174,13 +169,14 @@ const InternAwardsScreen = ({ onBack }) => {
                 }
                 if (!safeUid) return;
 
+                const cleanUserUid = safeUid.replace(/^(EMP|INT)/i, '');
                 const token = localStorage.getItem('token');
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
                 const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes, quizUserPointsRes, grantOptionsRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_USER(cleanUserUid), { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
@@ -248,7 +244,19 @@ const InternAwardsScreen = ({ onBack }) => {
                 // Fetch user points from backend quiz user points endpoint
                 if (quizUserPointsRes && quizUserPointsRes.ok) {
                     const ptsData = await quizUserPointsRes.json();
-                    const quizPointsVal = Number(ptsData.points || ptsData.total_points || ptsData.score || ptsData.total_score || ptsData.quiz_points || ptsData.quizPoints || 0);
+                    let quizPointsVal = 0;
+                    if (Array.isArray(ptsData)) {
+                        const myEntry = ptsData.find(e => {
+                            const entryId = String(e.employee_id || e.id || e.userId || '').split(':')[0].trim().toLowerCase();
+                            const cleanEId = safeUid.replace(/^(EMP|INT)/i, '').toLowerCase();
+                            return entryId === cleanEId || entryId === safeUid.toLowerCase();
+                        });
+                        if (myEntry) {
+                            quizPointsVal = Number(myEntry.points || myEntry.total_points || myEntry.score || myEntry.total_score || myEntry.quiz_points || myEntry.quizPoints || 0);
+                        }
+                    } else {
+                        quizPointsVal = Number(ptsData.points || ptsData.total_points || ptsData.score || ptsData.total_score || ptsData.quiz_points || ptsData.quizPoints || 0);
+                    }
                     setQuizUserPoints(quizPointsVal);
                 }
 
