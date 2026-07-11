@@ -206,7 +206,19 @@ export default function FocusLogs({ onBack }) {
       flexWrap: 'wrap',
       margin: winWidth < 768 ? '0 10px 32px' : '0 0 32px'
     },
-    label: { fontSize: '12px', fontWeight: '900', color: '#0B1E3F', display: 'flex', alignItems: 'center', gap: '10px' },
+    label: {
+      fontSize: '12px',
+      fontWeight: '900',
+      color: '#3B5998',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '8px 16px',
+      backgroundColor: '#f0f7ff',
+      borderRadius: '12px',
+      border: '1px solid #dbeafe',
+      height: 'fit-content'
+    },
     dateInputBox: {
       padding: '10px 18px',
       backgroundColor: '#f8fafc',
@@ -288,14 +300,16 @@ export default function FocusLogs({ onBack }) {
   return (
     <div style={s.container}>
       <main style={s.main}>
-        <BackButton onClick={handleBack} />
-
-        <header style={s.header}>
-          <h1 style={s.title}>Your Focus Logs</h1>
+        <header style={{ ...s.header, display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <BackButton onClick={handleBack} />
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Your Focus Logs</h1>
+          </div>
         </header>
 
         {/* Filter Bar */}
         <div style={s.filterBar}>
+          <div style={s.label}><Calendar size={18} /> DATE RANGE</div>
 
           <div style={{ ...s.dateInputBox, border: '1.5px solid #cbd5e1' }}>
             <Calendar 
@@ -353,7 +367,7 @@ export default function FocusLogs({ onBack }) {
             setStartDate('');
             setEndDate('');
           }}>
-            Clear Filter
+            Clear
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: winWidth < 768 ? '0' : 'auto', width: winWidth < 768 ? '100%' : 'auto', flexWrap: 'wrap' }}>

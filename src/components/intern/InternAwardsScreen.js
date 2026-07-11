@@ -1210,6 +1210,9 @@ const InternAwardsScreen = ({ onBack }) => {
         const rRole = String(r.granted_by_role || r.giver_role || r.role || '').toUpperCase();
         const rCat = String(r.category || '').toUpperCase();
 
+        if (rCat === 'TL' || rCat === 'PM' || rCat === 'HR') return rCat;
+        if (cat === 'TL' || cat === 'PM' || cat === 'HR') return cat;
+
         const isHrFallback = rRole.includes('HR') || rRole.includes('ADMIN') || rRole.includes('RECRUIT');
         if (isHrFallback) return 'HR';
 

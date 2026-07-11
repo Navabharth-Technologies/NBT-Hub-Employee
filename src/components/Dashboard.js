@@ -61,6 +61,7 @@ const Dashboard = ({ setActiveTab }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [pendingStatusData, setPendingStatusData] = useState(null);
+  const [birthdaySuccess, setBirthdaySuccess] = useState('');
 
   // Helper to strip legacy ":1" suffixes from IDs
   const sanitizeId = (id) => String(id || '').split(':')[0];
@@ -809,7 +810,7 @@ const Dashboard = ({ setActiveTab }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (res.ok) alert(`Birthday wish sent for ${person.name}!`);
+      if (res.ok) setBirthdaySuccess(`Birthday wish sent for ${person.name}!`);
     } catch { }
   };
 
@@ -925,7 +926,7 @@ const Dashboard = ({ setActiveTab }) => {
                     <User size={24} color="#2563eb" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', fontWeight: '700', color: hoveredCard === 'individual' ? 'rgba(255,255,255,0.8)' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Individual</div>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: hoveredCard === 'individual' ? 'rgba(255,255,255,0.8)' : '#64748b', textTransform: 'capitalize', letterSpacing: '0.5px' }}>Individual</div>
                     <div style={{ fontSize: '22px', fontWeight: '900', color: hoveredCard === 'individual' ? 'white' : '#0f172a', marginTop: '2px', fontFamily: "'Outfit', sans-serif" }}>
                       {individualProjects.length} <span style={{ fontSize: '14px', color: hoveredCard === 'individual' ? 'rgba(255,255,255,0.7)' : '#64748b', fontWeight: '700' }}>Projects</span>
                     </div>
@@ -955,7 +956,7 @@ const Dashboard = ({ setActiveTab }) => {
                     <Users size={24} color="#7c3aed" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', fontWeight: '700', color: hoveredCard === 'team' ? 'rgba(255,255,255,0.8)' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Team</div>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: hoveredCard === 'team' ? 'rgba(255,255,255,0.8)' : '#64748b', textTransform: 'capitalize', letterSpacing: '0.5px' }}>Team</div>
                     <div style={{ fontSize: '22px', fontWeight: '900', color: hoveredCard === 'team' ? 'white' : '#0f172a', marginTop: '2px', fontFamily: "'Outfit', sans-serif" }}>
                       {teamProjects.length} <span style={{ fontSize: '14px', color: hoveredCard === 'team' ? 'rgba(255,255,255,0.7)' : '#64748b', fontWeight: '700' }}>Projects</span>
                     </div>
@@ -1276,7 +1277,7 @@ const Dashboard = ({ setActiveTab }) => {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2', fontFamily: "'Outfit', sans-serif" }}>{h.name}</div>
                         <div style={{ fontSize: '11px', color: '#475569', fontWeight: '700', marginTop: '4px', textTransform: 'capitalize', lineHeight: '1.2' }}>
-                          📅 {hDate.toLocaleDateString('en-US', { weekday: 'long' })}
+                          📅 {hDate.toLocaleDateString('en-US', { weekday: 'long' }).replace('Wednesda', 'Wednesday')}
                         </div>
                       </div>
                     </div>
@@ -1385,6 +1386,75 @@ const Dashboard = ({ setActiveTab }) => {
                   Yes, {pendingStatusData?.st === 'Completed' ? 'Complete' : 'Update'} it
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Birthday Wish Success Modal */}
+      <AnimatePresence>
+        {birthdaySuccess && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            fontFamily: "'Inter', sans-serif"
+          }}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              style={{
+                backgroundColor: 'white',
+                borderRadius: '24px',
+                padding: '30px 40px',
+                textAlign: 'center',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                border: '1px solid #e2e8f0',
+                maxWidth: '400px',
+                width: '90%'
+              }}
+            >
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '30px',
+                backgroundColor: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                color: '#3b5998'
+              }}>
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Success</h3>
+              <p style={{ fontSize: '14px', color: '#64748b', fontWeight: '600', marginBottom: '24px', lineHeight: '1.5' }}>{birthdaySuccess}</p>
+              <button 
+                onClick={() => setBirthdaySuccess('')}
+                style={{
+                  backgroundColor: '#3b5998',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 30px',
+                  borderRadius: '16px',
+                  fontWeight: '800',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  width: '100%',
+                  boxShadow: '0 8px 20px rgba(59, 89, 152, 0.2)'
+                }}
+              >
+                Okay
+              </button>
             </motion.div>
           </div>
         )}

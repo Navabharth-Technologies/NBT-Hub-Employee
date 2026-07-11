@@ -68,6 +68,12 @@ export default function CourseScreen() {
     }, [courses]);
 
     const videoRef = useRef(null);
+    const hasResumedRef = useRef(false); // guards against seeking more than once per video open
+
+    // Reset the resume guard whenever the user opens a different video
+    useEffect(() => {
+        hasResumedRef.current = false;
+    }, [selectedCourse?.id, currentView]);
 
     const markCourseAsComplete = async (courseId) => {
         setLoading(true);
@@ -394,13 +400,41 @@ export default function CourseScreen() {
         }
     };
 
+    const getProgressKey = () =>
+        `video_progress_user_${user?.id || user?.empId || user?.userId || user?.employee_id || 'guest'}_course_${selectedCourse?.id}`;
+
     const handleVideoTimeUpdate = () => {
-        if (videoRef.current) {
+        if (videoRef.current && selectedCourse) {
             const current = videoRef.current.currentTime;
             const duration = videoRef.current.duration;
+            if (!duration || isNaN(duration)) return;
             const percentage = (current / duration) * 100;
             updateProgress(selectedCourse.id, percentage);
             if (percentage >= 98 && !canShowMarkButton) setCanShowMarkButton(true);
+            // Continuously save watched position
+            localStorage.setItem(getProgressKey(), String(current));
+        }
+    };
+
+    // Attempt to seek on metadata load (first try)
+    const handleLoadedMetadata = () => {
+        if (videoRef.current && selectedCourse && !hasResumedRef.current) {
+            const lastTime = parseFloat(localStorage.getItem(getProgressKey()));
+            if (lastTime > 0) {
+                videoRef.current.currentTime = lastTime;
+                hasResumedRef.current = true;
+            }
+        }
+    };
+
+    // onCanPlay fires when the browser can actually seek — reliable fallback
+    const handleCanPlay = () => {
+        if (videoRef.current && selectedCourse && !hasResumedRef.current) {
+            const lastTime = parseFloat(localStorage.getItem(getProgressKey()));
+            if (lastTime > 0) {
+                videoRef.current.currentTime = lastTime;
+                hasResumedRef.current = true;
+            }
         }
     };
 
@@ -411,6 +445,7 @@ export default function CourseScreen() {
             </div>
         );
     }
+
 
     if (selectedCourse && currentView === 'video') {
         const videoSrc = selectedCourse.video_data
@@ -428,9 +463,13 @@ export default function CourseScreen() {
                             <iframe src={videoSrc} title="Video" style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen />
                         ) : videoSrc ? (
                             <video
-                                ref={videoRef} key={videoSrc} controls style={{ width: '100%', height: '100%' }}
+                                ref={videoRef}
+                                key={videoSrc} controls style={{ width: '100%', height: '100%' }}
                                 poster={formatUrl(selectedCourse.image || selectedCourse.thumbnail || selectedCourse.course_image)}
-                                preload="auto" onTimeUpdate={handleVideoTimeUpdate}
+                                preload="auto"
+                                onTimeUpdate={handleVideoTimeUpdate}
+                                onLoadedMetadata={handleLoadedMetadata}
+                                onCanPlay={handleCanPlay}
                                 onEnded={() => { setCanShowMarkButton(true); updateProgress(selectedCourse.id, 100); }}
                             >
                                 <source src={videoSrc} type="video/mp4" />
@@ -468,7 +507,6 @@ export default function CourseScreen() {
                     <div style={s.pdfContainer}>
                         {pdfSrc ? <iframe src={`${pdfSrc}#toolbar=0`} style={{ flex: 1, border: 'none', borderRadius: '35px' }} /> : <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontWeight: '800' }}>PDF Documentation Not Available</div>}
                     </div>
-                    <button style={s.finishBtn} onClick={() => setCurrentView(null)}><ChevronLeft size={20} /> RETURN TO CURRICULUM</button>
                 </div>
             </div>
         );

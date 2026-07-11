@@ -45,14 +45,25 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingDob, setIsEditingDob] = useState(false);
   const [isEditingAbout, setIsEditingAbout] = useState(false);
-  const [phone, setPhone] = useState(user?.phone_number || 'Add Phone Number');
-  const [aboutMe, setAboutMe] = useState(user?.about_me || 'Write a short introduction about yourself');
+
+  // Load cached profile data instantly (before network fetch completes)
+  const profileCacheKey = `profile_cache_${user?.id || user?.employee_id || 'guest'}`;
+  const profileCache = (() => { try { return JSON.parse(localStorage.getItem(profileCacheKey) || '{}'); } catch { return {}; } })();
+
+  const [phone, setPhone] = useState(user?.phone_number || profileCache.phone || 'Add Phone Number');
+  const [aboutMe, setAboutMe] = useState(user?.about_me || profileCache.aboutMe || 'Write a short introduction about yourself');
   const [dob, setDob] = useState(() => {
     const rawDob = user?.date_of_birth || user?.dob;
-    return rawDob ? formatDOB(rawDob) : 'Add Date of Birth';
+    if (rawDob) return formatDOB(rawDob);
+    if (profileCache.dob) return profileCache.dob; // instant from cache
+    return 'Add Date of Birth';
   });
-  const [teamName, setTeamName] = useState(user?.team || user?.team_name || user?.process || 'Loading...');
-  const [joiningDate, setJoiningDate] = useState(user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || 'N/A');
+  const [teamName, setTeamName] = useState(
+    user?.team || user?.team_name || user?.process || profileCache.teamName || 'Loading...'
+  );
+  const [joiningDate, setJoiningDate] = useState(
+    user?.joining_date || user?.joiningDate || user?.['joining date'] || user?.doj || user?.date_of_joining || profileCache.joiningDate || 'N/A'
+  );
   const [cleanEmployeeId, setCleanEmployeeId] = useState(() => {
     let strId = String(user?.employee_id || user?.id || 'N/A').trim();
     if (!strId || strId === 'N/A') return 'N/A';
@@ -165,7 +176,9 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const [isEditingDesignation, setIsEditingDesignation] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
-  const [reportingManager, setReportingManager] = useState({ name: 'Loading...', id: '' });
+  const [reportingManager, setReportingManager] = useState(
+    profileCache.reportingManager || { name: 'Loading...', id: '' }
+  );
   const fileInputRef = useRef(null);
   const [teamReports, setTeamReports] = useState([]);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -257,9 +270,12 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
 
       let mName = '';
       let mId = '';
+      let freshProfileData = null;
+      let freshMeta = null;
 
       if (resp.ok) {
         const data = await resp.json();
+        freshProfileData = data;
         if (data.phone_number) setPhone(data.phone_number);
         if (data.date_of_birth) setDob(formatDOB(data.date_of_birth));
         if (data.about_me) setAboutMe(data.about_me);
@@ -276,6 +292,7 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       if (metaResp.ok) {
         const metaList = await metaResp.json();
         const rawMeta = Array.isArray(metaList) ? metaList[0] : metaList;
+        freshMeta = rawMeta;
         if (rawMeta) {
           if (rawMeta.dob) setDob(formatDOB(rawMeta.dob));
           if (rawMeta.contact_no) setPhone(rawMeta.contact_no);
@@ -339,6 +356,30 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       }
 
       setReportingManager({ name: mName || 'Not Assigned', id: mId });
+
+      // Save resolved data to cache for instant display on next load
+      try {
+        const cacheKey = `profile_cache_${user?.id || user?.employee_id || 'guest'}`;
+        const freshTeam = currentUser?.team || currentUser?.team_name || currentUser?.process || currentUser?.department;
+        const freshJoining = currentUser?.['joining date'] || currentUser?.joining_date || currentUser?.doj;
+        const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+
+        const freshPhone = freshProfileData?.phone_number || freshMeta?.contact_no || null;
+        const freshDob = freshProfileData?.date_of_birth
+          ? formatDOB(freshProfileData.date_of_birth)
+          : (freshMeta?.dob ? formatDOB(freshMeta.dob) : null);
+        const freshAbout = freshProfileData?.about_me || null;
+
+        localStorage.setItem(cacheKey, JSON.stringify({
+          ...existing,
+          ...(freshTeam ? { teamName: freshTeam } : {}),
+          ...(freshJoining ? { joiningDate: Array.isArray(freshJoining) ? freshJoining[0] : freshJoining } : {}),
+          ...(freshPhone ? { phone: freshPhone } : {}),
+          ...(freshDob ? { dob: freshDob } : {}),
+          ...(freshAbout ? { aboutMe: freshAbout } : {}),
+          reportingManager: { name: mName || 'Not Assigned', id: mId },
+        }));
+      } catch (e) { /* cache write failed, non-fatal */ }
 
     } catch (err) {
       console.error('Fetch Profile Error:', err);
