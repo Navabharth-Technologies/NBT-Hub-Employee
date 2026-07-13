@@ -258,7 +258,7 @@ export default function AppHeader({ setActiveTab, isNewJoinee }) {
                     <div style={styles.rightSection}>
                         <div style={{ ...styles.infoContainer, textAlign: 'right' }}>
                             <div style={{ ...styles.userName, color: '#0B1E3F' }}>{user?.name || 'User Name'}</div>
-                            <div style={styles.designation}>{user?.role?.toUpperCase() || theme.label}</div>
+                            <div style={styles.designation}>{(user?.designation || user?.role)?.toUpperCase() || theme.label}</div>
                         </div>
                         <div
                             style={{ ...styles.photoContainer, cursor: 'pointer' }}

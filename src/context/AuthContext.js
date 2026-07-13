@@ -53,6 +53,15 @@ export const safeGetItem = (key) => {
     }
 };
 
+export const safeRemoveItem = (key) => {
+    try {
+        localStorage.removeItem(key);
+    } catch (e) {}
+    try {
+        sessionStorage.removeItem(key);
+    } catch (e) {}
+};
+
 // Centralized Auth Validation Singleton
 // Validates the token with at most ONE server request across the entire app.
 // All components await this single promise before making any API calls.
@@ -186,12 +195,28 @@ export const AuthProvider = ({ children }) => {
     return currentUserObject;
   };
 
+  const adjustLoggedUser = (u) => {
+    if (!u) return u;
+    const empId = String(u.employee_id || u.id || u.empId || '').trim();
+    const email = String(u.email || '').toLowerCase().trim();
+    if (empId === '202512' || email === 'rakesh@navabharathtechnologies.com') {
+      return {
+        ...u,
+        name: 'Rakesh Gowda H N',
+        user_name: 'Rakesh Gowda H N',
+        employee_name: 'Rakesh Gowda H N',
+        empName: 'Rakesh Gowda H N'
+      };
+    }
+    return u;
+  };
+
   // ✅ Lazy initialization: read persisted user directly from localStorage on first render
   const [user, setUserState] = useState(() => {
     try {
       const saved = localStorage.getItem('user') || sessionStorage.getItem('user');
       if (!saved) return null;
-      const parsed = JSON.parse(saved);
+      const parsed = adjustLoggedUser(JSON.parse(saved));
       // Security: block admin/HR sessions on the employee portal
       const role = String(parsed?.role || '').toUpperCase().trim();
       const isBlock = role.includes('ADMIN') || role.includes('HR') || role.includes('PM') || 
@@ -210,7 +235,7 @@ export const AuthProvider = ({ children }) => {
   const setUser = (newUser) => {
     setUserState(prev => {
       const val = typeof newUser === 'function' ? newUser(prev) : newUser;
-      const adjusted = adjustUserForHR(val);
+      const adjusted = adjustUserForHR(adjustLoggedUser(val));
       if (adjusted === prev) {
         return prev;
       }
@@ -234,7 +259,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (savedUser && token) {
-      const u = JSON.parse(savedUser);
+      const u = adjustLoggedUser(JSON.parse(savedUser));
       
       // Security Validation: Ensure no leftover Admin/Manager sessions persist on the Employee Portal
       const role = String(u.role || '').toUpperCase().trim();
@@ -430,14 +455,14 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('nbt_active_tab');
-    localStorage.removeItem('nbt_active_tab_state');
-    localStorage.removeItem('quiz_user_answers');
+    safeRemoveItem('user');
+    safeRemoveItem('token');
+    safeRemoveItem('nbt_active_tab');
+    safeRemoveItem('nbt_active_tab_state');
+    safeRemoveItem('quiz_user_answers');
     resetAuthState();
     // Forces a hard refresh, killing old token polling
-    window.location.href = '/login';
+    window.location.href = './';
   };
 
   const updateProfile = async (field, value, targetOptions = null) => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Send, Calendar, FileText, ChevronLeft, ChevronDown, AlertCircle, History, Users, RefreshCcw, X, Check, User, Info, Download, Printer, ArrowLeft, Edit } from 'lucide-react';
+import { LogOut, Send, Calendar, FileText, ChevronLeft, ChevronDown, AlertCircle, History, Users, RefreshCcw, X, Check, User, Info, Download, Printer, ArrowLeft, Edit, Undo } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { getTheme } from '../../constants/Theme';
@@ -221,7 +221,16 @@ export default function ResignationScreen({ onBack }) {
       });
       if (res.ok) {
         const raw = await res.json();
-        const data = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
+        const rawData = Array.isArray(raw) ? raw : (raw.data || raw.value || []);
+        // Normalize both snake_case (API) and camelCase (local) field names so display always works
+        const data = rawData.map(r => ({
+          ...r,
+          resignationDate: r.resignationDate || r.resignation_date || r.created_at || '',
+          lastWorkingDay: r.lastWorkingDay || r.last_working_day || '',
+          reason: r.reason || r.resignation_reason || '',
+          detailedReason: r.detailedReason || r.detailed_reason || '',
+          userName: r.userName || r.employee_name || r.name || '',
+        }));
         setMyHistory(data);
         const active = data.find(r => (r.status || '').toUpperCase() === 'PENDING');
         if (active) {
@@ -236,7 +245,15 @@ export default function ResignationScreen({ onBack }) {
         const sid = sanitizeId(user?.id || user?.employee_id || user?.empId);
         const saved = localStorage.getItem(`sim_resignations_${sid}`);
         if (saved) {
-          const history = JSON.parse(saved);
+          const raw = JSON.parse(saved);
+          const history = raw.map(r => ({
+            ...r,
+            resignationDate: r.resignationDate || r.resignation_date || r.created_at || '',
+            lastWorkingDay: r.lastWorkingDay || r.last_working_day || '',
+            reason: r.reason || r.resignation_reason || '',
+            detailedReason: r.detailedReason || r.detailed_reason || '',
+            userName: r.userName || r.employee_name || r.name || '',
+          }));
           setMyHistory(history);
           const active = history.find(r => r.status === 'PENDING');
           if (active) {
@@ -254,7 +271,15 @@ export default function ResignationScreen({ onBack }) {
     } catch {
       const saved = localStorage.getItem(`sim_resignations_${user?.id}`);
       if (saved) {
-        const history = JSON.parse(saved);
+        const raw = JSON.parse(saved);
+        const history = raw.map(r => ({
+          ...r,
+          resignationDate: r.resignationDate || r.resignation_date || r.created_at || '',
+          lastWorkingDay: r.lastWorkingDay || r.last_working_day || '',
+          reason: r.reason || r.resignation_reason || '',
+          detailedReason: r.detailedReason || r.detailed_reason || '',
+          userName: r.userName || r.employee_name || r.name || '',
+        }));
         setMyHistory(history);
         const active = history.find(r => r.status === 'PENDING');
         if (active) {
@@ -319,6 +344,8 @@ export default function ResignationScreen({ onBack }) {
         designation: user?.designation || user?.role || '',
         department: user?.department || 'Operations',
         manager_id: mId,
+        reporting_manager_id: mId,
+        managerId: mId,
         resignation_date: resignationDate,
         last_working_day: lastWorkingDay,
         reason: reason,
@@ -732,7 +759,8 @@ export default function ResignationScreen({ onBack }) {
                   designation.includes('hr') || designation.includes('human resource') ||
                   role.includes('hr') || role.includes('human resource');
 
-                const hasNoTl = !activeRes.manager_id || Number(activeRes.manager_id) === 0;
+                const userManagerId = Number(user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || 0) || 0;
+                const hasNoTl = userManagerId === 0;
                 const hasTlApproved = isExcludedFromTlReview || hasNoTl || !!(activeRes.reviewed_by_tl || activeRes.reporting_manager_remark);
                 const hasPmApproved = (activeRes.pm_status || '').toUpperCase() === 'APPROVED';
                 const hasHrApproved = (activeRes.hr_status || '').toUpperCase() === 'APPROVED';
@@ -995,13 +1023,15 @@ export default function ResignationScreen({ onBack }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div onClick={() => { setPreviewLetter(r); setActiveTab('letter'); }} style={{ cursor: 'pointer' }}>
                         <div style={{ fontSize: '13px', fontWeight: '900', color: '#0B1E3F', marginBottom: '4px' }}>{r.reason}</div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700' }}>Submitted: {r.resignationDate} • LWD: {r.lastWorkingDay}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700' }}>
+                          Submitted: {(() => { const d = r.resignationDate || r.resignation_date || ''; if (!d) return 'N/A'; try { return new Date(d).toLocaleDateString('en-GB'); } catch { return d; } })()} • LWD: {(() => { const d = r.lastWorkingDay || r.last_working_day || ''; if (!d) return 'N/A'; try { return new Date(d).toLocaleDateString('en-GB'); } catch { return d; } })()}
+                        </div>
                       </div>
                       <div style={s.statusBadge(r.status)}>{r.status}</div>
                     </div>
                     {r.status === 'PENDING' && (
                       <button style={s.revokeBtn} onClick={() => { setRevokeData({ id: r.id, reason: '' }); setShowRevokeModal(true); }}>
-                        <RefreshCcw size={14} /> Revoke Notice
+                        <Undo size={14} /> Revoke Notice
                       </button>
                     )}
                   </div>
@@ -1054,7 +1084,7 @@ export default function ResignationScreen({ onBack }) {
                     style={{ ...s.submitBtn, backgroundColor: '#dc2626', width: 'auto', padding: '10px 20px', boxShadow: 'none' }}
                     onClick={() => { setRevokeData({ id: previewLetter.id, reason: '' }); setShowRevokeModal(true); }}
                   >
-                    <RefreshCcw size={16} /> Revoke Resignation
+                    <Undo size={16} /> Revoke Resignation
                   </button>
                 )}
               </div>

@@ -204,8 +204,20 @@ const AttendanceDashboard = ({ onBack, onNavigate }) => {
         if (log && (log.id || log.punch_date || log.date)) {
           // Use key combining date/time if no ID to ensure uniqueness
           const key = log.id || `${log.punch_date || log.date}_${log.in_time || ''}_${log.out_time || ''}`;
-          // Make sure we carry forward name and user details if they are Unknown
-          if (log.user_name === 'Unknown' || log.Name === 'Unknown') {
+          
+          // Override name mapping for incorrect database entries
+          const empId = String(log.user_id || log.employee_id || '').trim();
+          if (empId === '202512') {
+            log.user_name = 'Rakesh Gowda H N';
+            log.userName = 'Rakesh Gowda H N';
+            log.employee_name = 'Rakesh Gowda H N';
+            log.Name = 'Rakesh Gowda H N';
+          } else if (empId === '202522') {
+            log.user_name = 'Ravi Kumar B M';
+            log.userName = 'Ravi Kumar B M';
+            log.employee_name = 'Ravi Kumar B M';
+            log.Name = 'Ravi Kumar B M';
+          } else if (log.user_name === 'Unknown' || log.Name === 'Unknown') {
             log.user_name = user?.name || log.user_name;
             log.Name = user?.name || log.Name;
           }

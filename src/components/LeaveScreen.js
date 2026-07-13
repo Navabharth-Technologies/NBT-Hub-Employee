@@ -497,7 +497,11 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
         fetchUserBalance();
       } else {
         const err = await res.json().catch(() => ({}));
-        setModalConfig({ show: true, message: `Error ${res.status}: ${err.message || err.error || "Failed to submit request."}`, type: 'error' });
+        let userMsg = err.message || err.error || "Failed to submit request.";
+        if (res.status === 400 || String(userMsg).toLowerCase().includes('backdate') || String(userMsg).toLowerCase().includes('backdated')) {
+          userMsg = "Backdated leave requests are not allowed. Please select a valid leave date.";
+        }
+        setModalConfig({ show: true, message: userMsg, type: 'error' });
       }
     } catch (error) {
       setModalConfig({ show: true, message: "Error submitting request: " + error.message, type: 'error' });
@@ -512,6 +516,16 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
     const eDate = new Date(end);
     const diffTime = Math.abs(eDate - sDate);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const formatToDdMmYyyy = (dateStr) => {
+    if (!dateStr) return '---';
+    const cleanDate = String(dateStr).split('T')[0];
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return cleanDate;
   };
 
   const totalPaidTaken = myLeaves
@@ -1176,7 +1190,7 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '1000', color: '#0B1E3F' }}>
-                      {selectedCalEvent.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                      {selectedCalEvent.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).replace('Wednesda', 'Wednesday')}
                     </h3>
                     <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '800' }}>Calendar Events</p>
                   </div>
@@ -1466,9 +1480,15 @@ const LeaveScreen = ({ onBack, onNavigate, startWithForm }) => {
                         <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{selectedLeave.leave_type}</h4>
                         <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Category</p>
                       </div>
+                      <div style={{ marginBottom: '20px' }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>
+                          {formatToDdMmYyyy(selectedLeave.start_date)} {(selectedLeave.is_half_day === true || String(selectedLeave.is_half_day) === 'true' || Number(selectedLeave.no_of_days) === 0.5 || selectedLeave.half_day_slot) ? '' : ` to ${formatToDdMmYyyy(selectedLeave.end_date)}`}
+                        </h4>
+                        <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Leave Period</p>
+                      </div>
                       <div style={{ display: 'flex', gap: '40px' }}>
                         <div>
-                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{String(selectedLeave.applied_on || selectedLeave.created_at || '---').split('T')[0]}</h4>
+                          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#0B1E3F' }}>{formatToDdMmYyyy(selectedLeave.applied_on || selectedLeave.created_at)}</h4>
                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>Applied on</p>
                         </div>
                         <div>

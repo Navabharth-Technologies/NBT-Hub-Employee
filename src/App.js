@@ -102,7 +102,7 @@ function useCertRevocationReactivation(user, setUser) {
 }
 
 function App() {
-  const { user, loading, logout, setUser } = useAuth();
+  const { user, loading, logout, setUser, updateProfile } = useAuth();
   useCertRevocationReactivation(user, setUser);
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -163,6 +163,32 @@ function App() {
     isInitialMount.current = false;
     previousUser.current = user;
   }, [user]);
+
+  // ✅ Fetch actual designation for new joinees to display in header/profile
+  useEffect(() => {
+    if (!user) return;
+    const isJoinee = String(user.role || '').toLowerCase() === 'new_joinee';
+    if (isJoinee && !user.designation && updateProfile) {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+      const uid = user.id || user.employee_id;
+      if (uid && cleanToken) {
+        fetch(`${BASE_URL}/api/new-joinees/${uid}`, {
+          headers: {
+            'Authorization': `Bearer ${cleanToken}`,
+            'Accept': 'application/json'
+          }
+        })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.role) {
+            updateProfile('designation', data.role, true);
+          }
+        })
+        .catch(err => console.warn('Failed to fetch joinee designation:', err));
+      }
+    }
+  }, [user?.id, user?.designation, updateProfile]);
 
 
 

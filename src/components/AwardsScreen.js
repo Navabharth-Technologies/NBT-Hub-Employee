@@ -109,7 +109,13 @@ const AwardsScreen = ({ onBack }) => {
     const [backendEndorsements, setBackendEndorsements] = useState(0);
     const [rewardsBackendPoints, setRewardsBackendPoints] = useState(0);
     const [startDate, setStartDate] = useState('2026-06-01');
-    const [endDate, setEndDate] = useState('2026-06-30');
+    const [endDate, setEndDate] = useState(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    });
     const startDateRef = useRef(null);
     const endDateRef = useRef(null);
 
@@ -163,13 +169,14 @@ const AwardsScreen = ({ onBack }) => {
                 }
                 if (!safeUid) return;
 
+                const cleanUserUid = safeUid.replace(/^(EMP|INT)/i, '');
                 const token = localStorage.getItem('token');
                 const headers = { 'Accept': 'application/json' };
                 if (token && !token.startsWith('joinee-')) headers['Authorization'] = `Bearer ${token}`;
 
                 const [myRes, userRes, allRes, dailyLeadRes, genLeadRes, empRes, rewardsLeadRes, quizHistRes, quizCompletionsRes, quizLeadRes, quizAttemptsRes, quizMyAttemptsRes, quizUserPointsRes, grantOptionsRes] = await Promise.all([
                     fetch(`${API_ENDPOINTS.REWARDS_MY}?userId=${safeUid}`, { headers }).catch(() => null),
-                    fetch(API_ENDPOINTS.REWARDS_USER(safeUid), { headers }).catch(() => null),
+                    fetch(API_ENDPOINTS.REWARDS_USER(cleanUserUid), { headers }).catch(() => null),
                     fetch(API_ENDPOINTS.REWARDS_ALL, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/quizzes/leaderboard/daily`, { headers }).catch(() => null),
                     fetch(`${BASE_URL}/api/fun-quizzes/leaderboard`, { headers }).catch(() => null),
@@ -237,7 +244,19 @@ const AwardsScreen = ({ onBack }) => {
                 // Fetch user points from backend quiz user points endpoint
                 if (quizUserPointsRes && quizUserPointsRes.ok) {
                     const ptsData = await quizUserPointsRes.json();
-                    const quizPointsVal = Number(ptsData.points || ptsData.total_points || ptsData.score || ptsData.total_score || ptsData.quiz_points || ptsData.quizPoints || 0);
+                    let quizPointsVal = 0;
+                    if (Array.isArray(ptsData)) {
+                        const myEntry = ptsData.find(e => {
+                            const entryId = String(e.employee_id || e.id || e.userId || '').split(':')[0].trim().toLowerCase();
+                            const cleanEId = safeUid.replace(/^(EMP|INT)/i, '').toLowerCase();
+                            return entryId === cleanEId || entryId === safeUid.toLowerCase();
+                        });
+                        if (myEntry) {
+                            quizPointsVal = Number(myEntry.points || myEntry.total_points || myEntry.score || myEntry.total_score || myEntry.quiz_points || myEntry.quizPoints || 0);
+                        }
+                    } else {
+                        quizPointsVal = Number(ptsData.points || ptsData.total_points || ptsData.score || ptsData.total_score || ptsData.quiz_points || ptsData.quizPoints || 0);
+                    }
                     setQuizUserPoints(quizPointsVal);
                 }
 
@@ -1190,6 +1209,9 @@ const AwardsScreen = ({ onBack }) => {
         // Fallbacks based on reward properties if grantor not found in employees list
         const rRole = String(r.granted_by_role || r.giver_role || r.role || '').toUpperCase();
         const rCat = String(r.category || '').toUpperCase();
+
+        if (rCat === 'TL' || rCat === 'PM' || rCat === 'HR') return rCat;
+        if (cat === 'TL' || cat === 'PM' || cat === 'HR') return cat;
 
         const isHrFallback = rRole.includes('HR') || rRole.includes('ADMIN') || rRole.includes('RECRUIT');
         if (isHrFallback) return 'HR';

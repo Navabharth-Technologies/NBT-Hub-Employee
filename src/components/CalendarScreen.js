@@ -155,11 +155,13 @@ const CalendarScreen = ({ onBack }) => {
   return (
     <div style={s.container}>
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} style={s.headerCard}>
-        <div style={{ position: 'absolute', top: isMobile ? '20px' : '30px', left: isMobile ? '20px' : '30px', zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', width: '100%' }}>
           <BackButton onClick={onBack} />
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>NBT Calendar</h1>
+            <div style={s.subtitle}>OFFICIAL CORPORATE HOLIDAYS 2026</div>
+          </div>
         </div>
-        <h1 style={s.title}>NBT Calendar</h1>
-        <div style={s.subtitle}>OFFICIAL CORPORATE HOLIDAYS 2026</div>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '800' }}>Fetching Calendar Data...</div>
@@ -184,7 +186,7 @@ const CalendarScreen = ({ onBack }) => {
                   </div>
                   <div style={s.info}>
                     <div style={s.holidayName}>{h.name}</div>
-                    <div style={s.dayOfWeek}>{date.toLocaleString('default', { weekday: 'long' })}</div>
+                    <div style={s.dayOfWeek}>{date.toLocaleString('default', { weekday: 'long' }).replace(/Wednesdayy/g, 'Wednesday').replace(/\bWednesda\b/g, 'Wednesday')}</div>
                   </div>
                   <div style={s.badge(passed)}>{passed ? 'PASSED' : 'UPCOMING'}</div>
                 </motion.div>

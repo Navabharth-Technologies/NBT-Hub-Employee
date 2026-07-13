@@ -131,6 +131,23 @@ const TaskNotification = ({ onOpenTask }) => {
             finalDesc = "Added new quiz";
         }
 
+        // Strip out the redundant status line "COMPLETED: [Employee Name]"
+        if (finalDesc && typeof finalDesc === 'string') {
+            const cleanDesc = finalDesc.replace(/^COMPLETED:\s*[^\r\n]+[\r\n]+/i, '')
+                                       .replace(/^COMPLETED:\s*[^:\-\n]+[\-\:]\s*/i, '');
+            if (cleanDesc !== finalDesc) {
+                finalDesc = cleanDesc.trim();
+            } else if (finalDesc.toUpperCase().startsWith('COMPLETED:')) {
+                const lines = finalDesc.split(/\r?\n/);
+                if (lines.length > 1) {
+                    lines.shift();
+                    finalDesc = lines.join('\n').trim();
+                } else {
+                    finalDesc = finalDesc.replace(/^COMPLETED:\s*/i, '').trim();
+                }
+            }
+        }
+
         return {
           id: gId,
           type: gn.type || 'ALERT',
@@ -394,7 +411,8 @@ const TaskNotification = ({ onOpenTask }) => {
                           textTransform: 'capitalize'
                         }}>{notif.description}</p>
                         {/* Assignee chip for task notifications */}
-                        {(String(notif.title || '').toLowerCase().includes('task') || String(notif.title || '').toLowerCase().includes('assigned')) && (() => {
+                        {(String(notif.title || '').toLowerCase().includes('task') || String(notif.title || '').toLowerCase().includes('assigned')) &&
+                         !(String(notif.title || '').toLowerCase().includes('completed') || String(notif.title || '').toLowerCase().includes('done')) && (() => {
                           const desc = notif.description || '';
                           // Extract "assigned to [Name]" or "by [Name]"
                           let assignee = '';
