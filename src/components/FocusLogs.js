@@ -309,7 +309,7 @@ export default function FocusLogs({ onBack }) {
 
         {/* Filter Bar */}
         <div style={s.filterBar}>
-          <div style={s.label}><Calendar size={18} /> DATE RANGE</div>
+          <div style={s.label}><Calendar size={18} /> Date Range</div>
 
           <div style={{ ...s.dateInputBox, border: '1.5px solid #cbd5e1' }}>
             <Calendar 
