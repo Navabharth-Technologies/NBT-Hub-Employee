@@ -25,7 +25,8 @@ export default function ThreadScreen() {
     const [mediaType, setMediaType] = useState(null);
     const [mediaPreview, setMediaPreview] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const fileInputRef = useRef(null);
+    const photoInputRef = useRef(null);
+    const videoInputRef = useRef(null);
 
     const [activeEmojiPicker, setActiveEmojiPicker] = useState(null);
     const [activeCommentPost, setActiveCommentPost] = useState(null);
@@ -106,17 +107,49 @@ export default function ThreadScreen() {
         } catch (err) { console.error("Profiles error:", err); }
     };
 
-    const handleFileSelect = (e) => {
+    const handlePhotoSelect = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        const extension = file.name.split('.').pop().toLowerCase();
+        if (!file.type.startsWith('image/') && !allowedExtensions.includes(extension)) {
+            alert("Only image files (.jpg, .jpeg, .png, .webp) are allowed for Photo Upload!");
+            if (photoInputRef.current) photoInputRef.current.value = '';
+            return;
+        }
+
         // Block adding new media if one is already attached
         if (mediaPreview) {
-            if (fileInputRef.current) fileInputRef.current.value = '';
+            if (photoInputRef.current) photoInputRef.current.value = '';
             setShowRemoveFirstModal(true);
             return;
         }
         setMediaFile(file);
-        setMediaType(file.type.startsWith('video') ? 'video' : 'image');
+        setMediaType('image');
+        setMediaPreview(URL.createObjectURL(file));
+    };
+
+    const handleVideoSelect = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const allowedExtensions = ['mp4', 'mov', 'avi', 'mkv'];
+        const extension = file.name.split('.').pop().toLowerCase();
+        if (!file.type.startsWith('video/') && !allowedExtensions.includes(extension)) {
+            alert("Only video files (.mp4, .mov, .avi, .mkv) are allowed for Video Upload!");
+            if (videoInputRef.current) videoInputRef.current.value = '';
+            return;
+        }
+
+        // Block adding new media if one is already attached
+        if (mediaPreview) {
+            if (videoInputRef.current) videoInputRef.current.value = '';
+            setShowRemoveFirstModal(true);
+            return;
+        }
+        setMediaFile(file);
+        setMediaType('video');
         setMediaPreview(URL.createObjectURL(file));
     };
 
@@ -124,7 +157,8 @@ export default function ThreadScreen() {
         setMediaFile(null);
         setMediaPreview(null);
         setMediaType(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (photoInputRef.current) photoInputRef.current.value = '';
+        if (videoInputRef.current) videoInputRef.current.value = '';
     };
 
     const handleEditFileSelect = (e) => {
@@ -360,16 +394,17 @@ export default function ThreadScreen() {
             <div style={{ ...styles.card, borderTop: '5px solid #FDB913' }}>
                 <textarea id="thread-content-input" style={styles.mainInput} placeholder="Share an update with the team..." value={newPost} onChange={e => setNewPost(e.target.value)} />
 
-                <input type="file" ref={fileInputRef} onChange={handleFileSelect} hidden accept="image/*,video/*" />
+                <input type="file" ref={photoInputRef} onChange={handlePhotoSelect} hidden accept="image/png, image/jpeg, image/jpg, image/webp" />
+                <input type="file" ref={videoInputRef} onChange={handleVideoSelect} hidden accept="video/mp4, video/quicktime, video/x-msvideo, video/x-matroska" />
 
                 <div style={{ display: 'flex', gap: '15px', marginTop: '15px', alignItems: 'center' }}>
                     <div style={styles.mediaBtn} onClick={() => {
                         if (mediaPreview) { setShowRemoveFirstModal(true); return; }
-                        fileInputRef.current?.click();
+                        photoInputRef.current?.click();
                     }}><ImageIcon size={18} color="#10b981" /> Photo</div>
                     <div style={styles.mediaBtn} onClick={() => {
                         if (mediaPreview) { setShowRemoveFirstModal(true); return; }
-                        fileInputRef.current?.click();
+                        videoInputRef.current?.click();
                     }}><Film size={18} color="#ef4444" /> Video</div>
                     <div style={{ flex: 1 }} />
                     <button style={styles.postBtn} onClick={handlePost} disabled={uploading}>

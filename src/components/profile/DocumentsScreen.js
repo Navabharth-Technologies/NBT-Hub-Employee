@@ -559,6 +559,22 @@ export default function DocumentsScreen({ onBack }) {
     } else if (nameFields.includes(key)) {
       if (/[0-9]/.test(value)) error = 'Numbers are not allowed here';
       else if (/[^a-zA-Z\s.]/.test(value)) error = 'Only alphabets, spaces and dots allowed';
+
+      if (!error && key === 'state') {
+        const VALID_INDIAN_STATES = [
+          'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 
+          'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 
+          'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 
+          'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 
+          'West Bengal',
+          'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 
+          'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+        ];
+        const match = VALID_INDIAN_STATES.some(s => s.toLowerCase() === String(value).trim().toLowerCase());
+        if (!match) {
+          error = 'Please enter a valid state name';
+        }
+      }
     } else if (numericFields.includes(key)) {
       if (/[^0-9]/.test(value)) error = 'Digits only';
       else {
@@ -696,7 +712,7 @@ export default function DocumentsScreen({ onBack }) {
       if ((key === 'contact_no' || key === 'emergency_contact_no') && cleanValue.length > 0 && !/^[6-9]/.test(cleanValue)) {
         return;
       }
-    } else if (decimalFields.includes(key) || percentageFields.includes(key)) {
+    } else if (decimalFields.includes(key)) {
       // Allow digits and a single decimal point with one digit after it
       cleanValue = value.replace(/[^0-9.]/g, '');
       const parts = cleanValue.split('.');
@@ -705,6 +721,16 @@ export default function DocumentsScreen({ onBack }) {
       }
       if (parts[1] && parts[1].length > 1) {
         cleanValue = parts[0] + '.' + parts[1].charAt(0);
+      }
+    } else if (percentageFields.includes(key)) {
+      // Allow digits and a single decimal point with up to two digits after it
+      cleanValue = value.replace(/[^0-9.]/g, '');
+      const parts = cleanValue.split('.');
+      if (parts.length > 2) {
+        cleanValue = parts[0] + '.' + parts[1];
+      }
+      if (parts[1] && parts[1].length > 2) {
+        cleanValue = parts[0] + '.' + parts[1].substring(0, 2);
       }
     } else if (key.includes('email')) {
       // Do not force lowercase or alter text during typing to avoid cursor reset.
