@@ -272,18 +272,23 @@ const FunQuizScreen = ({ onBack }) => {
         const lbData = await lbRes.json();
         const rawList = Array.isArray(lbData) ? lbData : (lbData.data || []);
         
-        const list = rawList.map((u, i) => {
-          const quizPoints = cleanNum(u.quizPoints || u.quiz_points || u.points || u.score || u.total_score || u.total_quiz_points || 0);
-          return {
-            id: u.employee_id || u.user_id || u.id || u.userId || '',
-            name: u.name || u.employee_name || `Employee ${u.id || i}`,
-            score: quizPoints,
-            quiz_points: quizPoints,
-            reward_points: cleanNum(u.reward_points || u.rewardPoints || 0),
-            color: ['#FBBC05', '#EA4335', '#34A853', '#4285F4', '#FBBC05'][i % 5],
-            initial: (u.name || u.employee_name || 'U').charAt(0).toUpperCase()
-          };
-        }).sort((a, b) => b.quiz_points - a.quiz_points).map((u, i) => ({ ...u, rank: i + 1 }));
+        const list = rawList
+          .filter(u => {
+            const lowerName = (u.name || u.employee_name || '').toLowerCase();
+            return !lowerName.includes('anuprasad') && !lowerName.includes('faraz');
+          })
+          .map((u, i) => {
+            const quizPoints = cleanNum(u.quizPoints || u.quiz_points || u.points || u.score || u.total_score || u.total_quiz_points || 0);
+            return {
+              id: u.employee_id || u.user_id || u.id || u.userId || '',
+              name: u.name || u.employee_name || `Employee ${u.id || i}`,
+              score: quizPoints,
+              quiz_points: quizPoints,
+              reward_points: cleanNum(u.reward_points || u.rewardPoints || 0),
+              color: ['#FBBC05', '#EA4335', '#34A853', '#4285F4', '#FBBC05'][i % 5],
+              initial: (u.name || u.employee_name || 'U').charAt(0).toUpperCase()
+            };
+          }).sort((a, b) => b.quiz_points - a.quiz_points).map((u, i) => ({ ...u, rank: i + 1 }));
 
         setLeaderboard(list);
 
