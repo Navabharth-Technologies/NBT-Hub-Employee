@@ -176,9 +176,14 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
   const [isEditingDesignation, setIsEditingDesignation] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
-  const [reportingManager, setReportingManager] = useState(
-    profileCache.reportingManager || { name: 'Loading...', id: '' }
-  );
+  const [reportingManager, setReportingManager] = useState(() => {
+    const cached = profileCache.reportingManager;
+    if (cached && cached.name && cached.name !== 'Loading...') return cached;
+    const name = user?.reporting_manager_name || user?.reportingManagerName || user?.reporting_manager || user?.reportingManager;
+    const id = user?.reporting_manager_id || user?.reportingManagerId || '';
+    if (name) return { name, id };
+    return { name: 'Loading...', id: '' };
+  });
   const fileInputRef = useRef(null);
   const [teamReports, setTeamReports] = useState([]);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -215,175 +220,63 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
       if (user.joining_date || user.joiningDate || user['joining date'] || user.doj || user.date_of_joining) {
         setJoiningDate(user.joining_date || user.joiningDate || user['joining date'] || user.doj || user.date_of_joining);
       }
+      const mName = user.reporting_manager_name || user.reportingManagerName || user.reporting_manager || user.reportingManager;
+      const mId = user.reporting_manager_id || user.reportingManagerId || '';
+      if (mName) {
+        setReportingManager({ name: mName, id: mId });
+      }
     }
   }, [user]);
 
   const fetchReportingManager = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      let empId = user?.employee_id || user?.id || user?.userId;
-      if (!empId && !user?.email) return;
+      if (!token) return;
 
-      // 1. Fetch Users List first for correct ID mapping
-      const uResp = await fetch(API_ENDPOINTS.USERS, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const resp = await fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
+        headers: { 'Authorization': `Bearer ${token.trim()}` },
+        cache: 'no-store'
       });
-
-      let currentUser = null;
-      let usersList = [];
-      if (uResp.ok) {
-        usersList = await uResp.json();
-        currentUser = usersList.find(u =>
-          (u.email && String(u.email).toLowerCase() === String(user?.email || '').toLowerCase()) ||
-          (String(u.employee_id || u.id).split(':')[0] === String(user?.employee_id || user?.id).split(':')[0])
-        );
-
-        // Fallback to match by role if not found (e.g. new joinees whose email is not in users table)
-        if (!currentUser && user?.role) {
-          currentUser = usersList.find(u =>
-            u.role && String(u.role).toLowerCase() === String(user.role).toLowerCase()
-          );
-        }
-      }
-
-      const resolvedEmpId = currentUser ? (currentUser.employee_id || currentUser.id) : empId;
-
-      // 2. Fetch Primary Profile & Meta Profile
-      const [resp, metaResp] = await Promise.all([
-        fetch(API_ENDPOINTS.MY_EMPLOYEE_PROFILE, {
-          headers: { 'Authorization': `Bearer ${token?.trim()}` }
-        }).catch(() => ({ ok: false })),
-        resolvedEmpId ? fetch(API_ENDPOINTS.EMPLOYEE_PROFILE(resolvedEmpId), {
-          headers: { 'Authorization': `Bearer ${token?.trim()}` }
-        }).catch(() => ({ ok: false })) : Promise.resolve({ ok: false })
-      ]);
-
-      // 3. Fetch Teams API to perfectly map RM based on Team Leader
-      let teamsData = [];
-      try {
-        const tResp = await fetch(API_ENDPOINTS.TEAMS, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (tResp.ok) {
-          const tJson = await tResp.json();
-          teamsData = Array.isArray(tJson) ? tJson : (tJson.data || tJson.teams || []);
-        }
-      } catch (e) { console.error('Failed to fetch teams in profile', e); }
-
-      let mName = '';
-      let mId = '';
-      let freshProfileData = null;
-      let freshMeta = null;
 
       if (resp.ok) {
         const data = await resp.json();
-        freshProfileData = data;
-        if (data.phone_number) setPhone(data.phone_number);
-        if (data.date_of_birth) setDob(formatDOB(data.date_of_birth));
-        if (data.about_me) setAboutMe(data.about_me);
-        if (data.designation) setDesignation(data.designation);
-        const jd = data.joining_date || data.joiningDate || data.doj;
+        const profile = data.data || data;
+
+        if (profile.phone_number) setPhone(profile.phone_number);
+        if (profile.date_of_birth) setDob(formatDOB(profile.date_of_birth));
+        if (profile.about_me) setAboutMe(profile.about_me);
+        if (profile.designation) setDesignation(profile.designation);
+
+        const jd = profile.joining_date || profile.joiningDate || profile.doj;
         if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
-        if (data.team) setTeamName(data.team);
-        const img = data.profileImage || data.profile_image || data.avatar;
+        if (profile.team) setTeamName(profile.team);
+
+        const img = profile.profileImage || profile.profile_image || profile.profilePicture || profile.profile_picture || profile.avatar || profile.profile_pic;
         if (img) setProfileImage(resolveImagePath(img));
-        mId = data.reporting_manager_id || data.manager_id || '';
-        mName = data.reporting_manager_name || data.manager_name || '';
+
+        const mName = profile.reporting_manager_name || profile.reportingManagerName || profile.reporting_manager || profile.reportingManager || 'Not Assigned';
+        const mId = profile.reporting_manager_id || profile.reportingManagerId || 'N/A';
+
+        setReportingManager({ name: mName, id: mId });
+
+        // Save resolved data to cache for instant display on next load
+        try {
+          const cacheKey = `profile_cache_${user?.id || user?.employee_id || 'guest'}`;
+          const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+          localStorage.setItem(cacheKey, JSON.stringify({
+            ...existing,
+            teamName: profile.team || existing.teamName,
+            joiningDate: jd ? (Array.isArray(jd) ? jd[0] : jd) : existing.joiningDate,
+            phone: profile.phone_number || existing.phone,
+            dob: profile.date_of_birth ? formatDOB(profile.date_of_birth) : existing.dob,
+            aboutMe: profile.about_me || existing.aboutMe,
+            reportingManager: { name: mName, id: mId },
+          }));
+        } catch (e) { /* cache write failed, non-fatal */ }
       }
-
-      if (metaResp.ok) {
-        const metaList = await metaResp.json();
-        const rawMeta = Array.isArray(metaList) ? metaList[0] : metaList;
-        freshMeta = rawMeta;
-        if (rawMeta) {
-          if (rawMeta.dob) setDob(formatDOB(rawMeta.dob));
-          if (rawMeta.contact_no) setPhone(rawMeta.contact_no);
-          if (rawMeta.designation) setDesignation(rawMeta.designation);
-          if (rawMeta.process) setTeamName(rawMeta.process);
-          if (rawMeta.reporting_manager_id && !mId) mId = rawMeta.reporting_manager_id;
-        }
-      }
-
-      if (currentUser) {
-        const jd = currentUser['joining date'] || currentUser.joining_date || currentUser.doj;
-        if (jd) setJoiningDate(Array.isArray(jd) ? jd[0] : jd);
-        const eid = currentUser.employee_id || currentUser.id;
-        if (eid) {
-          const raw = String(eid);
-          const len = raw.length;
-          let clean = raw;
-          if (len >= 9 && len % 3 === 0) { const p = len / 3; if (raw.slice(0, p) === raw.slice(p, p * 2) && raw.slice(0, p) === raw.slice(p * 2)) clean = raw.slice(0, p); }
-          else if (len >= 6 && len % 2 === 0) { const p = len / 2; if (raw.slice(0, p) === raw.slice(p)) clean = raw.slice(0, p); }
-          setCleanEmployeeId(clean);
-        }
-
-        // Fetch Team Name from Users table
-        const fetchedTeam = currentUser.team || currentUser.team_name || currentUser.process || currentUser.department;
-        if (fetchedTeam) setTeamName(fetchedTeam);
-
-        // Reporting Manager Lookup in users list
-        let targetRmId = currentUser.reporting_manager_id || currentUser.manager_id || mId;
-        if ((!targetRmId || targetRmId === 'Not Assigned') && (String(currentUser.id) === '202522' || String(currentUser.employee_id) === '202522')) {
-          targetRmId = 20250;
-        }
-        if (targetRmId) {
-          mId = targetRmId;
-          const mgr = usersList.find(u => String(u.id || u.employee_id) === String(targetRmId));
-          if (mgr) mName = mgr.name || mgr.emp_name;
-        }
-
-        // Fallback to Team Leader dynamically if no explicit reporting manager is set
-        if (!mName && fetchedTeam) {
-          // Check the TEAMS API
-          const cleanFetched = String(fetchedTeam).replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
-          const matchingTeam = teamsData.find(t =>
-            String(t.name || '').replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase() === cleanFetched
-          );
-          if (matchingTeam && (matchingTeam.leader || matchingTeam.lead)) {
-            mName = matchingTeam.leader || matchingTeam.lead;
-          } else {
-            // Fallback to user list
-            const teamLeader = usersList.find(u =>
-              (String(u.role || '').toLowerCase().includes('teamleader') ||
-                String(u.role || '').toLowerCase() === 'team_leader' ||
-                String(u.designation || '').toLowerCase().includes('team leader')) &&
-              (u.team === fetchedTeam || u.process === fetchedTeam || u.team_name === fetchedTeam)
-            );
-            if (teamLeader && String(teamLeader.id) !== String(currentUser.id)) { // Prevent assigning self
-              mName = teamLeader.name || teamLeader.emp_name;
-              mId = teamLeader.id || teamLeader.employee_id;
-            }
-          }
-        }
-      }
-
-      setReportingManager({ name: mName || 'Not Assigned', id: mId });
-
-      // Save resolved data to cache for instant display on next load
-      try {
-        const cacheKey = `profile_cache_${user?.id || user?.employee_id || 'guest'}`;
-        const freshTeam = currentUser?.team || currentUser?.team_name || currentUser?.process || currentUser?.department;
-        const freshJoining = currentUser?.['joining date'] || currentUser?.joining_date || currentUser?.doj;
-        const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-
-        const freshPhone = freshProfileData?.phone_number || freshMeta?.contact_no || null;
-        const freshDob = freshProfileData?.date_of_birth
-          ? formatDOB(freshProfileData.date_of_birth)
-          : (freshMeta?.dob ? formatDOB(freshMeta.dob) : null);
-        const freshAbout = freshProfileData?.about_me || null;
-
-        localStorage.setItem(cacheKey, JSON.stringify({
-          ...existing,
-          ...(freshTeam ? { teamName: freshTeam } : {}),
-          ...(freshJoining ? { joiningDate: Array.isArray(freshJoining) ? freshJoining[0] : freshJoining } : {}),
-          ...(freshPhone ? { phone: freshPhone } : {}),
-          ...(freshDob ? { dob: freshDob } : {}),
-          ...(freshAbout ? { aboutMe: freshAbout } : {}),
-          reportingManager: { name: mName || 'Not Assigned', id: mId },
-        }));
-      } catch (e) { /* cache write failed, non-fatal */ }
-
     } catch (err) {
       console.error('Fetch Profile Error:', err);
-      setReportingManager({ name: 'Not Assigned', id: '' });
+      setReportingManager({ name: 'Not Assigned', id: 'N/A' });
     }
   }, [user]);
 
