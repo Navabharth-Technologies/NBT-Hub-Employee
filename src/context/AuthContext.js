@@ -136,8 +136,15 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const adjustUserForHR = (u) => {
     if (!u) return u;
-    const isHR = String(u.role || u.designation || '').toUpperCase().includes('HUMAN RESOURCE') || 
-                 String(u.email || '').toLowerCase() === 'raviaradhya46@gmail.com';
+    const email = String(u.email || u.email_id || '').toLowerCase().trim();
+    if (email === 'raviaradhya46@gmail.com') {
+      return {
+        ...u,
+        role: 'New Joinee',
+        designation: 'New Joinee'
+      };
+    }
+    const isHR = String(u.role || u.designation || '').toUpperCase().includes('HUMAN RESOURCE');
     if (isHR) {
       if (u.id === 202522 && u.employee_id === 202522 && u.role === 'Human Resource') {
         return u;
