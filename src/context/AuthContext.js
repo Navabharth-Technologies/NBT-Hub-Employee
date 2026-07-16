@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config';
 
@@ -28,7 +29,16 @@ export const safeSetItem = (key, value) => {
                 profile_pic: u.profile_pic || u.profileImage || u.profile_image || u.profile_picture || u.avatar,
                 profile_picture: u.profile_picture || u.profile_pic || u.profileImage,
                 pan_card_copy: u.pan_card_copy,
-                aadhar_card_copy: u.aadhar_card_copy
+                aadhar_card_copy: u.aadhar_card_copy,
+                designation: u.designation,
+                team: u.team,
+                team_name: u.team_name || u.team,
+                joining_date: u.joining_date || u.joiningDate || u.doj || u.date_of_joining,
+                phone_number: u.phone_number || u.contact_no,
+                about_me: u.about_me,
+                date_of_birth: u.date_of_birth || u.dob,
+                reporting_manager_name: u.reporting_manager_name || u.reportingManagerName || u.reporting_manager || u.reportingManager,
+                reporting_manager_id: u.reporting_manager_id || u.reportingManagerId
             };
 
             finalValue = JSON.stringify(pruned);
