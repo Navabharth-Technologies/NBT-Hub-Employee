@@ -140,8 +140,8 @@ export const AuthProvider = ({ children }) => {
     if (email === 'raviaradhya46@gmail.com') {
       return {
         ...u,
-        role: 'New Joinee',
-        designation: 'New Joinee'
+        role: 'Human Resource',
+        designation: 'Human Resource'
       };
     }
     const isHR = String(u.role || u.designation || '').toUpperCase().includes('HUMAN RESOURCE');
