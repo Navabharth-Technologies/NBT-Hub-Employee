@@ -216,8 +216,9 @@ export const AuthProvider = ({ children }) => {
     if (!u) return u;
     const empId = String(u.employee_id || u.id || u.empId || '').trim();
     const email = String(u.email || '').toLowerCase().trim();
+    let res = u;
     if (empId === '202512' || email === 'rakesh@navabharathtechnologies.com') {
-      return {
+      res = {
         ...u,
         name: 'Rakesh Gowda H N',
         user_name: 'Rakesh Gowda H N',
@@ -225,7 +226,10 @@ export const AuthProvider = ({ children }) => {
         empName: 'Rakesh Gowda H N'
       };
     }
-    return u;
+    if (res && res.role) {
+      res.designation = res.role;
+    }
+    return res;
   };
 
   // ✅ Lazy initialization: read persisted user directly from localStorage on first render

@@ -296,9 +296,33 @@ export default function ResignationScreen({ onBack }) {
     }
   };
 
+  const getMinLastWorkingDay = () => {
+    try {
+      const intentDate = new Date(resignationDate);
+      if (isNaN(intentDate.getTime())) return '';
+      intentDate.setDate(intentDate.getDate() + 1);
+      return intentDate.toISOString().split('T')[0];
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const handleLastWorkingDayChange = (e) => {
+    const selectedDate = e.target.value;
+    if (selectedDate && resignationDate && selectedDate <= resignationDate) {
+      setErrorModal('Proposed Last Working Day must be later than the Intent Date. Please select a valid future date.');
+      setLastWorkingDay('');
+      return;
+    }
+    setLastWorkingDay(selectedDate);
+  };
+
   const handleSubmit = async () => {
     if (!lastWorkingDay || !reason || !detailedReason.trim()) {
       return setErrorModal('Please fill in all required fields.');
+    }
+    if (resignationDate && lastWorkingDay <= resignationDate) {
+      return setErrorModal('Proposed Last Working Day must be later than the Intent Date.');
     }
     // Built-in deduplication: prevent double submission
     const alreadyActive = myHistory.find(r => (r.status || '').toUpperCase() === 'PENDING');
@@ -373,10 +397,14 @@ export default function ResignationScreen({ onBack }) {
         localStorage.setItem(`sim_resignations_${sid}`, JSON.stringify(updatedHistory));
         setSubmitted(true);
       } else {
-        // Submission failed silently — local preview is still shown
+        const errData = await res.json().catch(() => ({}));
+        setErrorModal(errData.error || errData.message || 'Failed to submit resignation. Please try again.');
+        setPreviewLetter(null);
       }
-    } catch {
-      // Network error — local preview still shown to user
+    } catch (err) {
+      console.error(err);
+      setErrorModal('Network error occurred while submitting resignation. Please try again.');
+      setPreviewLetter(null);
     } finally {
       setLoading(false);
     }
@@ -430,8 +458,8 @@ export default function ResignationScreen({ onBack }) {
     bottomShapePrimary: { position: 'absolute', bottom: 0, left: 0, width: '280px', height: '280px', backgroundColor: '#1d4ed8', clipPath: 'polygon(0 60%, 0 100%, 60% 100%)', zIndex: 1 },
     bottomShapeSecondary: { position: 'absolute', bottom: 0, left: 0, width: '180px', height: '180px', backgroundColor: '#1e3a8a', clipPath: 'polygon(0 80%, 0 100%, 40% 100%)', zIndex: 1 },
 
-    letterHeader: { marginBottom: '40px', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
-    logo: { height: '80px', marginBottom: '10px' },
+    letterHeader: { marginBottom: '40px', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', textAlign: 'center' },
+    logo: { height: '90px', marginBottom: '15px', objectFit: 'contain' },
     footerInfo: { marginTop: 'auto', marginBottom: '20px', marginLeft: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', zIndex: 10, textAlign: 'right' },
     footerItem: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '15px', color: '#1e3a8a', fontSize: '13px', fontWeight: '800' },
     footerBar: (color) => ({ width: '40px', height: '14px', backgroundColor: color, borderRadius: '4px' }),
@@ -751,17 +779,8 @@ export default function ResignationScreen({ onBack }) {
 
                 const designation = String(user?.designation || user?.role || '').toLowerCase();
                 const role = String(user?.role || '').toLowerCase();
-                const isExcludedFromTlReview = 
-                  designation.includes('tl') || designation.includes('team lead') || designation.includes('teamleader') || designation.includes('lead') ||
-                  role.includes('tl') || role.includes('team lead') || role.includes('teamleader') || role.includes('lead') ||
-                  designation.includes('pm') || designation.includes('project manager') || designation.includes('project lead') ||
-                  role.includes('pm') || role.includes('project manager') || role.includes('project lead') ||
-                  designation.includes('hr') || designation.includes('human resource') ||
-                  role.includes('hr') || role.includes('human resource');
-
-                const userManagerId = Number(user?.reporting_manager_id || user?.reportingManagerId || user?.manager_id || user?.managerId || 0) || 0;
-                const hasNoTl = userManagerId === 0;
-                const hasTlApproved = isExcludedFromTlReview || hasNoTl || !!(activeRes.reviewed_by_tl || activeRes.reporting_manager_remark);
+                // TL has approved only when they have actually submitted a review remark
+                const hasTlApproved = !!(activeRes.reviewed_by_tl || activeRes.reporting_manager_remark);
                 const hasPmApproved = (activeRes.pm_status || '').toUpperCase() === 'APPROVED';
                 const hasHrApproved = (activeRes.hr_status || '').toUpperCase() === 'APPROVED';
 
@@ -938,8 +957,19 @@ export default function ResignationScreen({ onBack }) {
                     <input type="date" style={s.input} value={resignationDate} disabled />
                   </div>
                   <div style={{ position: 'relative' }}>
-                    <label style={s.label}>Proposed Last Working Day</label>
-                    <input type="date" style={s.input} value={lastWorkingDay} onChange={e => setLastWorkingDay(e.target.value)} />
+                    <label style={s.label}>Proposed Last Working Day <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="date"
+                      style={s.input}
+                      value={lastWorkingDay}
+                      min={getMinLastWorkingDay()}
+                      onChange={handleLastWorkingDayChange}
+                    />
+                    {lastWorkingDay && lastWorkingDay <= resignationDate && (
+                      <div style={{ marginTop: '-18px', marginBottom: '10px', fontSize: '12px', color: '#ef4444', fontWeight: '700' }}>
+                        ⚠ Must be later than the Intent Date.
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1046,9 +1076,6 @@ export default function ResignationScreen({ onBack }) {
               <div style={s.card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                   <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#0B1E3F', margin: 0 }}>Team notice</h2>
-                  <div style={{ padding: '6px 14px', backgroundColor: '#dc2626', color: 'white', borderRadius: '10px', fontSize: '11px', fontWeight: '900' }}>
-                    {teamResignations.filter(r => r.status === 'PENDING').length} PENDING
-                  </div>
                 </div>
                 {teamResignations.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontWeight: '700' }}>No team resignations logged.</div>
@@ -1065,7 +1092,6 @@ export default function ResignationScreen({ onBack }) {
                         <div style={{ fontSize: '12px', color: '#dc2626', fontWeight: '800', marginBottom: '8px' }}>Reason: {r.reason}</div>
                         <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Submitted: {r.resignationDate} • LWD: <strong>{r.lastWorkingDay}</strong></div>
                       </div>
-                      <div style={s.statusBadge(r.status)}>{r.status}</div>
                     </div>
                   </motion.div>
                 ))}

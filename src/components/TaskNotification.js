@@ -79,8 +79,20 @@ const TaskNotification = ({ onOpenTask }) => {
       let addedNew = false;
       const readIds = JSON.parse(localStorage.getItem(`read_employee_notifs_${uid}`) || '[]');
 
+      // Filter out self-notifications for task updates performed by the user
+      const userNameLower = (user?.name || user?.userName || user?.emp_name || '').toLowerCase();
+      const filteredGlobalNotifs = globalNotifs.filter(gn => {
+        const rawMsg = (gn.message || gn.content || gn.description || '').toLowerCase();
+        if (rawMsg.includes('updated') || rawMsg.includes('completed')) {
+          if (rawMsg.startsWith('you updated') || (userNameLower && (rawMsg.startsWith(`${userNameLower} updated`) || rawMsg.includes(`updated by ${userNameLower}`)))) {
+            return false;
+          }
+        }
+        return true;
+      });
+
       // Map Global Notifications
-      const mappedGlobal = globalNotifs.map(gn => {
+      const mappedGlobal = filteredGlobalNotifs.map(gn => {
         const gId = `global_${gn.id}`;
         newIds.add(gId);
         const parseDate = parseDbDate(gn.created_at || gn.createdAt || new Date());
@@ -133,7 +145,7 @@ const TaskNotification = ({ onOpenTask }) => {
             finalDesc = "Added new quiz";
         }
 
-        // Strip out the redundant status line "COMPLETED: [Employee Name]"
+        // Strip out redundant status lines and technical timezone strings
         if (finalDesc && typeof finalDesc === 'string') {
             const cleanDesc = finalDesc.replace(/^COMPLETED:\s*[^\r\n]+[\r\n]+/i, '')
                                        .replace(/^COMPLETED:\s*[^:\-\n]+[\-\:]\s*/i, '');
@@ -148,6 +160,14 @@ const TaskNotification = ({ onOpenTask }) => {
                     finalDesc = finalDesc.replace(/^COMPLETED:\s*/i, '').trim();
                 }
             }
+            // Strip technical timezone and raw Date string artifacts
+            finalDesc = finalDesc.replace(/\s*GMT[+-]\d{4}\s*\([^)]+\)/gi, '')
+                                 .replace(/\b(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\b/gi, (match) => {
+                                   try {
+                                     const d = new Date(match);
+                                     return !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : match;
+                                   } catch { return match; }
+                                 });
         }
 
         return {
@@ -411,10 +431,10 @@ const TaskNotification = ({ onOpenTask }) => {
                           WebkitBoxOrient: 'vertical',
                           overflow: isExpanded ? 'visible' : 'hidden',
                           transition: 'all 0.3s ease',
-                          textTransform: 'capitalize',
-                          whiteSpace: 'pre-wrap'
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
                         }}>{notif.description}</p>
-                        {notif.description && notif.description.length > 60 && (
+                        {notif.description && notif.description.length > 30 && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -434,11 +454,12 @@ const TaskNotification = ({ onOpenTask }) => {
                               color: '#3B5998',
                               cursor: 'pointer',
                               fontSize: '11px',
-                              fontWeight: '700',
+                              fontWeight: '800',
                               padding: '4px 0 0 0',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              textTransform: 'none'
+                              textTransform: 'none',
+                              textDecoration: 'underline'
                             }}
                           >
                             {isExpanded ? 'View Less' : 'View More'}

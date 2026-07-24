@@ -34,6 +34,38 @@
     authKeys.forEach(key => sessionStorage.removeItem(key));
     originalClear();
   };
+
+  // Global window.fetch interceptor to immediately detect account deactivation (401/403) and log the user out
+  const originalFetch = window.fetch;
+  window.fetch = async function(...args) {
+    try {
+      const response = await originalFetch(...args);
+      if (response.status === 401 || response.status === 403) {
+        let isDeactivated = false;
+        try {
+          const clone = response.clone();
+          const body = await clone.json();
+          const errMsg = String(body?.error || body?.message || '').toLowerCase();
+          if (response.status === 401 || errMsg.includes('disabled') || errMsg.includes('deactivated')) {
+            isDeactivated = true;
+          }
+        } catch (_) {
+          if (response.status === 401) isDeactivated = true;
+        }
+
+        if (isDeactivated) {
+          authKeys.forEach(key => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+          });
+          window.location.href = './';
+        }
+      }
+      return response;
+    } catch (err) {
+      throw err;
+    }
+  };
 })();
 
 import React from 'react';
