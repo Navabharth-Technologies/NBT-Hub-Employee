@@ -429,9 +429,6 @@ const TaskNotification = ({ onOpenTask }) => {
                           fontWeight: !isRead ? '1000' : '500', 
                           color: !isRead ? '#0B1E3F' : '#64748b', 
                           marginBottom: '2px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
                           transition: 'all 0.3s ease',
                           textTransform: 'capitalize'
                         }}>{notif.title}</h4>
