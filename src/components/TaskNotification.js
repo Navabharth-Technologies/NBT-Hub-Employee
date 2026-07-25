@@ -103,10 +103,25 @@ const TaskNotification = ({ onOpenTask }) => {
         const rawMsg = gn.message || gn.content || gn.description || '';
         let dynamicTitle = gn.title;
         const lowerMsg = rawMsg.toLowerCase();
-        const isResignation = lowerMsg.includes('resignation') || lowerMsg.includes('exit formalities') || (gn.type && gn.type.toUpperCase() === 'RESIGNATION');
+        const notifType = String(gn.type || gn.Type || '').toUpperCase();
+        const isResignation = lowerMsg.includes('resignation') || lowerMsg.includes('exit formalities') || notifType === 'RESIGNATION';
         
         if (isResignation) {
             dynamicTitle = 'Resignation Updates';
+        } else if (notifType === 'TASK' || notifType === 'EXIT FORMALITIES') {
+            if (notifType === 'TASK') {
+                if (lowerMsg.includes('completed') || lowerMsg.includes('status to completed')) {
+                    dynamicTitle = 'Task Completed';
+                } else if (lowerMsg.includes('updated') || lowerMsg.includes('status to')) {
+                    dynamicTitle = 'Task Updated';
+                } else if (lowerMsg.includes('assigned')) {
+                    dynamicTitle = 'New Task Assigned';
+                } else {
+                    dynamicTitle = 'Task Update';
+                }
+            } else {
+                dynamicTitle = 'Exit Formalities';
+            }
         } else if (!dynamicTitle || dynamicTitle === 'System Alert' || dynamicTitle.toLowerCase().includes('system alert')) {
             if (lowerMsg.includes('ticket')) {
                 dynamicTitle = 'Ticket response';
