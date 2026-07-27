@@ -300,7 +300,6 @@ export default function ResignationScreen({ onBack }) {
     try {
       const intentDate = new Date(resignationDate);
       if (isNaN(intentDate.getTime())) return '';
-      intentDate.setDate(intentDate.getDate() + 1);
       return intentDate.toISOString().split('T')[0];
     } catch (e) {
       return '';
@@ -309,8 +308,8 @@ export default function ResignationScreen({ onBack }) {
 
   const handleLastWorkingDayChange = (e) => {
     const selectedDate = e.target.value;
-    if (selectedDate && resignationDate && selectedDate <= resignationDate) {
-      setErrorModal('Proposed Last Working Day must be later than the Intent Date. Please select a valid future date.');
+    if (selectedDate && resignationDate && selectedDate < resignationDate) {
+      setErrorModal('Proposed Last Working Day must be later than or equal to the Intent Date. Please select a valid date.');
       setLastWorkingDay('');
       return;
     }
@@ -321,8 +320,8 @@ export default function ResignationScreen({ onBack }) {
     if (!lastWorkingDay || !reason || !detailedReason.trim()) {
       return setErrorModal('Please fill in all required fields.');
     }
-    if (resignationDate && lastWorkingDay <= resignationDate) {
-      return setErrorModal('Proposed Last Working Day must be later than the Intent Date.');
+    if (resignationDate && lastWorkingDay < resignationDate) {
+      return setErrorModal('Proposed Last Working Day must be later than or equal to the Intent Date.');
     }
     // Built-in deduplication: prevent double submission
     const alreadyActive = myHistory.find(r => (r.status || '').toUpperCase() === 'PENDING');
@@ -1001,9 +1000,9 @@ export default function ResignationScreen({ onBack }) {
                       min={getMinLastWorkingDay()}
                       onChange={handleLastWorkingDayChange}
                     />
-                    {lastWorkingDay && lastWorkingDay <= resignationDate && (
+                    {lastWorkingDay && lastWorkingDay < resignationDate && (
                       <div style={{ marginTop: '-18px', marginBottom: '10px', fontSize: '12px', color: '#ef4444', fontWeight: '700' }}>
-                        ⚠ Must be later than the Intent Date.
+                        ⚠ Must be later than or equal to the Intent Date.
                       </div>
                     )}
                   </div>
