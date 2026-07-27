@@ -462,10 +462,15 @@ export const AuthProvider = ({ children }) => {
 
       // If production login fails (e.g. 401 Unauthorized), return error immediately.
       // Removed insecure sandbox/hardcoded password fallbacks.
-      if (prodRes.status === 401 || prodRes.status === 404) {
-        return { success: false, error: 'Invalid email or password' };
+      let errData = {};
+      try { errData = await prodRes.json(); } catch (_) {}
+      if (prodRes.status === 403) {
+        return { success: false, error: errData.message || 'Your account has been disabled. Please contact the HR department for further assistance.' };
       }
-      return { success: false, error: 'Connection refused or Server Error' };
+      if (prodRes.status === 401 || prodRes.status === 404) {
+        return { success: false, error: errData.message || 'Invalid email or password' };
+      }
+      return { success: false, error: errData.message || errData.error || 'Connection refused or Server Error' };
 
     } catch (e) {
       console.error("Login unexpected error:", e);
