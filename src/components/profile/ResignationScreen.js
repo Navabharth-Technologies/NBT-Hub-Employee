@@ -414,15 +414,42 @@ export default function ResignationScreen({ onBack }) {
     if (!revokeData.reason.trim()) return setErrorModal('Please provide a reason.');
     setLoading(true);
     try {
-      // Update locally and attempt backend sync
-      const updatedHistory = myHistory.map(r => r.id === revokeData.id ? { ...r, status: 'REVOKED', revokeReason: revokeData.reason } : r);
-      setMyHistory(updatedHistory);
-      localStorage.setItem(`sim_resignations_${user?.id}`, JSON.stringify(updatedHistory));
-      setSubmitted(false);
-      setShowRevokeModal(false);
-      setPreviewLetter(null);
-    } catch {
-      // Revoke failed silently
+      const token = localStorage.getItem('token');
+      const endpoint = API_ENDPOINTS.REVOKE_RESIGNATION 
+        ? API_ENDPOINTS.REVOKE_RESIGNATION(revokeData.id)
+        : `${BASE_URL}/api/resignations/revoke/${revokeData.id}`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': token ? `Bearer ${token}` : '' 
+        },
+        body: JSON.stringify({ revokeReason: revokeData.reason })
+      });
+
+      if (res.ok) {
+        const updatedHistory = myHistory.map(r => r.id === revokeData.id ? { ...r, status: 'REVOKED', revokeReason: revokeData.reason } : r);
+        setMyHistory(updatedHistory);
+        localStorage.setItem(`sim_resignations_${user?.id}`, JSON.stringify(updatedHistory));
+        setSubmitted(false);
+        setShowRevokeModal(false);
+        setPreviewLetter(null);
+        setErrorModal({
+          title: 'Success',
+          message: 'Resignation revoked successfully.',
+          isSuccess: true,
+          onClose: () => {
+            fetchMyResignations();
+          }
+        });
+      } else {
+        console.error('Revocation backend error:', await res.text().catch(() => ''));
+        setErrorModal('Unable to revoke the request. Please try again.');
+      }
+    } catch (err) {
+      console.error('Revocation network error:', err);
+      setErrorModal('Unable to revoke the request. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -842,7 +869,12 @@ export default function ResignationScreen({ onBack }) {
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '15px', fontWeight: '900', marginBottom: '2px' }}>Resignation Waiting</div>
-                          <div style={{ fontSize: '13px', fontWeight: '600', color: '#b4530995', marginBottom: '16px' }}>Your resignation is waiting for approvals</div>
+                          <div style={{ fontSize: '13px', fontWeight: '600', color: '#b4530995', marginBottom: '12px' }}>Your resignation is waiting for approvals</div>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#b45309', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
+                            <div>Team Leader – {hasTlApproved ? 'Approved' : 'Pending'}</div>
+                            <div>Project Manager – {hasPmApproved ? 'Approved' : 'Pending'}</div>
+                            <div>HR – {hasHrApproved ? 'Approved' : 'Pending'}</div>
+                          </div>
                           
                           <div style={{ display: 'flex', flexDirection: winWidth < 768 ? 'column' : 'row', gap: '12px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: hasTlApproved ? '#f0fdf4' : '#fffbeb', border: `1.5px solid ${hasTlApproved ? '#bbf7d0' : '#fde68a'}`, padding: '8px 14px', borderRadius: '12px', color: hasTlApproved ? '#15803d' : '#b45309' }}>
@@ -885,7 +917,11 @@ export default function ResignationScreen({ onBack }) {
                             </div>
                             <div>
                               <div style={{ fontSize: '15px', fontWeight: '900', marginBottom: '2px' }}>Resignation Approved</div>
-                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#15803d95' }}>Your resignation has been approved by Team Leader, Project Manager, and HR.</div>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#15803d95', display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
+                                <div>Team Leader – {hasTlApproved ? 'Approved' : 'Pending'}</div>
+                                <div>Project Manager – {hasPmApproved ? 'Approved' : 'Pending'}</div>
+                                <div>HR – {hasHrApproved ? 'Approved' : 'Pending'}</div>
+                              </div>
                             </div>
                           </motion.div>
                         ) : (
@@ -1059,11 +1095,7 @@ export default function ResignationScreen({ onBack }) {
                       </div>
                       <div style={s.statusBadge(r.status)}>{r.status}</div>
                     </div>
-                    {r.status === 'PENDING' && (
-                      <button style={s.revokeBtn} onClick={() => { setRevokeData({ id: r.id, reason: '' }); setShowRevokeModal(true); }}>
-                        <Undo size={14} /> Revoke Notice
-                      </button>
-                    )}
+
                   </div>
                 ))}
               </div>
@@ -1105,14 +1137,6 @@ export default function ResignationScreen({ onBack }) {
                 <button style={s.backBtn} onClick={() => setActiveTab('main')}>
                   <ArrowLeft size={18} /> Back to Resignation
                 </button>
-                {previewLetter.status === 'PENDING' && (
-                  <button 
-                    style={{ ...s.submitBtn, backgroundColor: '#dc2626', width: 'auto', padding: '10px 20px', boxShadow: 'none' }}
-                    onClick={() => { setRevokeData({ id: previewLetter.id, reason: '' }); setShowRevokeModal(true); }}
-                  >
-                    <Undo size={16} /> Revoke Resignation
-                  </button>
-                )}
               </div>
 
               <div style={s.letterContainer}>
@@ -1239,19 +1263,7 @@ export default function ResignationScreen({ onBack }) {
         )}
       </AnimatePresence>
 
-      {showRevokeModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: 'white', borderRadius: '30px', padding: '40px', maxWidth: '450px', width: '100%', boxShadow: '0 30px 60px rgba(0,0,0,0.2)' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#0B1E3F', marginBottom: '25px' }}>Revoke Resignation</h2>
-            <label style={s.label}>Reason for Revoking</label>
-            <textarea style={{ ...s.textarea, minHeight: '100px' }} placeholder="Why are you revoking?" value={revokeData.reason} onChange={e => setRevokeData({ ...revokeData, reason: e.target.value })} />
-            <div style={{ display: 'flex', gap: '15px' }}>
-                <button onClick={() => setShowRevokeModal(false)} style={{ flex: 1, padding: '15px', borderRadius: '15px', background: '#f1f5f9', border: 'none', fontWeight: '800', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleRevoke} style={{ flex: 2, ...s.submitBtn, backgroundColor: '#0B1E3F', padding: '15px' }}>{loading ? "Revoking..." : "Confirm Revoke"}</button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+
 
       {errorModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>

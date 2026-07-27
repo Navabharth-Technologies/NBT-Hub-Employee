@@ -175,7 +175,8 @@ export const API_ENDPOINTS = {
   CHANGE_PASSWORD: `${BASE_URL}/api/password/change-password`,
   QUIZ_USER_POINTS: `${BASE_URL}/api/quizzes/user-points`,
   QUIZ_LEADERBOARD: `${BASE_URL}/api/quizzes/leaderboard`,
-  EXIT_FEEDBACK: `${BASE_URL}/api/exit-feedback`
+  EXIT_FEEDBACK: `${BASE_URL}/api/exit-feedback`,
+  REVOKE_RESIGNATION: (id) => `${BASE_URL}/api/resignations/revoke/${cleanId(id)}`
 };
 
 export const INTERN_API_ENDPOINTS = {
