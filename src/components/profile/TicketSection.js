@@ -28,6 +28,7 @@ export default function TicketSection({ onClose }) {
         body: JSON.stringify({
           subject,
           category,
+          department: category,
           description,
           priority,
           email: user?.email,
