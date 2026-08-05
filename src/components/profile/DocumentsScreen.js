@@ -21,6 +21,15 @@ const LOCKED_FIELDS = [
   'has_mobile', 'has_camera', 'has_headphone', 'has_tablet'
 ];
 
+const VALID_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 
+  'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 
+  'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 
+  'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 
+  'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+];
+
 const REQUIRED_FIELDS = [
   // Primary Profile
   'emp_name', 'gender', 'date_of_birth', 'age', 'blood_group', 'marital_status', 'father_husband_name', 'pan_number', 'pancard_photo', 'aadhar_number', 'adharcard_photo',
@@ -85,7 +94,7 @@ const SECTIONS = [
       { key: 'personal_email_id', label: 'Personal Email ID', type: 'text' },
       { key: 'present_address', label: 'Present Address', type: 'text' },
       { key: 'permanent_address', label: 'Permanent Address', type: 'text' },
-      { key: 'state', label: 'State', type: 'text' },
+      { key: 'state', label: 'State', type: 'select', options: VALID_STATES },
     ]
   },
   {
@@ -561,16 +570,7 @@ export default function DocumentsScreen({ onBack }) {
       else if (/[^a-zA-Z\s.]/.test(value)) error = 'Only alphabets, spaces and dots allowed';
 
       if (!error && key === 'state') {
-        const VALID_INDIAN_STATES = [
-          'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 
-          'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 
-          'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 
-          'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 
-          'West Bengal',
-          'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 
-          'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
-        ];
-        const match = VALID_INDIAN_STATES.some(s => s.toLowerCase() === String(value).trim().toLowerCase());
+        const match = VALID_STATES.some(s => s.toLowerCase() === String(value).trim().toLowerCase());
         if (!match) {
           error = 'Please enter a valid state name';
         }
