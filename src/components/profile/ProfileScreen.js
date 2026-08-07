@@ -273,6 +273,11 @@ export default function ProfileScreen({ isNewJoinee, onNavigate, onBack }) {
             reportingManager: { name: mName, id: mId },
           }));
         } catch (e) { /* cache write failed, non-fatal */ }
+
+        // Sync context user state (including designation and photo) with the page header
+        if (typeof refreshUser === 'function') {
+          refreshUser();
+        }
       }
     } catch (err) {
       console.error('Fetch Profile Error:', err);

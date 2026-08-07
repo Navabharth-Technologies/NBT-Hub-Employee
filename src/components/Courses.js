@@ -464,7 +464,13 @@ export default function CourseScreen() {
         const videoSrc = selectedCourse.video_data
             ? `data:video/mp4;base64,${selectedCourse.video_data}`
             : formatUrl(selectedCourse.video || selectedCourse.video_url || selectedCourse.video_link || selectedCourse.link);
-        const isEmbed = videoSrc && (videoSrc.includes('youtube.com') || videoSrc.includes('vimeo.com'));
+        const isEmbed = videoSrc && (
+            videoSrc.includes('youtube.com') || 
+            videoSrc.includes('vimeo.com') || 
+            videoSrc.includes('drive.google.com') || 
+            videoSrc.includes('/api/drive/stream') ||
+            videoSrc.includes('/uploads/drive')
+        );
 
         return (
             <div style={s.container}>

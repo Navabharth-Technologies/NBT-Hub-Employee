@@ -1247,24 +1247,33 @@ const AwardsScreen = ({ onBack }) => {
     });
 
     const pmList = filteredAllRewards
-        .filter(r => getGrantorCategory(r) === 'PM')
+        .filter(r => {
+            const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
+            const cat = String(r.category || '').toUpperCase();
+            const isQuiz = cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser');
+            return !isQuiz;
+        })
         .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
 
-    const tlList = filteredAllRewards
-        .filter(r => getGrantorCategory(r) === 'TL')
-        .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+    const tlList = [];
 
-    const quizItemsForHR = dedupedQuizHistory.filter(q => {
+    const quizItemsForGame = dedupedQuizHistory.filter(q => {
         return isWithinDateRange(q.created_at || q.date);
     });
 
-    const hrList = [...filteredAllRewards.filter(r => getGrantorCategory(r) === 'HR'), ...quizItemsForHR]
+    const manualQuizRewards = filteredAllRewards.filter(r => {
+        const rawTitle = String(r.reward_name || r.rewardName || r.title || '').trim().toLowerCase();
+        const cat = String(r.category || '').toUpperCase();
+        return cat === 'FUN QUIZ GAME' || cat === 'QUIZ' || rawTitle.includes('quiz') || rawTitle.includes('brain teaser');
+    });
+
+    const gameList = [...manualQuizRewards, ...quizItemsForGame]
         .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
 
     const history = {
         tl: tlList,
         pm: pmList,
-        hr: hrList
+        hr: gameList
     };
 
     const allActivity = uniqueHistory;
@@ -1722,34 +1731,7 @@ const AwardsScreen = ({ onBack }) => {
             </div>
 
             {/* MAIN COLUMNS */}
-            <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? '1fr' : '1fr 1fr 1fr', gap: '25px', marginBottom: '40px' }}>
-                <motion.div
-                    initial={{ opacity: 0, y: 25 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1, type: 'spring', stiffness: 100 }}
-                    style={{
-                        backgroundColor: 'white', borderRadius: '28px', padding: '24px',
-                        border: '1px solid #fdf4ff', boxShadow: '0 10px 40px rgba(112,26,117,0.02)',
-                        height: '580px', display: 'flex', flexDirection: 'column'
-                    }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Award size={20} color="#701a75" />
-                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '1000', color: '#701a75' }}>TL Recognition</h3>
-                        </div>
-                        {canGrant && (
-                            <button onClick={() => openGrantModal('TL')} style={{ backgroundColor: '#FBBC05', color: '#0B1E3F', border: 'none', padding: '6px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: '1000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Zap size={14} fill="#0B1E3F" /> Reward
-                            </button>
-                        )}
-                    </div>
-                    <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px', display: 'flex', flexDirection: 'column', gap: '12px' }} className="custom-scrollbar">
-                        {tlList.map((item, idx) => <RewardCard key={idx} item={item} color="#701a75" bg="#fdf4ff" employees={employees} leaderboard={sortedLeaderboard} />)}
-                        {tlList.length === 0 && <div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#94a3b8' }}>No TL rewards.</div>}
-                    </div>
-                </motion.div>
-
+            <div style={{ display: 'grid', gridTemplateColumns: winWidth < 1024 ? '1fr' : '1fr 1fr', gap: '25px', marginBottom: '40px' }}>
                 <motion.div
                     initial={{ opacity: 0, y: 25 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1790,7 +1772,7 @@ const AwardsScreen = ({ onBack }) => {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Zap size={18} color="#22c55e" /></div>
-                            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#15803d' }}>HR & Game Recognition</h2>
+                            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '1000', color: '#15803d' }}>Game Recognition</h2>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1803,7 +1785,7 @@ const AwardsScreen = ({ onBack }) => {
                             <div style={{ padding: '4px 10px', backgroundColor: '#fef3c7', borderRadius: '10px', border: '1px solid #fde68a', fontSize: '10px', fontWeight: '1000', color: '#d97706', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <Trophy size={12} />
                                 {(() => {
-                                    const totalHrPoints = (history.hr || []).reduce((sum, aw) => {
+                                    const totalHrPoints = (hrList || []).reduce((sum, aw) => {
                                         return sum + extractNumLocalGlobal(aw.points || aw.rep || 0);
                                     }, 0);
                                     return `${totalHrPoints} REP TOTAL`;
