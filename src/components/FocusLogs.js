@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, Download, ChevronLeft, Search, Filter, Clock, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Calendar, Download, ChevronLeft, Search, Filter, Clock, FileText, CheckCircle2, ShieldCheck, X, AlertCircle } from 'lucide-react';
 import BackButton from './BackButton';
 import { API_ENDPOINTS } from '../config';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +30,7 @@ export default function FocusLogs({ onBack }) {
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [showNoLogsPopup, setShowNoLogsPopup] = useState(false);
 
   // Default range: Start of month to now
   const now = new Date();
@@ -110,7 +111,7 @@ export default function FocusLogs({ onBack }) {
 
 
   const downloadSpreadsheet = () => {
-    if (filteredLogs.length === 0) return alert("No logs to download");
+    if (filteredLogs.length === 0) { setShowNoLogsPopup(true); return; }
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Date,Time,Status,Tasks\n";
     filteredLogs.forEach(log => {
@@ -144,7 +145,7 @@ export default function FocusLogs({ onBack }) {
   };
 
   const downloadPDF = () => {
-    if (filteredLogs.length === 0) return alert("No logs to download");
+    if (filteredLogs.length === 0) { setShowNoLogsPopup(true); return; }
     const doc = new jsPDF();
     const rangeTitle = (startDate && endDate) ? `${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}` : 'All Time';
     doc.text(` Focus Logs: ${rangeTitle}`, 14, 15);
@@ -447,6 +448,113 @@ export default function FocusLogs({ onBack }) {
         </div>
 
       </main>
+
+      {showNoLogsPopup && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '24px',
+            padding: '30px 24px 24px',
+            maxWidth: '380px',
+            width: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            position: 'relative',
+            textAlign: 'center',
+            border: '1px solid rgba(226, 232, 240, 0.8)'
+          }}>
+            <button 
+              onClick={() => setShowNoLogsPopup(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#94a3b8',
+                padding: '4px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background-color 0.2s, color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f1f5f9';
+                e.currentTarget.style.color = '#475569';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#94a3b8';
+              }}
+            >
+              <X size={18} />
+            </button>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: '#ef4444'
+            }}>
+              <AlertCircle size={28} />
+            </div>
+            <h3 style={{
+              fontSize: '18px',
+              fontWeight: '800',
+              color: '#0f172a',
+              marginBottom: '8px',
+              margin: '0 0 8px 0'
+            }}>No Logs to Download</h3>
+            <p style={{
+              fontSize: '14px',
+              color: '#64748b',
+              lineHeight: '1.5',
+              margin: '0 0 20px 0',
+              fontWeight: '500'
+            }}>
+              There are no focus logs recorded for the selected date range.
+            </p>
+            <button 
+              onClick={() => setShowNoLogsPopup(false)}
+              style={{
+                backgroundColor: '#1e293b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '10px 24px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 4px 12px rgba(30, 41, 59, 0.15)',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0f172a'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1e293b'}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

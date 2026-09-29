@@ -334,6 +334,8 @@ const ServiceCertificateScreen = ({ onBack }) => {
 
       if (resp.ok) {
         setRequestStatus('success');
+        setPurpose('');
+        setOtherPurpose('');
         fetchHistory();
       } else {
         const errorData = await resp.json();
@@ -364,8 +366,10 @@ const ServiceCertificateScreen = ({ onBack }) => {
   const [assetRecordId, setAssetRecordId] = useState(null);
   const [isAssetLoading, setIsAssetLoading] = useState(false);
   const [hasSubmittedAssets, setHasSubmittedAssets] = useState(false);
+  const [isDeclarationDone, setIsDeclarationDone] = useState(false);
   const [isAssetSubmitting, setIsAssetSubmitting] = useState(false);
   const [assetSubmittedDate, setAssetSubmittedDate] = useState(null);
+  const isUnlocked = hasSubmittedAssets || isDeclarationDone;
 
   useEffect(() => {
     const fetchCurrentAssets = async () => {
@@ -417,20 +421,26 @@ const ServiceCertificateScreen = ({ onBack }) => {
               if (assetReq) status = assetReq.status;
             }
 
+            const uidVal = employeeId || user?.employee_id || user?.id;
+            if (uidVal) {
+              try {
+                localStorage.removeItem(`hardware_declared_${uidVal}`);
+              } catch (e) {}
+            }
             const hasSubmitted = !!assetReq;
 
             setAssetForm({
               brand: asset.laptop_details || '',
               serial: asset.serial_no || '',
-              mouse: hasSubmitted ? isT(asset.mouse) : false,
-              keyboard: hasSubmitted ? isT(asset.keyboard) : false,
-              laptop_stand: hasSubmitted ? isT(asset.laptop_stand) : false,
-              company_mobile: hasSubmitted ? isT(asset.company_mobile || asset.mobile) : false,
-              external_camera: hasSubmitted ? isT(asset.external_camera || asset.camera) : false,
-              earphone_headphone: hasSubmitted ? isT(asset.earphone_headphone) : false,
-              tablet: hasSubmitted ? isT(asset.tablet) : false,
-              pendrive: hasSubmitted ? isT(asset.pendrive) : false,
-              ruf_pad: hasSubmitted ? isT(asset.ruf_pad) : false
+              mouse: isT(asset.mouse),
+              keyboard: isT(asset.keyboard),
+              laptop_stand: isT(asset.laptop_stand),
+              company_mobile: isT(asset.company_mobile || asset.mobile),
+              external_camera: isT(asset.external_camera || asset.camera),
+              earphone_headphone: isT(asset.earphone_headphone),
+              tablet: isT(asset.tablet),
+              pendrive: isT(asset.pendrive),
+              ruf_pad: isT(asset.ruf_pad)
             });
 
             setAssetRecordId(assetReq ? assetReq.id : null);
@@ -440,7 +450,7 @@ const ServiceCertificateScreen = ({ onBack }) => {
           } else {
             const assetReq = Array.isArray(fetchedHistory) && fetchedHistory.find(h => h.purpose === 'Professional Asset Declaration');
             if (assetReq) {
-              setAssetStatus(assetReq.status);
+              setAssetStatus(assetReq.status || 'Pending Audit');
               setAssetSubmittedDate(assetReq.created_at);
               setHasSubmittedAssets(true);
               setAssetRecordId(assetReq.id);
@@ -465,6 +475,11 @@ const ServiceCertificateScreen = ({ onBack }) => {
 
   const handleAssetSubmit = async (e) => {
     e.preventDefault();
+    if (isAssetSubmitting || isDeclarationDone) return;
+    if (!assetForm.brand || !assetForm.serial) {
+      setErrorModal('Please enter both Laptop Brand / Model and Serial Number.');
+      return;
+    }
     setIsAssetSubmitting(true);
     try {
       const token = localStorage.getItem('token');
@@ -504,6 +519,7 @@ const ServiceCertificateScreen = ({ onBack }) => {
       });
 
       if (resp.ok) {
+        setIsDeclarationDone(true);
         setHasSubmittedAssets(true);
         setAssetStatus('Pending Audit');
         setShowSuccessPopup(true);
@@ -682,52 +698,41 @@ const ServiceCertificateScreen = ({ onBack }) => {
 
                 {/* Submit / Status Button */}
                 {(() => {
-                  const latestReq = history.find(h => h.purpose !== 'Professional Asset Declaration');
-                  const reqStatus = latestReq ? String(latestReq.status || '').toLowerCase().trim() : '';
-                  const isApproved = reqStatus === 'approved' || reqStatus === 'completed';
-                  const alreadySubmitted = latestReq && !isApproved;
-
-                  if (isApproved) {
-                    return (
-                      <motion.button type="button" disabled style={{ ...s.submitBtn, backgroundColor: '#16a34a', opacity: 1, cursor: 'default', boxShadow: '0 8px 24px rgba(22,163,74,0.25)' }}>
-                        <Mail size={20} />
-                        Sent in Email — Check Your Mail
-                      </motion.button>
-                    );
-                  }
-
-                  if (alreadySubmitted) {
-                    return (
-                      <motion.button type="button" disabled style={{ ...s.submitBtn, opacity: 0.7, cursor: 'not-allowed', backgroundColor: '#64748b' }}>
-                        <CheckCircle2 size={20} />
-                        Application Already Submitted
-                      </motion.button>
-                    );
-                  }
-
-                  const canSubmit = hasSubmittedAssets && !!purpose && !isSubmitting;
+                  const canSubmit = isUnlocked && !!purpose && !isSubmitting;
                   return (
                     <motion.button
                       whileHover={canSubmit ? { scale: 1.02 } : {}}
                       whileTap={canSubmit ? { scale: 0.98 } : {}}
                       type="submit"
-                      style={{ ...s.submitBtn, opacity: canSubmit ? 1 : 0.55, cursor: canSubmit ? 'pointer' : 'not-allowed', backgroundColor: canSubmit ? '#10274A' : '#94a3b8' }}
+                      style={{
+                        ...s.submitBtn,
+                        opacity: canSubmit ? 1 : 0.55,
+                        cursor: canSubmit ? 'pointer' : 'not-allowed',
+                        backgroundColor: canSubmit ? '#10274A' : '#94a3b8',
+                        boxShadow: canSubmit ? '0 10px 25px rgba(16,39,74,0.25)' : 'none'
+                      }}
                       disabled={!canSubmit}
                     >
-                      {isSubmitting ? <Clock className="animate-spin" size={20} /> : (hasSubmittedAssets ? <Send size={20} /> : <ShieldCheck size={20} />)}
-                      {isSubmitting ? 'Processing Request...' : (hasSubmittedAssets ? 'Submit Application' : 'Declare Assets to Unlock')}
+                      {isSubmitting ? (
+                        <Clock className="animate-spin" size={20} />
+                      ) : (
+                        isUnlocked ? <Send size={20} /> : <ShieldCheck size={20} />
+                      )}
+                      {isSubmitting
+                        ? 'Processing Request...'
+                        : (isUnlocked ? 'Submit Application' : 'Declare Assets to Unlock')}
                     </motion.button>
                   );
                 })()}
 
                 {/* Validation hints */}
-                {!hasSubmittedAssets && (
+                {!isUnlocked && (
                   <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <AlertCircle size={16} color="#b45309" />
                     <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '700' }}>Asset declaration is mandatory before applying for a service certificate.</span>
                   </div>
                 )}
-                {hasSubmittedAssets && !purpose && (
+                {isUnlocked && !purpose && (
                   <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <AlertCircle size={16} color="#e11d48" />
                     <span style={{ fontSize: '11px', color: '#e11d48', fontWeight: '700' }}>Please select a Purpose of Request to continue.</span>
@@ -821,7 +826,9 @@ const ServiceCertificateScreen = ({ onBack }) => {
                       return (
                         <div
                           key={item.key}
-                          onClick={() => setAssetForm({ ...assetForm, [item.key]: !active })}
+                          onClick={() => {
+                            setAssetForm(prev => ({ ...prev, [item.key]: !prev[item.key] }));
+                          }}
                           style={{
                             padding: '12px 8px',
                             borderRadius: '15px',
@@ -850,40 +857,60 @@ const ServiceCertificateScreen = ({ onBack }) => {
                   </div>
                 </div>
 
-                <motion.button
-                  whileHover={!isAssetSubmitting ? { scale: 1.01 } : {}}
-                  whileTap={!isAssetSubmitting ? { scale: 0.98 } : {}}
-                  type="submit"
-                  disabled={isAssetSubmitting}
-                  style={{
+                {!isDeclarationDone ? (
+                  <motion.button
+                    whileHover={!isAssetSubmitting ? { scale: 1.01 } : {}}
+                    whileTap={!isAssetSubmitting ? { scale: 0.98 } : {}}
+                    type="submit"
+                    disabled={isAssetSubmitting}
+                    style={{
+                      width: '100%',
+                      padding: '18px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      backgroundColor: isAssetSubmitting ? '#94a3b8' : '#10B981',
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      cursor: isAssetSubmitting ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      boxShadow: isAssetSubmitting ? 'none' : '0 10px 25px rgba(16,185,129,0.2)'
+                    }}
+                  >
+                    {isAssetSubmitting ? (
+                      <>
+                        <div style={{ width: '18px', height: '18px', border: '3px solid #ffffff40', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                        Syncing with Audit...
+                      </>
+                    ) : (
+                      <>
+                        <Shield size={18} />
+                        Finalize Hardware Declaration
+                      </>
+                    )}
+                  </motion.button>
+                ) : (
+                  <div style={{
                     width: '100%',
-                    padding: '18px',
+                    padding: '16px',
                     borderRadius: '20px',
-                    border: 'none',
-                    backgroundColor: isAssetSubmitting ? '#94a3b8' : (hasSubmittedAssets ? '#6366f1' : '#10B981'),
-                    color: 'white',
+                    backgroundColor: '#f0fdf4',
+                    border: '1.5px solid #bbf7d0',
+                    color: '#15803d',
                     fontSize: '13px',
                     fontWeight: '800',
-                    cursor: isAssetSubmitting ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '12px',
-                    boxShadow: isAssetSubmitting ? 'none' : (hasSubmittedAssets ? '0 10px 25px rgba(99,102,241,0.2)' : '0 10px 25px rgba(16,185,129,0.2)')
-                  }}
-                >
-                  {isAssetSubmitting ? (
-                    <>
-                      <div style={{ width: '18px', height: '18px', border: '3px solid #ffffff40', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                      Syncing with Audit...
-                    </>
-                  ) : (
-                    <>
-                      <Shield size={18} />
-                      {hasSubmittedAssets ? 'Update Hardware Declaration' : 'Finalize Hardware Declaration'}
-                    </>
-                  )}
-                </motion.button>
+                    gap: '10px'
+                  }}>
+                    <CheckCircle2 size={18} color="#16a34a" />
+                    Hardware Declaration Finalized & Verified
+                  </div>
+                )}
               </form>
             </div>
           )}

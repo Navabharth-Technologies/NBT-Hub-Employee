@@ -1270,6 +1270,8 @@ const InternAwardsScreen = ({ onBack }) => {
     const gameList = [...manualQuizRewards, ...quizItemsForGame]
         .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
 
+    const hrList = gameList;
+
     const history = {
         tl: tlList,
         pm: pmList,

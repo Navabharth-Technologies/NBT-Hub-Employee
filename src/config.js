@@ -1,4 +1,7 @@
-export const BASE_URL = 'http://192.168.1.32:5000';
+export const BASE_URL =
+  (typeof window !== 'undefined' && (localStorage.getItem('api_override_url') || window.__API_URL__)) ||
+  process.env.REACT_APP_API_URL ||
+  'http://192.168.29.174:5000';
 export const TEAM_OFFICE_AUTH_TOKEN = 'your_default_token_here'; // Added as requested by new component
 
 export const cleanId = (id) => {

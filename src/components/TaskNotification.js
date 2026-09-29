@@ -91,6 +91,34 @@ const TaskNotification = ({ onOpenTask }) => {
         return true;
       });
 
+      // Fetch resignation details for current logged-in employee if any resignation notification exists
+      let myResignations = [];
+      const hasResignationNotif = filteredGlobalNotifs.some(gn => {
+        const raw = (gn.message || gn.content || gn.description || '').toLowerCase();
+        const t = String(gn.type || gn.Type || '').toUpperCase();
+        return raw.includes('resignation') || raw.includes('exit formalities') || t === 'RESIGNATION';
+      });
+
+      if (hasResignationNotif) {
+        try {
+          const resRes = await fetch(API_ENDPOINTS.RESIGNATION_MY, { headers }).catch(() => null);
+          if (resRes && resRes.ok) {
+            const resData = await resRes.json();
+            myResignations = Array.isArray(resData) ? resData : (resData.value || resData.data || []);
+          }
+        } catch (e) {}
+
+        if (!myResignations || myResignations.length === 0) {
+          try {
+            const sid = sanitizeId(uid);
+            const saved = localStorage.getItem(`sim_resignations_${sid}`) || localStorage.getItem(`sim_resignations_${user?.id}`);
+            if (saved) {
+              myResignations = JSON.parse(saved);
+            }
+          } catch (e) {}
+        }
+      }
+
       // Map Global Notifications
       const mappedGlobal = filteredGlobalNotifs.map(gn => {
         const gId = `global_${gn.id}`;
@@ -156,12 +184,85 @@ const TaskNotification = ({ onOpenTask }) => {
         }
 
         let finalDesc = rawMsg;
-        if (dynamicTitle === 'New Fun Quiz' || (gn.type && gn.type.toUpperCase() === 'QUIZ') || rawMsg.toLowerCase().includes('new fun quiz')) {
+        if (isResignation && myResignations && myResignations.length > 0) {
+          const activeRes = myResignations.find(r => {
+            const s = (r.status || '').toUpperCase();
+            return s !== 'REVOKED' && s !== 'CANCELLED' && s !== 'CANCELED';
+          }) || myResignations[0];
+
+          if (activeRes) {
+            const resStatus = String(activeRes.status || '').trim().toUpperCase();
+            const isCancelled = resStatus === 'REVOKED' || resStatus === 'CANCELLED' || resStatus === 'CANCELED';
+
+            // 1. TL status
+            let tlStatus = 'Pending';
+            if (activeRes.tl_status) {
+              const s = String(activeRes.tl_status).trim().toLowerCase();
+              if (s === 'approved') tlStatus = 'Approved';
+              else if (s === 'rejected') tlStatus = 'Rejected';
+              else if (s === 'pending') tlStatus = 'Pending';
+              else tlStatus = activeRes.tl_status.charAt(0).toUpperCase() + activeRes.tl_status.slice(1);
+            } else if (activeRes.reviewed_by_tl || activeRes.reporting_manager_remark) {
+              const remark = String(activeRes.reviewed_by_tl || activeRes.reporting_manager_remark).trim().toLowerCase();
+              if (remark.includes('reject') || remark.includes('decline') || remark.includes('disapprove') || (resStatus === 'REJECTED' && String(activeRes.pm_status || '').toUpperCase() === 'PENDING' && String(activeRes.hr_status || '').toUpperCase() === 'PENDING')) {
+                tlStatus = 'Rejected';
+              } else {
+                tlStatus = 'Approved';
+              }
+            }
+
+            // 2. PM status
+            let pmStatus = 'Pending';
+            const rawPm = String(activeRes.pm_status || '').trim().toLowerCase();
+            if (rawPm === 'approved') pmStatus = 'Approved';
+            else if (rawPm === 'rejected') pmStatus = 'Rejected';
+            else pmStatus = 'Pending';
+
+            // 3. HR status
+            let hrStatus = 'Pending';
+            const rawHr = String(activeRes.hr_status || '').trim().toLowerCase();
+            if (rawHr === 'approved') hrStatus = 'Approved';
+            else if (rawHr === 'rejected') hrStatus = 'Rejected';
+            else if (resStatus === 'APPROVED' && pmStatus === 'Approved') hrStatus = 'Approved';
+            else if (resStatus === 'REJECTED' && pmStatus !== 'Rejected' && tlStatus !== 'Rejected') hrStatus = 'Rejected';
+            else hrStatus = 'Pending';
+
+            if (isCancelled) {
+              finalDesc = "Your resignation has been cancelled.";
+            } else if (tlStatus === 'Approved' && pmStatus === 'Approved' && hrStatus === 'Approved') {
+              finalDesc = "Your resignation is approved by TL, PM, and HR.";
+            } else if (tlStatus === 'Pending' && pmStatus === 'Pending' && hrStatus === 'Pending') {
+              finalDesc = "Your resignation is pending with TL, PM, and HR.";
+            } else if (tlStatus === 'Rejected' && pmStatus === 'Rejected' && hrStatus === 'Rejected') {
+              finalDesc = "Your resignation is rejected by TL, PM, and HR.";
+            } else {
+              const tlText = tlStatus === 'Approved' ? 'approved by TL' : (tlStatus === 'Rejected' ? 'rejected by TL' : 'pending with TL');
+              const pmText = pmStatus === 'Approved' ? 'approved by PM' : (pmStatus === 'Rejected' ? 'rejected by PM' : 'pending with PM');
+              const hrText = hrStatus === 'Approved' ? 'approved by HR' : (hrStatus === 'Rejected' ? 'rejected by HR' : 'pending with HR');
+
+              finalDesc = `Your resignation is ${tlText}, ${pmText}, and ${hrText}.`;
+            }
+          }
+        } else if (isResignation) {
+          // Fallback parsing if message already contains stage information
+          const hrMatch = rawMsg.match(/HR:\s*([A-Za-z]+)/i);
+          const pmMatch = rawMsg.match(/PM:\s*([A-Za-z]+)/i);
+          const tlMatch = rawMsg.match(/TL:\s*([A-Za-z]+)/i);
+          if (hrMatch || pmMatch || tlMatch) {
+            const tl = tlMatch ? tlMatch[1].toLowerCase() : 'pending';
+            const pm = pmMatch ? pmMatch[1].toLowerCase() : 'pending';
+            const hr = hrMatch ? hrMatch[1].toLowerCase() : 'pending';
+            const tlT = tl === 'approved' ? 'approved by TL' : (tl === 'rejected' ? 'rejected by TL' : 'pending with TL');
+            const pmT = pm === 'approved' ? 'approved by PM' : (pm === 'rejected' ? 'rejected by PM' : 'pending with PM');
+            const hrT = hr === 'approved' ? 'approved by HR' : (hr === 'rejected' ? 'rejected by HR' : 'pending with HR');
+            finalDesc = `Your resignation is ${tlT}, ${pmT}, and ${hrT}.`;
+          }
+        } else if (dynamicTitle === 'New Fun Quiz' || (gn.type && gn.type.toUpperCase() === 'QUIZ') || rawMsg.toLowerCase().includes('new fun quiz')) {
             finalDesc = "Added new quiz";
         }
 
-        // Strip out redundant status lines and technical timezone strings
-        if (finalDesc && typeof finalDesc === 'string') {
+        // Strip out redundant status lines and technical timezone strings (only for non-resignation or raw fallback messages)
+        if (!isResignation && finalDesc && typeof finalDesc === 'string') {
             const cleanDesc = finalDesc.replace(/^COMPLETED:\s*[^\r\n]+[\r\n]+/i, '')
                                        .replace(/^COMPLETED:\s*[^:\-\n]+[\-\:]\s*/i, '');
             if (cleanDesc !== finalDesc) {
@@ -192,7 +293,8 @@ const TaskNotification = ({ onOpenTask }) => {
           description: finalDesc,
           formattedTime: formatDate(parseDate),
           isNew: !isRead,
-          rawDate: parseDate
+          rawDate: parseDate,
+          isResignation
         };
       });
 
@@ -439,7 +541,7 @@ const TaskNotification = ({ onOpenTask }) => {
                           fontWeight: !isRead ? '800' : '400', 
                           lineHeight: '1.4',
                           display: isExpanded ? 'block' : '-webkit-box',
-                          WebkitLineClamp: isExpanded ? 'none' : 2,
+                          WebkitLineClamp: isExpanded ? 'none' : (notif.isResignation ? 5 : 2),
                           WebkitBoxOrient: 'vertical',
                           overflow: isExpanded ? 'visible' : 'hidden',
                           transition: 'all 0.3s ease',

@@ -238,6 +238,7 @@ const ExperienceLetter = ({ onBack }) => {
   const [assetRecordId, setAssetRecordId] = useState(null);
   const [isAssetLoading, setIsAssetLoading] = useState(false);
   const [hasSubmittedAssets, setHasSubmittedAssets] = useState(false);
+  const [isDeclarationDone, setIsDeclarationDone] = useState(false);
   const [isAssetSubmitting, setIsAssetSubmitting] = useState(false);
   const [assetSubmittedDate, setAssetSubmittedDate] = useState(null);
 
@@ -309,14 +310,18 @@ const ExperienceLetter = ({ onBack }) => {
             setAssetStatus(status || null);
             setAssetSubmittedDate(assetReq ? assetReq.created_at : (asset.created_at || asset.updated_at || null));
             
-            // Only consider it "submitted" if there's an actual entry in the certificate requests table
-            setHasSubmittedAssets(!!assetReq);
+            const uidVal = employeeId || user?.employee_id || user?.id;
+            const localDeclared = uidVal ? localStorage.getItem(`hardware_declared_${uidVal}`) === 'true' : false;
+            // Only consider it "submitted" if there's an actual entry in the certificate requests table or local storage
+            setHasSubmittedAssets(!!assetReq || localDeclared);
           } else {
             // Final check: even if no master asset record, check service_certificate_requests table
             const assetReq = Array.isArray(fetchedHistory) && fetchedHistory.find(h => h.purpose === 'Professional Asset Declaration');
-            if (assetReq) {
-              setAssetStatus(assetReq.status);
-              setAssetSubmittedDate(assetReq.created_at);
+            const uidVal = employeeId || user?.employee_id || user?.id;
+            const localDeclared = uidVal ? localStorage.getItem(`hardware_declared_${uidVal}`) === 'true' : false;
+            if (assetReq || localDeclared) {
+              setAssetStatus(assetReq ? assetReq.status : 'Pending Audit');
+              setAssetSubmittedDate(assetReq ? assetReq.created_at : new Date().toISOString());
               setHasSubmittedAssets(true);
             } else {
               setHasSubmittedAssets(false);
@@ -338,6 +343,11 @@ const ExperienceLetter = ({ onBack }) => {
 
   const handleAssetSubmit = async (e) => {
     e.preventDefault();
+    if (isAssetSubmitting || isDeclarationDone) return;
+    if (!assetForm.brand || !assetForm.serial) {
+      setErrorModal('Please enter both Laptop Brand / Model and Serial Number.');
+      return;
+    }
     setIsAssetSubmitting(true);
     try {
       const token = localStorage.getItem('token');
@@ -377,6 +387,7 @@ const ExperienceLetter = ({ onBack }) => {
       });
 
       if (resp.ok) {
+        setIsDeclarationDone(true);
         setHasSubmittedAssets(true);
         setAssetStatus('Pending Audit');
         setShowSuccessPopup(true);
@@ -510,22 +521,20 @@ const ExperienceLetter = ({ onBack }) => {
                   </div>
 
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={(!isSubmitting && !!purpose) ? { scale: 1.02 } : {}}
+                    whileTap={(!isSubmitting && !!purpose) ? { scale: 0.98 } : {}}
+                    type="submit"
                     style={{
                       ...s.submitBtn,
-                      opacity: (isSubmitting || history.length > 0) ? 0.6 : 1,
-                      cursor: (isSubmitting || history.length > 0) ? 'not-allowed' : 'pointer',
-                      backgroundColor: '#10274A'
+                      opacity: (!isSubmitting && !!purpose) ? 1 : 0.55,
+                      cursor: (!isSubmitting && !!purpose) ? 'pointer' : 'not-allowed',
+                      backgroundColor: (!isSubmitting && !!purpose) ? '#10274A' : '#94a3b8',
+                      boxShadow: (!isSubmitting && !!purpose) ? '0 10px 25px rgba(16,39,74,0.25)' : 'none'
                     }}
-                    disabled={isSubmitting || history.length > 0}
+                    disabled={isSubmitting || !purpose}
                   >
-                    {isSubmitting ? <Clock className="animate-spin" size={20} /> : (
-                      history.length > 0 ? <CheckCircle2 size={20} /> : <Send size={20} />
-                    )}
-                    {isSubmitting ? 'Processing Request...' : (
-                      history.length > 0 ? 'Application Already Submitted' : 'Submit Application'
-                    )}
+                    {isSubmitting ? <Clock className="animate-spin" size={20} /> : <Send size={20} />}
+                    {isSubmitting ? 'Processing Request...' : 'Submit Application'}
                   </motion.button>
                 </form>
               )}
@@ -626,7 +635,9 @@ const ExperienceLetter = ({ onBack }) => {
                       return (
                         <div 
                           key={item.key}
-                          onClick={() => setAssetForm({ ...assetForm, [item.key]: !active })}
+                          onClick={() => {
+                            setAssetForm(prev => ({ ...prev, [item.key]: !prev[item.key] }));
+                          }}
                           style={{
                             padding: '12px 8px',
                             borderRadius: '15px',
@@ -636,12 +647,12 @@ const ExperienceLetter = ({ onBack }) => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '8px',
-                            border: `1.5px solid ${active ? '#10B981' : '#e2e8f0'}`,
+                            border: `1.5px solid ${active ? '#10B981' : '#000000'}`,
                             backgroundColor: active ? '#f0fdf4' : 'white',
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                             boxShadow: active ? '0 4px 12px rgba(16, 185, 129, 0.08)' : 'none',
-                            color: active ? '#10B981' : '#cbd5e1',
-                            opacity: active ? 1 : 0.4,
+                            color: active ? '#10B981' : '#000000',
+                            opacity: 1,
                             minHeight: '80px'
                           }}
                         >
@@ -655,40 +666,60 @@ const ExperienceLetter = ({ onBack }) => {
                   </div>
                 </div>
 
-                <motion.button
-                  whileHover={(!isAssetSubmitting && !hasSubmittedAssets) ? { scale: 1.01 } : {}}
-                  whileTap={(!isAssetSubmitting && !hasSubmittedAssets) ? { scale: 0.98 } : {}}
-                  type="submit"
-                  disabled={isAssetSubmitting || hasSubmittedAssets}
-                  style={{
+                {!isDeclarationDone ? (
+                  <motion.button
+                    whileHover={!isAssetSubmitting ? { scale: 1.01 } : {}}
+                    whileTap={!isAssetSubmitting ? { scale: 0.98 } : {}}
+                    type="submit"
+                    disabled={isAssetSubmitting}
+                    style={{
+                      width: '100%',
+                      padding: '18px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      backgroundColor: isAssetSubmitting ? '#94a3b8' : '#10B981',
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      cursor: isAssetSubmitting ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      boxShadow: isAssetSubmitting ? 'none' : '0 10px 25px rgba(16,185,129,0.2)'
+                    }}
+                  >
+                    {isAssetSubmitting ? (
+                      <>
+                        <div style={{ width: '18px', height: '18px', border: '3px solid #ffffff40', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                        Syncing with Audit...
+                      </>
+                    ) : (
+                      <>
+                        <Shield size={18} />
+                        Finalize Hardware Declaration
+                      </>
+                    )}
+                  </motion.button>
+                ) : (
+                  <div style={{
                     width: '100%',
-                    padding: '18px',
+                    padding: '16px',
                     borderRadius: '20px',
-                    border: 'none',
-                    backgroundColor: (isAssetSubmitting || hasSubmittedAssets) ? '#94a3b8' : '#10B981',
-                    color: 'white',
+                    backgroundColor: '#f0fdf4',
+                    border: '1.5px solid #bbf7d0',
+                    color: '#15803d',
                     fontSize: '13px',
                     fontWeight: '800',
-                    cursor: (isAssetSubmitting || hasSubmittedAssets) ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '12px',
-                    boxShadow: '0 10px 25px rgba(16, 185, 129, 0.2)'
-                  }}
-                >
-                  {isAssetSubmitting ? (
-                    <>
-                      <div style={{ width: '18px', height: '18px', border: '3px solid #ffffff40', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                      Syncing with Audit...
-                    </>
-                  ) : (
-                    <>
-                      <Shield size={18} />
-                      {hasSubmittedAssets ? 'Update Hardware Declaration' : 'Finalize Hardware Declaration'}
-                    </>
-                  )}
-                </motion.button>
+                    gap: '10px'
+                  }}>
+                    <CheckCircle2 size={18} color="#16a34a" />
+                    Hardware Declaration Finalized & Verified
+                  </div>
+                )}
               </form>
             </div>
           )}
